@@ -53,10 +53,10 @@ typedef double float64_t;
     return name##_vec(0, NULL); \
   } \
   \
-  own name##_vec_t name##_vec_new(size_t, own name##_t ptr_or_none const[]); \
+  own own name##_vec_t name##_vec_new(size_t, own name##_t ptr_or_none const[]); \
   own name##_vec_t name##_vec_new_uninitialized(size_t); \
-  own name##_vec_t name##_vec_clone(name##_vec_t); \
-  void name##_vec_delete(own name##_vec_t);
+  own own name##_vec_t name##_vec_clone(name##_vec_t); \
+  void name##_vec_delete(own own name##_vec_t);
 
 // An `own name##_vec_t` has `own name##_t ptr_or_none own* data`.
 
@@ -141,7 +141,7 @@ inline wasm_limits_t wasm_limits_no_max(size_t min) {
 
 typedef struct wasm_functype_t wasm_functype_t;
 
-own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results);
+own wasm_functype_t* wasm_functype_new(own own wasm_valtype_vec_t params, own own wasm_valtype_vec_t results);
 own wasm_functype_t* wasm_functype_clone(wasm_functype_t*);
 void wasm_functype_delete(own wasm_functype_t*);
 
@@ -342,12 +342,13 @@ void wasm_hostobj_set_host_info_with_finalizer(wasm_hostobj_t*, void*, void (*)(
 
 // Function Instances
 
-typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
+typedef own own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
+typedef own own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
 
 typedef struct wasm_func_t wasm_func_t;
 
 own wasm_func_t* wasm_func_new(wasm_store_t*, wasm_functype_t*, wasm_func_callback_t);
-own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_t, own wasm_ref_t* env);
+own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_with_env_t, own wasm_ref_t* env);
 void wasm_func_delete(own wasm_func_t*);
 
 wasm_ref_t* wasm_func_as_ref(wasm_func_t*);
@@ -355,7 +356,7 @@ wasm_func_t* wasm_ref_as_func(wasm_ref_t*);
 
 wasm_functype_t* wasm_func_type(wasm_func_t*);
 
-own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
+own own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
 
 void* wasm_func_get_host_info(wasm_func_t*);
 void wasm_func_set_host_info(wasm_func_t*, void*);
@@ -374,7 +375,7 @@ wasm_global_t* wasm_ref_as_global(wasm_ref_t*);
 
 wasm_globaltype_t* wasm_global_type(wasm_global_t*);
 
-wasm_val_t wasm_global_get(wasm_global_t*);
+own wasm_val_t wasm_global_get(wasm_global_t*);
 void wasm_global_set(wasm_global_t*, wasm_val_t);
 
 void* wasm_global_get_host_info(wasm_global_t*);
@@ -395,7 +396,7 @@ wasm_table_t* wasm_ref_as_table(wasm_ref_t*);
 
 wasm_tabletype_t* wasm_table_type(wasm_table_t*);
 
-wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index);
+own wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index);
 void wasm_table_set(wasm_table_t*, wasm_table_size_t index, own wasm_ref_t*);
 
 wasm_table_size_t wasm_table_size(wasm_table_t*);
@@ -465,7 +466,7 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_exter
 void wasm_instance_delete(own wasm_instance_t*);
 
 own wasm_extern_t wasm_instance_export(wasm_instance_t*, size_t index);
-own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
+own own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
 
 void* wasm_instance_get_host_info(wasm_instance_t*);
 void wasm_instance_set_host_info(wasm_instance_t*, void*);
@@ -568,41 +569,41 @@ inline own wasm_functype_t* wasm_functype_new_3_2(own wasm_valtype_t* p1, own wa
 
 // Value construction short-hands
 
-inline wasm_val_t wasm_i32_val(uint32_t i32) {
+inline own wasm_val_t wasm_i32_val(uint32_t i32) {
   wasm_val_t v = {WASM_I32_VAL};
   v.i32 = i32;
   return v;
 }
 
-inline wasm_val_t wasm_i64_val(uint64_t i64) {
+inline own wasm_val_t wasm_i64_val(uint64_t i64) {
   wasm_val_t v = {WASM_I64_VAL};
   v.i64 = i64;
   return v;
 }
 
-inline wasm_val_t wasm_f32_val(float32_t f32) {
+inline own wasm_val_t wasm_f32_val(float32_t f32) {
   wasm_val_t v = {WASM_F32_VAL};
   v.f32 = f32;
   return v;
 }
 
-inline wasm_val_t wasm_f64_val(float64_t f64) {
+inline own wasm_val_t wasm_f64_val(float64_t f64) {
   wasm_val_t v = {WASM_F64_VAL};
   v.f64 = f64;
   return v;
 }
 
-inline wasm_val_t wasm_ref_val(wasm_ref_t* ref) {
+inline own wasm_val_t wasm_ref_val(wasm_ref_t* ref) {
   wasm_val_t v = {WASM_ANYREF_VAL};
   v.ref = ref;
   return v;
 }
 
-inline wasm_val_t wasm_null_val() {
+inline own wasm_val_t wasm_null_val() {
   return wasm_ref_val(wasm_ref_null());
 }
 
-inline wasm_val_t wasm_ptr_val(void* p) {
+inline own wasm_val_t wasm_ptr_val(void* p) {
 #if UINTPTR_MAX == UINT32_MAX
   return wasm_i32_val((uintptr_t)p);
 #elif UINTPTR_MAX == UINT64_MAX

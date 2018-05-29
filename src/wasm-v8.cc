@@ -29,17 +29,17 @@ extern "C" {
     return name##_vec(size, size == 0 ? nullptr : new name##_elem_t[size]); \
   } \
   \
-  own name##_vec_t name##_vec_new(size_t size, own name##_t ptr_or_none const input[]) { \
+  own own name##_vec_t name##_vec_new(size_t size, own name##_t ptr_or_none const input[]) { \
     auto v = name##_vec_new_uninitialized(size); \
     if (size != 0) memcpy(v.data, input, size * sizeof(name##_t ptr_or_none)); \
     return v; \
   } \
   \
-  own name##_vec_t name##_vec_clone(name##_vec_t v) { \
+  own own name##_vec_t name##_vec_clone(name##_vec_t v) { \
     return name##_vec_new(v.size, v.data); \
   } \
   \
-  void name##_vec_delete(own name##_vec_t v) { \
+  void name##_vec_delete(own own name##_vec_t v) { \
     if (v.size != 0) { \
       for (size_t i = 0; i < v.size; ++i) name##_delete(v.data[i]); \
       delete[] v.data; \
@@ -871,9 +871,9 @@ own wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) 
   auto module = new wasm_module_t(store, module_obj);
 
   // TODO(wasm+): use JS API once available?
-  // TODO: avoid decoding types and imports multiple times
-  module->imports = wasm::bin::imports(binary);
-  module->exports = wasm::bin::exports(binary);
+  auto imports_exports = wasm::bin::imports_exports(binary);
+  module->imports = std::get<0>(imports_exports);
+  module->exports = std::get<1>(imports_exports);
 
   // TODO store->cache_set(module_obj, module);
   return module;
@@ -1069,7 +1069,7 @@ own wasm_func_t* wasm_func_new(wasm_store_t* store, wasm_functype_t* type, wasm_
   return func;
 }
 
-wasm_func_t *wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_t callback, wasm_ref_t *env) {
+wasm_func_t *wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_with_env_t callback, wasm_ref_t *env) {
   UNIMPLEMENTED("wasm_func_new_with_env");
 }
 
@@ -1427,7 +1427,7 @@ wasm_extern_t wasm_instance_export(wasm_instance_t* instance, size_t index) {
   return instance->exports.data[index];
 }
 
-own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t* instance) {
+own own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t* instance) {
   return wasm_extern_vec_clone(instance->exports);
 }
 
