@@ -8,11 +8,8 @@
 namespace wasm {
 namespace bin {
 
-own wasm_functype_vec_t types(wasm_byte_vec_t binary);
-own wasm_functype_vec_t funcs(wasm_byte_vec_t binary);
-own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary);
-own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary);
-own wasm_memtype_vec_t memories(wasm_byte_vec_t binary);
+own wasm_importtype_vec_t imports(wasm_byte_vec_t binary);
+own wasm_exporttype_vec_t exports(wasm_byte_vec_t binary);
 
 }  // namespace bin
 }  // namespace wasm

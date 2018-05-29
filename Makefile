@@ -38,8 +38,11 @@ V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.cc ${WASM_INCLUDE}/wasm.h ${WASM_O} ${EXAMPLE_OUT}
-	clang++ -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@ -std=c++0x \
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
+	clang++ -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+
+${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
+	clang++ $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \

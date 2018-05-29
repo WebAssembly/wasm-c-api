@@ -2,9 +2,9 @@
 
 Work in progress. No docs yet.
 
-* See `include/wasm.h` for interface.
+* See `example/hello.c` for example usage.
 
-* See `example/hello.cc` for example usage.
+* See `include/wasm.h` for interface.
 
 * A half-complete implementation based on V8 is in `src`.
 

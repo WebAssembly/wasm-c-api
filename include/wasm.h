@@ -214,6 +214,8 @@ void wasm_externtype_delete(own wasm_externtype_t*);
 
 wasm_externkind_t wasm_externtype_kind(wasm_externtype_t*);
 
+WASM_DECLARE_VEC(wasm_externtype, *)
+
 
 // Import Types
 
@@ -312,8 +314,8 @@ void wasm_module_delete(own wasm_module_t*);
 
 bool wasm_module_validate(wasm_store_t*, const wasm_byte_vec_t binary);
 
-own wasm_importtype_vec_t wasm_module_imports(wasm_module_t*);
-own wasm_exporttype_vec_t wasm_module_exports(wasm_module_t*);
+wasm_importtype_vec_t wasm_module_imports(wasm_module_t*);
+wasm_exporttype_vec_t wasm_module_exports(wasm_module_t*);
 
 own wasm_byte_vec_t wasm_module_serialize(wasm_module_t*);
 own wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t);
@@ -336,7 +338,7 @@ void wasm_hostobj_set_host_info_with_finalizer(wasm_hostobj_t*, void*, void (*)(
 
 // Function Instances
 
-typedef wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
 
 typedef struct wasm_func_t wasm_func_t;
 
@@ -458,8 +460,8 @@ typedef struct wasm_instance_t wasm_instance_t;
 own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_extern_vec_t imports);
 void wasm_instance_delete(own wasm_instance_t*);
 
-wasm_extern_t wasm_instance_get_export(wasm_instance_t*, size_t index);
-own wasm_extern_vec_t* wasm_instance_get_exports(wasm_instance_t*);
+own wasm_extern_t wasm_instance_export(wasm_instance_t*, size_t index);
+own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
 
 void* wasm_instance_get_host_info(wasm_instance_t*);
 void wasm_instance_set_host_info(wasm_instance_t*, void*);

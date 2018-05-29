@@ -269,6 +269,8 @@ wasm_externkind_t wasm_externtype_kind(wasm_externtype_t* et) {
   return et->kind;
 }
 
+WASM_DEFINE_VEC(wasm_externtype, *)
+
 
 // Import Types
 
@@ -625,12 +627,14 @@ WASM_DEFINE_VEC(wasm_val, )
 // Modules
 
 struct wasm_module_t : wasm_wrapper_t<v8::Object, wasm_module_t> {
-  wasm_functype_vec_t funcs;
+  wasm_importtype_vec_t imports;
+  wasm_exporttype_vec_t exports;
 
   using wasm_wrapper_t::wasm_wrapper_t;
 
   void finalize() {
-    wasm_functype_vec_delete(funcs);
+    wasm_importtype_vec_delete(imports);
+    wasm_exporttype_vec_delete(exports);
     delete this;
   }
 };
@@ -649,8 +653,11 @@ own wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) 
   auto module_obj = maybe_module_obj.ToLocalChecked();
 
   auto module = new wasm_module_t(store, module_obj);
-  // TODO(wasm+): use JS API once available
-  module->funcs = wasm::bin::funcs(binary);
+
+  // TODO(wasm+): use JS API once available?
+  module->imports = wasm::bin::imports(binary);
+  module->exports = wasm::bin::exports(binary);
+
   // TODO store->cache_set(module_obj, module);
   return module;
 }
@@ -709,7 +716,9 @@ own wasm_externtype_t* wasm_externtype_new_from_v8_kind(wasm_store_t* store, v8:
   }
 }
 
-own wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
+wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
+  return module->imports;
+/*
   auto store = module->store();
   auto isolate = store->isolate();
   auto context = store->context();
@@ -739,9 +748,12 @@ own wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
   }
 
   return imports;
+*/
 }
 
-own wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
+wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
+  return module->exports;
+/*
   auto store = module->store();
   auto isolate = store->isolate();
   auto context = store->context();
@@ -768,6 +780,7 @@ own wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
   }
 
   return exports;
+*/
 }
 
 /* TODO
@@ -818,48 +831,72 @@ struct wasm_func_t : wasm_wrapper_t<v8::Function, wasm_func_t> {
 };
 
 
+v8::Local<v8::Value> wasm_val_to_v8(wasm_store_t* store, wasm_val_t v) {
+  auto isolate = store->isolate();
+  switch (v.kind) {
+    case WASM_I32_VAL: return v8::Integer::NewFromUnsigned(isolate, v.i32);
+    case WASM_I64_VAL: UNIMPLEMENTED("i64 value");
+    case WASM_F32_VAL: return v8::Number::New(isolate, v.f32);
+    case WASM_F64_VAL: return v8::Number::New(isolate, v.f64);
+    case WASM_ANYREF_VAL:
+    case WASM_FUNCREF_VAL: {
+      if (wasm_ref_is_null(v.ref)) {
+        return v8::Null(isolate);
+      } else {
+        UNIMPLEMENTED("ref value");
+      }
+    }
+  }
+}
+
+wasm_val_t wasm_v8_to_val(wasm_store_t* store, wasm_valtype_t* t, v8::Local<v8::Value> value) {
+  auto context = store->context();
+  wasm_val_t v;
+  v.kind = wasm_valtype_kind(t);
+  switch (v.kind) {
+    case WASM_I32_VAL: {
+      v.i32 = static_cast<uint32_t>(value->Int32Value(context).ToChecked());
+    } break;
+    case WASM_I64_VAL: {
+      UNIMPLEMENTED("callback i64 parameters");
+    }
+    case WASM_F32_VAL: {
+      v.f32 = static_cast<float32_t>(value->NumberValue(context).ToChecked());
+    } break;
+    case WASM_F64_VAL: {
+      v.f64 = value->NumberValue(context).ToChecked();
+    } break;
+    case WASM_ANYREF_VAL:
+    case WASM_FUNCREF_VAL: {
+      if (value->IsNull()) {
+        v.ref = wasm_ref_null();
+      } else {
+        UNIMPLEMENTED("callback ref parameters");
+      }
+    } break;
+  }
+  return v;
+}
+
 void wasm_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   auto data = v8::Local<v8::Object>::Cast(info.Data());
   auto func = reinterpret_cast<wasm_func_t*>(
     data->GetAlignedPointerFromInternalField(0));
   auto store = func->store();
   auto isolate = store->isolate();
+  v8::HandleScope handle_scope(isolate);
+
   auto context = store->context();
   auto type = func->type;
-  v8::HandleScope handle_scope(isolate);
 
   assert(type->params.size == info.Length());
 
   wasm_val_vec_t args = wasm_val_vec_new_uninitialized(type->params.size);
   for (size_t i = 0; i < type->params.size; ++i) {
-    wasm_valkind_t kind = wasm_valtype_kind(type->params.data[i]);
-    args.data[i].kind = kind;
-    switch (kind) {
-      case WASM_I32_VAL: {
-        args.data[i].i32 = static_cast<uint32_t>(info[i]->Int32Value(context).ToChecked());
-      } break;
-      case WASM_I64_VAL: {
-        UNIMPLEMENTED("callback i64 parameters");
-      }
-      case WASM_F32_VAL: {
-        args.data[i].f32 = static_cast<float32_t>(info[i]->NumberValue(context).ToChecked());
-      } break;
-      case WASM_F64_VAL: {
-        args.data[i].f64 = info[i]->NumberValue(context).ToChecked();
-      } break;
-      case WASM_ANYREF_VAL:
-      case WASM_FUNCREF_VAL: {
-        if (info[i]->IsNull()) {
-          args.data[i].ref = wasm_ref_null();
-        } else {
-          UNIMPLEMENTED("callback ref parameters");
-        }
-      } break;
-    }
+    args.data[i] = wasm_v8_to_val(store, type->params.data[i], info[i]);
   }
 
   auto results = func->callback(args);
-  wasm_val_vec_delete(args);
 
   assert(type->results.size == results.size);
 
@@ -867,40 +904,21 @@ void wasm_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   if (type->results.size == 0) {
     ret.SetUndefined();
   } else if (type->results.size == 1) {
-    size_t i = 0;
-    wasm_valkind_t kind = wasm_valtype_kind(type->results.data[i]);
-    switch (kind) {
-      case WASM_I32_VAL: {
-        ret.Set(static_cast<int32_t>(results.data[i].i32));
-      } break;
-      case WASM_I64_VAL: {
-        UNIMPLEMENTED("callback i64 results");
-      }
-      case WASM_F32_VAL: {
-        ret.Set(results.data[i].f32);
-      } break;
-      case WASM_F64_VAL: {
-        ret.Set(results.data[i].f64);
-      } break;
-      case WASM_ANYREF_VAL:
-      case WASM_FUNCREF_VAL: {
-        if (wasm_ref_is_null(results.data[i].ref)) {
-          ret.SetNull();
-        } else {
-          UNIMPLEMENTED("callback ref results");
-        }
-      } break;
-    }
+    assert(results.data[0].kind == wasm_valtype_kind(type->results.data[0]));
+    ret.Set(wasm_val_to_v8(store, results.data[0]));
   } else {
     UNIMPLEMENTED("callback multiple results");
   }
+
+  wasm_val_vec_delete(args);
+  wasm_val_vec_delete(results);
 }
 
 
 own wasm_func_t* wasm_func_new(wasm_store_t* store, wasm_functype_t* type, wasm_func_callback_t callback) {
   auto isolate = store->isolate();
-  auto context = store->context();
   v8::HandleScope handle_scope(isolate);
+  auto context = store->context();
 
   // TODO(lowlevel): use V8 Foreign value
   auto data_template = store->callback_data_template();
@@ -938,9 +956,42 @@ wasm_func_type_t *wasm_func_get_type(wasm_func_t*);
 func_ptr_t *wasm_func_get_ptr(wasm_func_t*);
 wasm_ref_t *wasm_func_get_env(wasm_func_t*);
 bool wasm_func_has_env(wasm_func_t*);
-
-wasm_val_vec_t *wasm_func_call(wasm_func_t*, wasm_val_vec_t*);
 */
+
+own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t vs) {
+  auto store = func->store();
+  auto isolate = store->isolate();
+  v8::HandleScope handle_scope(isolate);
+
+  auto context = store->context();
+  auto type = func->type;
+
+  assert(vs.size == type->params.size);
+
+  auto args = new v8::Local<v8::Value>[type->params.size];
+  for (size_t i = 0; i < type->params.size; ++i) {
+    args[i] = wasm_val_to_v8(store, vs.data[i]);
+  }
+
+  auto maybe_result =
+    func->obj()->Call(context, v8::Undefined(isolate), vs.size, args);
+  if (maybe_result.IsEmpty()) return wasm_val_vec_empty();
+  auto result = maybe_result.ToLocalChecked();
+
+  own wasm_val_vec_t results = wasm_val_vec_empty();
+  if (type->results.size == 0) {
+    assert(result->IsUndefined());
+  } else if (type->results.size == 1) {
+    assert(!result->IsUndefined());
+    auto v = wasm_v8_to_val(store, type->results.data[0], result);
+    results = wasm_val_vec_new(1, &v);
+  } else {
+    UNIMPLEMENTED("callback multiple results");
+  }
+
+  delete[] args;
+  return results;
+}
 
 void* wasm_func_get_host_info(wasm_func_t* func) {
   return func->get_host_info();
@@ -1078,12 +1129,12 @@ v8::Local<v8::Object> wasm_extern_v8_obj(wasm_extern_t ex) {
 // Module Instances
 
 struct wasm_instance_t : wasm_wrapper_t<v8::Object, wasm_instance_t> {
-//  wasm_extern_vec_t exports;
+  wasm_extern_vec_t exports;
 
   using wasm_wrapper_t::wasm_wrapper_t;
 
   void finalize() {
-//    wasm_extern_vec_delete(exports);
+    wasm_extern_vec_delete(exports);
     delete this;
   }
 };
@@ -1125,34 +1176,37 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
     store->function(V8_F_INSTANCE)->NewInstance(context, 2, instantiate_args).ToLocalChecked();
   auto exports_obj = v8::Local<v8::Object>::Cast(
     instance_obj->Get(context, store->string(V8_S_EXPORTS)).ToLocalChecked());
+  assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
 
   auto instance = new wasm_instance_t(store, exports_obj);
 
-  // TODO
-  v8::Local<v8::Value> exports_args[] = { module->obj() };
-  auto exports_result = store->function(V8_F_EXPORTS)->Call(
-    context, v8::Undefined(isolate), 1, exports_args);
-  if (exports_result.IsEmpty()) return nullptr;
-  auto exports_array = v8::Local<v8::Array>::Cast(exports_result.ToLocalChecked());
-  size_t exports_size = exports_array->Length();
+  instance->exports = wasm_extern_vec_new_uninitialized(module->exports.size);
+  for (size_t i = 0; i < module->exports.size; ++i) {
+    switch (wasm_externtype_kind(module->exports.data[i]->type)) {
+      case WASM_EXTERN_FUNC: {
+        auto name = module->exports.data[i]->name;
+        auto type = wasm_externtype_as_functype(module->exports.data[i]->type);
+        auto maybe_name_obj = v8::String::NewFromUtf8(isolate, name.data,
+          v8::NewStringType::kNormal, name.size);
+        if (maybe_name_obj.IsEmpty()) return nullptr;
+        auto name_obj = maybe_name_obj.ToLocalChecked();
+        auto func_obj = v8::Local<v8::Function>::Cast(
+          exports_obj->Get(context, name_obj).ToLocalChecked());
+        assert(!func_obj.IsEmpty() && func_obj->IsFunction());
 
-//  instance->exports = wasm_extern_vec_new_uninitialized(exports_size);
-  for (size_t i = 0; i < exports_size; ++i) {
-    auto desc = v8::Local<v8::Object>::Cast(exports_array->Get(i));
-    auto name_str = v8::Local<v8::String>::Cast(
-      desc->Get(context, store->string(V8_S_NAME)).ToLocalChecked());
-    auto kind_str = v8::Local<v8::String>::Cast(
-      desc->Get(context, store->string(V8_S_KIND)).ToLocalChecked());
-
-/* TODO: need type information
-    auto obj = exports_obj->Get(context, name_str).ToLocalChecked();
-    auto kind = wasm_externkind_from_v8_kind(store, kind_str);
-    instance->export.data[i].kind = kind;
-    switch (kind) {
-      case WASM_EXTERN_FUNC:
-        instance->export.data[i].func = 
+        std::unique_ptr<wasm_func_t> func(new wasm_func_t(store, func_obj));
+        if (func.get() == nullptr) return nullptr;
+        func->type = wasm_functype_clone(type);
+        if (func->type == nullptr) return nullptr;
+        instance->exports.data[i] = wasm_extern_func(func.release());
+      } break;
+      case WASM_EXTERN_GLOBAL:
+        UNIMPLEMENTED("global export");
+      case WASM_EXTERN_TABLE:
+        UNIMPLEMENTED("table export");
+      case WASM_EXTERN_MEMORY:
+        UNIMPLEMENTED("memory export");
     }
-*/
   }
 
   return instance;
@@ -1162,27 +1216,13 @@ void wasm_instance_delete(own wasm_instance_t* instance) {
   instance->drop();
 }
 
-wasm_extern_t wasm_instance_get_export(wasm_instance_t* instance, size_t index) {
-  
+wasm_extern_t wasm_instance_export(wasm_instance_t* instance, size_t index) {
+  if (index >= instance->exports.size) return wasm_extern_func(nullptr);
+  return instance->exports.data[index];
 }
 
-/* TODO
-own wasm_extern_vec_t* wasm_instance_get_exports(wasm_instance_t*);
-*/
+own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t* instance) {
+  return wasm_extern_vec_clone(instance->exports);
+}
 
 }  // extern "C"
-
-
-// TODO
-extern "C++" {
-v8::Isolate* wasm_store_isolate(wasm_store_t* store) { return store->isolate(); }
-v8::Local<v8::Context> wasm_store_context(wasm_store_t* store) {
-  return store->context();
-}
-v8::Local<v8::Object> wasm_instance_obj(wasm_instance_t* instance) {
-  return instance->obj();
-}
-v8::Local<v8::Function> wasm_func_obj(wasm_func_t* func) {
-  return func->obj();
-}
-}
