@@ -88,11 +88,11 @@ struct wasm_externtype_t {
 // Function Types
 
 struct wasm_functype_t : wasm_externtype_t {
-  own wasm_valtype_vec_t params;
-  own wasm_valtype_vec_t results;
+  own own wasm_valtype_vec_t params;
+  own own wasm_valtype_vec_t results;
 };
 
-own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results) {
+own wasm_functype_t* wasm_functype_new(own own wasm_valtype_vec_t params, own own wasm_valtype_vec_t results) {
   auto ft = new wasm_functype_t;
   ft->kind = WASM_EXTERN_FUNC;
   ft->params = params;
@@ -124,7 +124,7 @@ WASM_DEFINE_VEC(wasm_functype, *)
 // Global Types
 
 struct wasm_globaltype_t : wasm_externtype_t {
-  wasm_valtype_t* content;
+  own wasm_valtype_t* content;
   wasm_mut_t mut;
 };
 
@@ -159,7 +159,7 @@ WASM_DEFINE_VEC(wasm_globaltype, *)
 // Table Types
 
 struct wasm_tabletype_t : wasm_externtype_t {
-  wasm_reftype_t* elem;
+  own wasm_reftype_t* elem;
   wasm_limits_t limits;
 };
 
@@ -719,9 +719,9 @@ wasm_val_t wasm_v8_to_val(wasm_store_t* store, v8::Local<v8::Value> value, wasm_
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Auxiliaries for V8 interaction
+// Runtime Values
 
-// Wrappers for V8 heap objects
+// References
 
 // - each API wrapper has C side reference count
 // - when refcount goes to 0 (drop), SetWeak on persistent handle
@@ -731,28 +731,27 @@ wasm_val_t wasm_v8_to_val(wasm_store_t* store, v8::Local<v8::Value> value, wasm_
 // - when wrapper was found in weakmap, bump refcnt (take)
 // - if refcnt was 0, ClearWeak on persistent handle
 
-extern "C++" {
-
-template<class T, class Self>
-class wasm_wrapper_t {
-  int count = 1;
+class wasm_ref_t {
+  int count_ = 1;
   wasm_store_t* store_;
-  v8::Persistent<T> obj_;
-  void* host_info = nullptr;
-  void (*host_finalizer)(void*) = nullptr;
+  v8::Persistent<v8::Object> obj_;
+  void* host_info_ = nullptr;
+  void (*host_finalizer_)(void*) = nullptr;
 
 public:
-  wasm_wrapper_t(wasm_store_t* store, v8::Local<T> obj) :
+  wasm_ref_t(wasm_store_t* store, v8::Local<v8::Object> obj) :
     store_(store), obj_(store->isolate(), obj) {}
 
+  virtual ~wasm_ref_t() {}
+
   void take() {
-    if (count++ == 0) {
+    if (count_++ == 0) {
       obj_.ClearWeak();
     }
   }
   void drop() {
-    if (--count == 0) {
-      obj_.template SetWeak<Self>(static_cast<Self*>(this), &callback, v8::WeakCallbackType::kParameter);
+    if (--count_ == 0) {
+      obj_.template SetWeak<wasm_ref_t>(static_cast<wasm_ref_t*>(this), &finalizer, v8::WeakCallbackType::kParameter);
     }
   }
 
@@ -760,40 +759,30 @@ public:
     return store_;
   }
 
-  v8::Local<T> obj() const {
+  v8::Local<v8::Object> v8_object() const {
     return obj_.Get(store_->isolate());
   }
 
-  void* get_host_info() {
-    return host_info;
+  void* get_host_info() const {
+    return host_info_;
   }
   void set_host_info(void* info, void (*finalizer)(void*) = nullptr) {
-    host_info = info;
-    host_finalizer = finalizer;
+    host_info_ = info;
+    host_finalizer_ = finalizer;
   }
 
 private:
-  static void callback(const v8::WeakCallbackInfo<Self>& info) {
-    Self* self = info.GetParameter();
-    assert(self->count == 0);
-    if (self->host_finalizer) (*self->host_finalizer)(self->host_info);
-    self->finalize();
+  static void finalizer(const v8::WeakCallbackInfo<wasm_ref_t>& info) {
+    auto self = info.GetParameter();
+    assert(self->count_ == 0);
+    if (self->host_finalizer_) (*self->host_finalizer_)(self->host_info_);
+    delete self;
   }
 };
 
-}  // extern "C++"
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Runtime Values
-
-// References
-
-// TODO
-struct wasm_ref_t {};
 
 void wasm_ref_delete(own wasm_ref_t* r) {
-  if (r) delete r;
+  if (r) r->drop();
 }
 
 own wasm_ref_t* wasm_ref_null() {
@@ -802,20 +791,10 @@ own wasm_ref_t* wasm_ref_null() {
 
 bool wasm_ref_is_null(wasm_ref_t* r) {
   return r == nullptr;
-} 
+}
 
 
-// Values
-
-WASM_DEFINE_VEC(wasm_val, )
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Runtime Objects
-
-// Generic functionality
-
-#define WASM_DEFINE_OBJECT(name) \
+#define WASM_DEFINE_REF(name) \
   void name##_delete(own name##_t* name) { \
     name->drop(); \
   } \
@@ -838,22 +817,33 @@ WASM_DEFINE_VEC(wasm_val, )
   }
 
 
+
+
+// Values
+
+WASM_DEFINE_VEC(wasm_val, )
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Runtime Objects
+
 // Modules
 
-struct wasm_module_t : wasm_wrapper_t<v8::Object, wasm_module_t> {
-  wasm_importtype_vec_t imports;
-  wasm_exporttype_vec_t exports;
+struct wasm_module_t : wasm_ref_t {
+  own own wasm_importtype_vec_t imports;
+  own own wasm_exporttype_vec_t exports;
 
-  using wasm_wrapper_t::wasm_wrapper_t;
+  wasm_module_t(wasm_store_t* store, v8::Local<v8::Object> obj,
+    own own wasm_importtype_vec_t imports, own own wasm_exporttype_vec_t exports) :
+    wasm_ref_t(store, obj), imports(imports), exports(exports) {}
 
-  void finalize() {
+  ~wasm_module_t() {
     wasm_importtype_vec_delete(imports);
     wasm_exporttype_vec_delete(exports);
-    delete this;
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_module)
+WASM_DEFINE_REF(wasm_module)
 
 own wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) {
   auto isolate = store->isolate();
@@ -863,20 +853,15 @@ own wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) 
   auto array_buffer = v8::ArrayBuffer::New(isolate, binary.data, binary.size);
 
   v8::Local<v8::Value> args[] = {array_buffer};
-  auto maybe_module_obj =
+  auto maybe_obj =
     store->v8_function(V8_F_MODULE)->NewInstance(context, 1, args);
-  if (maybe_module_obj.IsEmpty()) return nullptr;
-  auto module_obj = maybe_module_obj.ToLocalChecked();
-
-  auto module = new wasm_module_t(store, module_obj);
+  if (maybe_obj.IsEmpty()) return nullptr;
+  auto obj = maybe_obj.ToLocalChecked();
 
   // TODO(wasm+): use JS API once available?
   auto imports_exports = wasm::bin::imports_exports(binary);
-  module->imports = std::get<0>(imports_exports);
-  module->exports = std::get<1>(imports_exports);
-
   // TODO store->cache_set(module_obj, module);
-  return module;
+  return new wasm_module_t(store, obj, std::get<0>(imports_exports), std::get<1>(imports_exports));
 }
 
 bool wasm_module_validate(wasm_store_t* store, wasm_byte_vec_t binary) {
@@ -902,7 +887,7 @@ wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Value> args[] = { module->obj() };
+  v8::Local<v8::Value> args[] = { module->v8_object() };
   auto result = store->v8_function(V8_F_IMPORTS)->Call(
     context, v8::Undefined(isolate), 1, args);
   if (result.IsEmpty()) return wasm_importtype_vec_empty();
@@ -937,7 +922,7 @@ wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Value> args[] = { module->obj() };
+  v8::Local<v8::Value> args[] = { module->v8_object() };
   auto result = store->v8_function(V8_F_EXPORTS)->Call(
     context, v8::Undefined(isolate), 1, args);
   if (result.IsEmpty()) return wasm_exporttype_vec_empty();
@@ -972,15 +957,11 @@ own wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t) {
 
 // Host Objects
 
-struct wasm_hostobj_t : wasm_wrapper_t<v8::Object, wasm_hostobj_t> {
-  using wasm_wrapper_t::wasm_wrapper_t;
-
-  void finalize() {
-    delete this;
-  }
+struct wasm_hostobj_t : wasm_ref_t {
+  using wasm_ref_t::wasm_ref_t;
 };
 
-WASM_DEFINE_OBJECT(wasm_hostobj)
+WASM_DEFINE_REF(wasm_hostobj)
 
 own wasm_hostobj_t* wasm_hostobj_new(wasm_store_t* store) {
   auto isolate = store->isolate();
@@ -993,20 +974,23 @@ own wasm_hostobj_t* wasm_hostobj_new(wasm_store_t* store) {
 
 // Function Instances
 
-struct wasm_func_t : wasm_wrapper_t<v8::Function, wasm_func_t> {
+struct wasm_func_t : wasm_ref_t {
   own wasm_functype_t* type;
   wasm_func_callback_t callback;
 
   wasm_func_t(wasm_store_t* store, v8::Local<v8::Function> obj, wasm_functype_t* type, wasm_func_callback_t callback = nullptr) :
-    wasm_wrapper_t(store, obj), type(type), callback(callback) {}
+    wasm_ref_t(store, obj), type(type), callback(callback) {}
 
-  void finalize() {
+  ~wasm_func_t() {
     wasm_functype_delete(type);
-    delete this;
+  }
+
+  v8::Local<v8::Function> v8_function() const {
+    return v8::Local<v8::Function>::Cast(v8_object());
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_func)
+WASM_DEFINE_REF(wasm_func)
 
 
 void wasm_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -1094,7 +1078,7 @@ own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t vs) {
   }
 
   auto maybe_result =
-    func->obj()->Call(context, v8::Undefined(isolate), vs.size, args);
+    func->v8_function()->Call(context, v8::Undefined(isolate), vs.size, args);
   if (maybe_result.IsEmpty()) return wasm_val_vec_empty();
   auto result = maybe_result.ToLocalChecked();
 
@@ -1116,19 +1100,18 @@ own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t vs) {
 
 // Global Instances
 
-struct wasm_global_t : wasm_wrapper_t<v8::Object, wasm_global_t> {
+struct wasm_global_t : wasm_ref_t {
   own wasm_globaltype_t* type;
 
-  wasm_global_t(wasm_store_t* store, v8::Local<v8::Object> obj, wasm_globaltype_t* type) :
-    wasm_wrapper_t(store, obj), type(type) {}
+  wasm_global_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_globaltype_t* type) :
+    wasm_ref_t(store, obj), type(type) {}
 
-  void finalize() {
+  ~wasm_global_t() {
     wasm_globaltype_delete(type);
-    delete this;
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_global)
+WASM_DEFINE_REF(wasm_global)
 
 wasm_globaltype_t* wasm_global_type(wasm_global_t* global) {
   return global->type;
@@ -1172,7 +1155,7 @@ wasm_val_t wasm_global_get(wasm_global_t* global) {
   }
 
   auto maybe_val =
-    store->v8_function(V8_F_GLOBAL_GET)->Call(context, global->obj(), 0, nullptr);
+    store->v8_function(V8_F_GLOBAL_GET)->Call(context, global->v8_object(), 0, nullptr);
   if (maybe_val.IsEmpty()) return wasm_null_val();
   auto val = maybe_val.ToLocalChecked();
 
@@ -1193,25 +1176,24 @@ void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
   }
 
   v8::Local<v8::Value> args[] = { wasm_val_to_v8(store, val) };
-  store->v8_function(V8_F_GLOBAL_SET)->Call(context, global->obj(), 1, args);
+  store->v8_function(V8_F_GLOBAL_SET)->Call(context, global->v8_object(), 1, args);
 }
 
 
 // Table Instances
 
-struct wasm_table_t : wasm_wrapper_t<v8::Object, wasm_table_t> {
+struct wasm_table_t : wasm_ref_t {
   own wasm_tabletype_t* type;
 
-  wasm_table_t(wasm_store_t* store, v8::Local<v8::Object> obj, wasm_tabletype_t* type) :
-    wasm_wrapper_t(store, obj), type(type) {}
+  wasm_table_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_tabletype_t* type) :
+    wasm_ref_t(store, obj), type(type) {}
 
-  void finalize() {
+  ~wasm_table_t() {
     wasm_tabletype_delete(type);
-    delete this;
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_table)
+WASM_DEFINE_REF(wasm_table)
 
 wasm_table_t* wasm_table_new(wasm_store_t* store, wasm_tabletype_t* type, wasm_ref_t*) {
   auto isolate = store->isolate();
@@ -1254,19 +1236,18 @@ wasm_table_size_t wasm_table_grow(wasm_table_t*, wasm_table_size_t delta) {
 
 // Memory Instances
 
-struct wasm_memory_t : wasm_wrapper_t<v8::Object, wasm_memory_t> {
+struct wasm_memory_t : wasm_ref_t {
   own wasm_memtype_t* type;
 
-  wasm_memory_t(wasm_store_t* store, v8::Local<v8::Object> obj, wasm_memtype_t* type) :
-    wasm_wrapper_t(store, obj), type(type) {}
+  wasm_memory_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_memtype_t* type) :
+    wasm_ref_t(store, obj), type(type) {}
 
-  void finalize() {
+  ~wasm_memory_t() {
     wasm_memtype_delete(type);
-    delete this;
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_memory)
+WASM_DEFINE_REF(wasm_memory)
 
 wasm_memory_t* wasm_memory_new(wasm_store_t* store, wasm_memtype_t* type) {
   auto isolate = store->isolate();
@@ -1312,35 +1293,35 @@ WASM_DEFINE_VEC(wasm_extern, )
 extern "C++"
 v8::Local<v8::Object> wasm_extern_to_v8(wasm_extern_t ex) {
   switch (ex.kind) {
-    case WASM_EXTERN_FUNC: return ex.func->obj();
-    case WASM_EXTERN_GLOBAL: return ex.global->obj();
-    case WASM_EXTERN_TABLE: return ex.table->obj();
-    case WASM_EXTERN_MEMORY: return ex.memory->obj();
+    case WASM_EXTERN_FUNC: return ex.func->v8_object();
+    case WASM_EXTERN_GLOBAL: return ex.global->v8_object();
+    case WASM_EXTERN_TABLE: return ex.table->v8_object();
+    case WASM_EXTERN_MEMORY: return ex.memory->v8_object();
   }
 }
 
 
 // Module Instances
 
-struct wasm_instance_t : wasm_wrapper_t<v8::Object, wasm_instance_t> {
-  wasm_extern_vec_t exports;
+struct wasm_instance_t : wasm_ref_t {
+  own own wasm_extern_vec_t exports;
 
-  using wasm_wrapper_t::wasm_wrapper_t;
+  wasm_instance_t(wasm_store_t* store, v8::Local<v8::Object> obj, own own wasm_extern_vec_t exports) :
+    wasm_ref_t(store, obj), exports(exports) {}
 
-  void finalize() {
+  ~wasm_instance_t() {
     wasm_extern_vec_delete(exports);
-    delete this;
   }
 };
 
-WASM_DEFINE_OBJECT(wasm_instance)
+WASM_DEFINE_REF(wasm_instance)
 
 own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* module, wasm_extern_vec_t imports) {
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Value> imports_args[] = { module->obj() };
+  v8::Local<v8::Value> imports_args[] = { module->v8_object() };
   auto imports_result = store->v8_function(V8_F_IMPORTS)->Call(
     context, v8::Undefined(isolate), 1, imports_args);
   if (imports_result.IsEmpty()) return nullptr;
@@ -1367,16 +1348,14 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
     module_obj->DefineOwnProperty(context, name_str, wasm_extern_to_v8(imports.data[i]));
   }
 
-  v8::Local<v8::Value> instantiate_args[] = {module->obj(), imports_obj};
+  v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};
   auto instance_obj =
     store->v8_function(V8_F_INSTANCE)->NewInstance(context, 2, instantiate_args).ToLocalChecked();
   auto exports_obj = v8::Local<v8::Object>::Cast(
     instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked());
   assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
 
-  auto instance = new wasm_instance_t(store, exports_obj);
-
-  instance->exports = wasm_extern_vec_new_uninitialized(module->exports.size);
+  auto exports = wasm_extern_vec_new_uninitialized(module->exports.size);
   for (size_t i = 0; i < module->exports.size; ++i) {
     auto name = module->exports.data[i]->name;
     auto maybe_name_obj = v8::String::NewFromUtf8(isolate, name.data,
@@ -1393,33 +1372,33 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
         auto type_clone = wasm_functype_clone(type);
         if (type_clone == nullptr) return nullptr;
         auto func = new wasm_func_t(store, func_obj, type_clone);
-        instance->exports.data[i] = wasm_extern_func(func);
+        exports.data[i] = wasm_extern_func(func);
       } break;
       case WASM_EXTERN_GLOBAL: {
         auto type = wasm_externtype_as_globaltype(module->exports.data[i]->type);
         auto type_clone = wasm_globaltype_clone(type);
         if (type_clone == nullptr) return nullptr;
         auto global = new wasm_global_t(store, obj, type_clone);
-        instance->exports.data[i] = wasm_extern_global(global);
+        exports.data[i] = wasm_extern_global(global);
       } break;
       case WASM_EXTERN_TABLE: {
         auto type = wasm_externtype_as_tabletype(module->exports.data[i]->type);
         auto type_clone = wasm_tabletype_clone(type);
         if (type_clone == nullptr) return nullptr;
         auto table = new wasm_table_t(store, obj, type_clone);
-        instance->exports.data[i] = wasm_extern_table(table);
+        exports.data[i] = wasm_extern_table(table);
       } break;
       case WASM_EXTERN_MEMORY: {
         auto type = wasm_externtype_as_memtype(module->exports.data[i]->type);
         auto type_clone = wasm_memtype_clone(type);
         if (type_clone == nullptr) return nullptr;
         auto memory = new wasm_memory_t(store, obj, type_clone);
-        instance->exports.data[i] = wasm_extern_memory(memory);
+        exports.data[i] = wasm_extern_memory(memory);
       } break;
     }
   }
 
-  return instance;
+  return new wasm_instance_t(store, instance_obj, exports);
 }
 
 wasm_extern_t wasm_instance_export(wasm_instance_t* instance, size_t index) {
