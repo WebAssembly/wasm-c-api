@@ -320,6 +320,10 @@ wasm_exporttype_vec_t wasm_module_exports(wasm_module_t*);
 own wasm_byte_vec_t wasm_module_serialize(wasm_module_t*);
 own wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t);
 
+void* wasm_module_get_host_info(wasm_module_t*);
+void wasm_module_set_host_info(wasm_module_t*, void*);
+void wasm_module_set_host_info_with_finalizer(wasm_module_t*, void*, void (*)(void*));
+
 
 // Host Objects
 
@@ -343,7 +347,7 @@ typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
 typedef struct wasm_func_t wasm_func_t;
 
 own wasm_func_t* wasm_func_new(wasm_store_t*, wasm_functype_t*, wasm_func_callback_t);
-own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_func_callback_t, own wasm_ref_t* env);
+own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_t, own wasm_ref_t* env);
 void wasm_func_delete(own wasm_func_t*);
 
 wasm_ref_t* wasm_func_as_ref(wasm_func_t*);
@@ -370,12 +374,12 @@ wasm_global_t* wasm_ref_as_global(wasm_ref_t*);
 
 wasm_globaltype_t* wasm_global_type(wasm_global_t*);
 
-wasm_val_t wasm_global_get_val(wasm_global_t*);
-void wasm_global_set_val(wasm_global_t*, wasm_val_t);
+wasm_val_t wasm_global_get(wasm_global_t*);
+void wasm_global_set(wasm_global_t*, wasm_val_t);
 
 void* wasm_global_get_host_info(wasm_global_t*);
 void wasm_global_set_host_info(wasm_global_t*, void*);
-void wasm_global_set_host_info_with_finalizer(wasm_global_t*, void*, void (*)(own wasm_global_t*));
+void wasm_global_set_host_info_with_finalizer(wasm_global_t*, void*, void (*)(void*));
 
 
 // Table Instances
@@ -389,17 +393,17 @@ void wasm_table_delete(own wasm_table_t*);
 wasm_ref_t* wasm_table_as_ref(wasm_table_t*);
 wasm_table_t* wasm_ref_as_table(wasm_ref_t*);
 
-wasm_tabletype_t* wasm_table_get_type(wasm_table_t*);
+wasm_tabletype_t* wasm_table_type(wasm_table_t*);
 
-wasm_ref_t* wasm_table_get_slot(wasm_table_t*, wasm_table_size_t index);
-void wasm_table_set_slot(wasm_table_t*, wasm_table_size_t index, own wasm_ref_t*);
+wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index);
+void wasm_table_set(wasm_table_t*, wasm_table_size_t index, own wasm_ref_t*);
 
 wasm_table_size_t wasm_table_size(wasm_table_t*);
 wasm_table_size_t wasm_table_grow(wasm_table_t*, wasm_table_size_t delta);
 
 void* wasm_table_get_host_info(wasm_table_t*);
 void wasm_table_set_host_info(wasm_table_t*, void*);
-void wasm_table_set_host_info_with_finalizer(wasm_table_t*, void*, void (*)(own wasm_table_t*));
+void wasm_table_set_host_info_with_finalizer(wasm_table_t*, void*, void (*)(void*));
 
 
 // Memory Instances
@@ -426,7 +430,7 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
 
 void* wasm_memory_get_host_info(wasm_memory_t*);
 void wasm_memory_set_host_info(wasm_memory_t*, void*);
-void wasm_memory_set_host_info_with_finalizer(wasm_memory_t*, void*, void (*)(own wasm_memory_t*));
+void wasm_memory_set_host_info_with_finalizer(wasm_memory_t*, void*, void (*)(void*));
 
 
 // Externals
@@ -465,7 +469,7 @@ own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
 
 void* wasm_instance_get_host_info(wasm_instance_t*);
 void wasm_instance_set_host_info(wasm_instance_t*, void*);
-void wasm_instance_set_host_info_with_finalizer(wasm_instance_t*, void*, void (*)(own wasm_instance_t*));
+void wasm_instance_set_host_info_with_finalizer(wasm_instance_t*, void*, void (*)(void*));
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -592,6 +596,10 @@ inline wasm_val_t wasm_ref_val(wasm_ref_t* ref) {
   wasm_val_t v = {WASM_ANYREF_VAL};
   v.ref = ref;
   return v;
+}
+
+inline wasm_val_t wasm_null_val() {
+  return wasm_ref_val(wasm_ref_null());
 }
 
 inline wasm_val_t wasm_ptr_val(void* p) {

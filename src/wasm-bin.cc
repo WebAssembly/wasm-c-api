@@ -1,11 +1,11 @@
 #include "wasm-bin.hh"
 
-#include <stdio.h>
-
 #define own
 
 namespace wasm {
 namespace bin {
+
+// Numbers
 
 uint32_t u32(const byte_t*& pos) {
   uint32_t n = 0;
@@ -24,6 +24,8 @@ void u32_skip(const byte_t*& pos) {
 }
 
 
+// Names
+
 own wasm_name_t name(const byte_t*& pos) {
   uint32_t len = bin::u32(pos);
   auto start = pos;
@@ -37,52 +39,7 @@ void name_skip(const byte_t*& pos) {
 }
 
 
-void limits_skip(const byte_t*& pos) {
-  byte_t tag = *pos++;
-  bin::u32_skip(pos);
-  if ((tag & 0x01) != 0) bin::u32_skip(pos);
-}
-
-void valtype_skip(const byte_t*& pos) {
-  // TODO(wasm+): support new value types
-  ++pos;
-}
-
-void globaltype_skip(const byte_t*& pos) {
-  bin::valtype_skip(pos);
-  ++pos;
-}
-
-void tabletype_skip(const byte_t*& pos) {
-  bin::valtype_skip(pos);
-  bin::limits_skip(pos);
-}
-
-void memtype_skip(const byte_t*& pos) {
-  bin::limits_skip(pos);
-}
-
-void expr_skip(const byte_t*& pos) {
-  switch (*pos++) {
-    case 0x41:  // i32.const
-    case 0x42:  // i64.const
-    case 0x23: {  // get_global
-      bin::u32_skip(pos);
-    } break;
-    case 0x43: {  // f32.const
-      pos += 4;
-    } break;
-    case 0x44: {  // f64.const
-      pos += 8;
-    } break;
-    default: {
-      // TODO(wasm+): support new expression forms
-      assert(false);
-    }
-  }
-  ++pos;  // end
-}
-
+// Types
 
 own wasm_valtype_t* valtype(const byte_t*& pos) {
   switch (*pos++) {
@@ -147,6 +104,62 @@ own wasm_memtype_t* memtype(const byte_t*& pos) {
 }
 
 
+void mut_skip(const byte_t*& pos) {
+  ++pos;
+}
+
+void limits_skip(const byte_t*& pos) {
+  byte_t tag = *pos++;
+  bin::u32_skip(pos);
+  if ((tag & 0x01) != 0) bin::u32_skip(pos);
+}
+
+void valtype_skip(const byte_t*& pos) {
+  // TODO(wasm+): support new value types
+  ++pos;
+}
+
+void globaltype_skip(const byte_t*& pos) {
+  bin::valtype_skip(pos);
+  bin::mut_skip(pos);
+}
+
+void tabletype_skip(const byte_t*& pos) {
+  bin::valtype_skip(pos);
+  bin::limits_skip(pos);
+}
+
+void memtype_skip(const byte_t*& pos) {
+  bin::limits_skip(pos);
+}
+
+
+// Expressions
+
+void expr_skip(const byte_t*& pos) {
+  switch (*pos++) {
+    case 0x41:  // i32.const
+    case 0x42:  // i64.const
+    case 0x23: {  // get_global
+      bin::u32_skip(pos);
+    } break;
+    case 0x43: {  // f32.const
+      pos += 4;
+    } break;
+    case 0x44: {  // f64.const
+      pos += 8;
+    } break;
+    default: {
+      // TODO(wasm+): support new expression forms
+      assert(false);
+    }
+  }
+  ++pos;  // end
+}
+
+
+// Sections
+
 enum sec_t : byte_t {
   SEC_TYPE = 1,
   SEC_IMPORT = 2,
@@ -171,6 +184,9 @@ const byte_t* section(wasm_byte_vec_t binary, bin::sec_t sec) {
   return pos;
 }
 
+
+// Types
+
 own wasm_functype_vec_t types(wasm_byte_vec_t binary) {
   const byte_t* pos = bin::section(binary, SEC_TYPE);
   if (pos == nullptr) return wasm_functype_vec_empty();
@@ -180,6 +196,9 @@ own wasm_functype_vec_t types(wasm_byte_vec_t binary) {
   for (uint32_t i = 0; i < size; ++i) v.data[i] = bin::functype(pos);
   return v;
 }
+
+
+// Imports
 
 own wasm_importtype_vec_t imports(wasm_byte_vec_t binary) {
   auto deftypes = bin::types(binary);
@@ -218,7 +237,10 @@ own wasm_importtype_vec_t imports(wasm_byte_vec_t binary) {
   return imports;
 }
 
-// TODO: return u32_vec here to save on cloning
+
+// Functions
+
+// TODO: return u32_vec here to save on cloning?
 own wasm_functype_vec_t funcs(wasm_byte_vec_t binary) {
   using wasm_functype_ptr_t = wasm_functype_t*;
 
@@ -268,6 +290,9 @@ own wasm_functype_vec_t funcs(wasm_byte_vec_t binary) {
   return v;
 }
 
+
+// Globals
+
 own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary) {
   using wasm_globaltype_ptr_t = wasm_globaltype_t*;
 
@@ -312,6 +337,9 @@ own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary) {
   return v;
 }
 
+
+// Tables
+
 own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary) {
   using wasm_tabletype_ptr_t = wasm_tabletype_t*;
 
@@ -355,6 +383,9 @@ own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary) {
   return v;
 }
 
+
+// Memories
+
 own wasm_memtype_vec_t memories(wasm_byte_vec_t binary) {
   using wasm_memtype_ptr_t = wasm_memtype_t*;
 
@@ -397,6 +428,9 @@ own wasm_memtype_vec_t memories(wasm_byte_vec_t binary) {
 
   return v;
 }
+
+
+// Exports
 
 own wasm_exporttype_vec_t exports(wasm_byte_vec_t binary) {
   own auto funcs = bin::funcs(binary);
