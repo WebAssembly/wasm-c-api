@@ -9,7 +9,7 @@
 namespace wasm {
 namespace bin {
 
-std::tuple<own own wasm_importtype_vec_t, own own wasm_exporttype_vec_t>
+std::tuple<own wasm_importtype_vec_t, own wasm_exporttype_vec_t>
 imports_exports(wasm_byte_vec_t binary);
 
 }  // namespace bin

@@ -263,7 +263,7 @@ own wasm_functype_vec_t funcs(wasm_byte_vec_t binary, wasm_importtype_vec_t impo
 
 // Globals
 
-own own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
+own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
   auto pos = bin::section(binary, SEC_GLOBAL);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   for (uint32_t i = 0; i < imports.size; ++i) {
@@ -290,7 +290,7 @@ own own wasm_globaltype_vec_t globals(wasm_byte_vec_t binary, wasm_importtype_ve
 
 // Tables
 
-own own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
+own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
   auto pos = bin::section(binary, SEC_TABLE);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   for (uint32_t i = 0; i < imports.size; ++i) {
@@ -317,7 +317,7 @@ own own wasm_tabletype_vec_t tables(wasm_byte_vec_t binary, wasm_importtype_vec_
 
 // Memories
 
-own own wasm_memtype_vec_t memories(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
+own wasm_memtype_vec_t memories(wasm_byte_vec_t binary, wasm_importtype_vec_t imports) {
   auto pos = bin::section(binary, SEC_MEMORY);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   for (uint32_t i = 0; i < imports.size; ++i) {
@@ -344,7 +344,7 @@ own own wasm_memtype_vec_t memories(wasm_byte_vec_t binary, wasm_importtype_vec_
 
 // Exports
 
-own own wasm_exporttype_vec_t exports(wasm_byte_vec_t binary,
+own wasm_exporttype_vec_t exports(wasm_byte_vec_t binary,
   wasm_functype_vec_t funcs, wasm_globaltype_vec_t globals,
   wasm_tabletype_vec_t tables, wasm_memtype_vec_t memories
 ) {
@@ -381,7 +381,7 @@ own own wasm_exporttype_vec_t exports(wasm_byte_vec_t binary,
   return exports;
 }
 
-std::tuple<own own wasm_importtype_vec_t, own own wasm_exporttype_vec_t>
+std::tuple<own wasm_importtype_vec_t, own wasm_exporttype_vec_t>
 imports_exports(wasm_byte_vec_t binary) {
   auto types = bin::types(binary);
   auto imports = bin::imports(binary, types);
@@ -392,7 +392,7 @@ imports_exports(wasm_byte_vec_t binary) {
   auto exports = bin::exports(binary, funcs, globals, tables, memories);
 
   wasm_functype_vec_delete(types);
-  delete[] funcs.data;
+  if (funcs.data) delete[] funcs.data;
   wasm_globaltype_vec_delete(globals);
   wasm_tabletype_vec_delete(tables);
   wasm_memtype_vec_delete(memories);

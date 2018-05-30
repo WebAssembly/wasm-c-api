@@ -31,40 +31,53 @@ typedef float float32_t;
 typedef double float64_t;
 
 
-// Ownership markers
+// Ownership
 
 #define own
+
+// The qualified `own` is used to indicate ownership of data in this API.
+// It is intended to be interpreted similar to a `const` qualifier:
+//
+// - `own wasm_xxx_*` owns the pointed-to data
+// - `own wasm_xxx_t` distributes to all fields of a struct or union `xxx`
+// - `own wasm_xxx_vec_t` owns the vector as well as its elements(!)
+// - an `own` function parameter passes ownership from caller to callee
+// - an `own` function result passes ownership from callee to caller
+//
+// Own data is created by `wasm_xxx_new` functions and some others.
+// It must be released with the corresponding `wasm_xxx_delete` function.
+//
+// Deleting a reference does not necessarily delete the underlying object,
+// it merely indicates that this owner no longer uses it.
 
 
 // Vectors
 
 #define WASM_DECLARE_VEC(name, ptr_or_none) \
-  typedef struct name##_vec_t { \
+  typedef struct wasm_##name##_vec_t { \
     size_t size; \
-    name##_t ptr_or_none* data; \
-  } name##_vec_t; \
+    wasm_##name##_t ptr_or_none* data; \
+  } wasm_##name##_vec_t; \
   \
-  inline name##_vec_t name##_vec(size_t size, name##_t ptr_or_none xs[]) { \
-    name##_vec_t v = {size, xs}; \
+  inline wasm_##name##_vec_t wasm_##name##_vec(size_t size, wasm_##name##_t ptr_or_none xs[]) { \
+    wasm_##name##_vec_t v = {size, xs}; \
     return v; \
   } \
   \
-  inline name##_vec_t name##_vec_empty() { \
-    return name##_vec(0, NULL); \
+  inline wasm_##name##_vec_t wasm_##name##_vec_empty() { \
+    return wasm_##name##_vec(0, NULL); \
   } \
   \
-  own own name##_vec_t name##_vec_new(size_t, own name##_t ptr_or_none const[]); \
-  own name##_vec_t name##_vec_new_uninitialized(size_t); \
-  own own name##_vec_t name##_vec_clone(name##_vec_t); \
-  void name##_vec_delete(own own name##_vec_t);
-
-// An `own name##_vec_t` has `own name##_t ptr_or_none own* data`.
+  own wasm_##name##_vec_t wasm_##name##_vec_new(size_t, own wasm_##name##_t ptr_or_none const[]); \
+  own wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t); \
+  own wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t); \
+  void wasm_##name##_vec_delete(own wasm_##name##_vec_t);
 
 
 // Byte vectors
 
 typedef byte_t wasm_byte_t;
-WASM_DECLARE_VEC(wasm_byte, )
+WASM_DECLARE_VEC(byte, )
 
 typedef wasm_byte_vec_t wasm_name_t;
 
@@ -115,7 +128,7 @@ inline bool wasm_valtype_is_reftype(wasm_valtype_t* t) {
   return wasm_valkind_is_refkind(wasm_valtype_kind(t));
 }
 
-WASM_DECLARE_VEC(wasm_valtype, *)
+WASM_DECLARE_VEC(valtype, *)
 
 
 // Tyoe atributes
@@ -141,14 +154,14 @@ inline wasm_limits_t wasm_limits_no_max(size_t min) {
 
 typedef struct wasm_functype_t wasm_functype_t;
 
-own wasm_functype_t* wasm_functype_new(own own wasm_valtype_vec_t params, own own wasm_valtype_vec_t results);
+own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results);
 own wasm_functype_t* wasm_functype_clone(wasm_functype_t*);
 void wasm_functype_delete(own wasm_functype_t*);
 
 wasm_valtype_vec_t wasm_functype_params(wasm_functype_t*);
 wasm_valtype_vec_t wasm_functype_results(wasm_functype_t*);
 
-WASM_DECLARE_VEC(wasm_functype, *)
+WASM_DECLARE_VEC(functype, *)
 
 
 // Global Types
@@ -162,7 +175,7 @@ void wasm_globaltype_delete(own wasm_globaltype_t*);
 wasm_valtype_t* wasm_globaltype_content(wasm_globaltype_t*);
 wasm_mut_t wasm_globaltype_mut(wasm_globaltype_t*);
 
-WASM_DECLARE_VEC(wasm_globaltype, *)
+WASM_DECLARE_VEC(globaltype, *)
 
 
 // Table Types
@@ -176,7 +189,7 @@ void wasm_tabletype_delete(own wasm_tabletype_t*);
 wasm_reftype_t* wasm_tabletype_elem(wasm_tabletype_t*);
 wasm_limits_t wasm_tabletype_limits(wasm_tabletype_t*);
 
-WASM_DECLARE_VEC(wasm_tabletype, *)
+WASM_DECLARE_VEC(tabletype, *)
 
 
 // Memory Types
@@ -189,7 +202,7 @@ void wasm_memtype_delete(own wasm_memtype_t*);
 
 wasm_limits_t wasm_memtype_limits(wasm_memtype_t*);
 
-WASM_DECLARE_VEC(wasm_memtype, *)
+WASM_DECLARE_VEC(memtype, *)
 
 
 // Extern Types
@@ -214,7 +227,7 @@ void wasm_externtype_delete(own wasm_externtype_t*);
 
 wasm_externkind_t wasm_externtype_kind(wasm_externtype_t*);
 
-WASM_DECLARE_VEC(wasm_externtype, *)
+WASM_DECLARE_VEC(externtype, *)
 
 
 // Import Types
@@ -229,7 +242,7 @@ wasm_name_t wasm_importtype_module(wasm_importtype_t*);
 wasm_name_t wasm_importtype_name(wasm_importtype_t*);
 wasm_externtype_t* wasm_importtype_type(wasm_importtype_t*);
 
-WASM_DECLARE_VEC(wasm_importtype, *)
+WASM_DECLARE_VEC(importtype, *)
 
 
 // Export Types
@@ -243,7 +256,7 @@ void wasm_exporttype_delete(own wasm_exporttype_t*);
 wasm_name_t wasm_exporttype_name(wasm_exporttype_t*);
 wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t*);
 
-WASM_DECLARE_VEC(wasm_exporttype, *)
+WASM_DECLARE_VEC(exporttype, *)
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -279,6 +292,7 @@ void wasm_store_delete(own wasm_store_t*);
 typedef struct wasm_ref_t wasm_ref_t;
 
 void wasm_ref_delete(own wasm_ref_t*);
+own wasm_ref_t* wasm_ref_clone(wasm_ref_t*);
 
 own wasm_ref_t* wasm_ref_null();
 
@@ -298,11 +312,10 @@ typedef struct wasm_val_t {
   };
 } wasm_val_t;
 
-inline void wasm_val_delete(own wasm_val_t v) {
-  if (wasm_valkind_is_refkind(v.kind)) wasm_ref_delete(v.ref);
-}
+void wasm_val_delete(own wasm_val_t v);
+own wasm_val_t wasm_val_clone(wasm_val_t);
 
-WASM_DECLARE_VEC(wasm_val, )
+WASM_DECLARE_VEC(val, )
 
 
 // Modules
@@ -342,8 +355,8 @@ void wasm_hostobj_set_host_info_with_finalizer(wasm_hostobj_t*, void*, void (*)(
 
 // Function Instances
 
-typedef own own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
-typedef own own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
 
 typedef struct wasm_func_t wasm_func_t;
 
@@ -356,7 +369,7 @@ wasm_func_t* wasm_ref_as_func(wasm_ref_t*);
 
 wasm_functype_t* wasm_func_type(wasm_func_t*);
 
-own own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
+own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
 
 void* wasm_func_get_host_info(wasm_func_t*);
 void wasm_func_set_host_info(wasm_func_t*, void*);
@@ -446,16 +459,10 @@ typedef struct wasm_extern_t {
   };
 } wasm_extern_t;
 
-inline void wasm_extern_delete(own wasm_extern_t ex) {
-  switch (ex.kind) {
-    case WASM_EXTERN_FUNC: return wasm_func_delete(ex.func);
-    case WASM_EXTERN_GLOBAL: return wasm_global_delete(ex.global);
-    case WASM_EXTERN_TABLE: return wasm_table_delete(ex.table);
-    case WASM_EXTERN_MEMORY: return wasm_memory_delete(ex.memory);
-  }
-}
+void wasm_extern_delete(own wasm_extern_t v);
+own wasm_extern_t wasm_extern_clone(wasm_extern_t);
 
-WASM_DECLARE_VEC(wasm_extern, )
+WASM_DECLARE_VEC(extern, )
 
 
 // Module Instances
@@ -466,7 +473,7 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_exter
 void wasm_instance_delete(own wasm_instance_t*);
 
 own wasm_extern_t wasm_instance_export(wasm_instance_t*, size_t index);
-own own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
+own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
 
 void* wasm_instance_get_host_info(wasm_instance_t*);
 void wasm_instance_set_host_info(wasm_instance_t*, void*);

@@ -18,40 +18,90 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
 // Auxiliaries
 
+// Ownership handling
+
 #define own
+
+extern "C++" {
+
+template<class T>
+struct owned {
+  own T x;
+  owned() {}
+  owned(own T x) : x(x) {}
+  ~owned() { delete_own(x); }
+  T& borrow() { return x; }
+};
+
+}  // extern "C++"
+
+#define WASM_DEFINE_OWN(name) \
+  extern "C++" void delete_own(own name##_t* x) { \
+    if (x) delete x; \
+  } \
+  \
+  void name##_delete(own name##_t* x) { \
+    delete_own(x); \
+  }
 
 
 // Vectors
 
-#define WASM_DEFINE_VEC(name, ptr_or_none) \
+#define WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
   own name##_vec_t name##_vec_new_uninitialized(size_t size) { \
     typedef name##_t ptr_or_none name##_elem_t; \
     return name##_vec(size, size == 0 ? nullptr : new name##_elem_t[size]); \
   } \
   \
-  own own name##_vec_t name##_vec_new(size_t size, own name##_t ptr_or_none const input[]) { \
+  own name##_vec_t name##_vec_new(size_t size, own name##_t ptr_or_none const input[]) { \
     auto v = name##_vec_new_uninitialized(size); \
     if (size != 0) memcpy(v.data, input, size * sizeof(name##_t ptr_or_none)); \
     return v; \
-  } \
+  }
+
+// Vectors with no ownership management of elements
+#define WASM_DEFINE_VEC_PLAIN(name, ptr_or_none) \
+  WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
   \
-  own own name##_vec_t name##_vec_clone(name##_vec_t v) { \
+  own name##_vec_t name##_vec_clone(name##_vec_t v) { \
     return name##_vec_new(v.size, v.data); \
   } \
   \
-  void name##_vec_delete(own own name##_vec_t v) { \
+  extern "C++" void delete_own(own name##_vec_t v) { \
+    if (v.size != 0) delete[] v.data; \
+  } \
+  \
+  void name##_vec_delete(own name##_vec_t v) { \
+    delete_own(v); \
+  }
+
+// Vectors who own their elements
+#define WASM_DEFINE_VEC(name, ptr_or_none) \
+  WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
+  \
+  own name##_vec_t name##_vec_clone(name##_vec_t v) { \
+    auto v2 = name##_vec_new_uninitialized(v.size); \
+    for (size_t i = 0; i < v.size; ++i) { \
+      v2.data[i] = name##_clone(v.data[i]); \
+    } \
+    return v2; \
+  } \
+  \
+  extern "C++" void delete_own(own name##_vec_t v) { \
     if (v.size != 0) { \
       for (size_t i = 0; i < v.size; ++i) name##_delete(v.data[i]); \
       delete[] v.data; \
     } \
+  } \
+  \
+  void name##_vec_delete(own name##_vec_t v) { \
+    delete_own(v); \
   }
 
 
 // Byte vectors
 
-inline void wasm_byte_delete(wasm_byte_t) {}
-
-WASM_DEFINE_VEC(wasm_byte, )
+WASM_DEFINE_VEC_PLAIN(wasm_byte, )
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,7 +109,11 @@ WASM_DEFINE_VEC(wasm_byte, )
 
 // Value Types
 
-struct wasm_valtype_t {};
+struct wasm_valtype_t {
+  void operator delete(void*) {}
+};
+
+WASM_DEFINE_OWN(wasm_valtype)
 
 own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t k) {
   return reinterpret_cast<wasm_valtype_t*>(static_cast<intptr_t>(k));
@@ -68,8 +122,6 @@ own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t k) {
 own wasm_valtype_t* wasm_valtype_clone(wasm_valtype_t* t) {
   return t;
 }
-
-void wasm_valtype_delete(wasm_valtype_t*) {}
 
 wasm_valkind_t wasm_valtype_kind(wasm_valtype_t* t) {
   return static_cast<wasm_valkind_t>(reinterpret_cast<intptr_t>(t));
@@ -82,40 +134,40 @@ WASM_DEFINE_VEC(wasm_valtype, *)
 
 struct wasm_externtype_t {
   wasm_externkind_t kind;
+
+  wasm_externtype_t(wasm_externkind_t kind) : kind(kind) {}
 };
 
 
 // Function Types
 
 struct wasm_functype_t : wasm_externtype_t {
-  own own wasm_valtype_vec_t params;
-  own own wasm_valtype_vec_t results;
+  owned<wasm_valtype_vec_t> params;
+  owned<wasm_valtype_vec_t> results;
+
+  wasm_functype_t(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results) :
+    wasm_externtype_t(WASM_EXTERN_FUNC), params(params), results(results) {}
 };
 
-own wasm_functype_t* wasm_functype_new(own own wasm_valtype_vec_t params, own own wasm_valtype_vec_t results) {
-  auto ft = new wasm_functype_t;
-  ft->kind = WASM_EXTERN_FUNC;
-  ft->params = params;
-  ft->results = results;
-  return ft;
+WASM_DEFINE_OWN(wasm_functype)
+
+own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results) {
+  return new wasm_functype_t(params, results);
 }
 
 own wasm_functype_t* wasm_functype_clone(wasm_functype_t* ft) {
-  return wasm_functype_new(wasm_valtype_vec_clone(ft->params), wasm_valtype_vec_clone(ft->results));
-}
-
-void wasm_functype_delete(own wasm_functype_t* ft) {
-  wasm_valtype_vec_delete(ft->params);
-  wasm_valtype_vec_delete(ft->results);
-  delete ft;
+  return wasm_functype_new(
+    wasm_valtype_vec_clone(ft->params.borrow()),
+    wasm_valtype_vec_clone(ft->results.borrow())
+  );
 }
 
 wasm_valtype_vec_t wasm_functype_params(wasm_functype_t* ft) {
-  return ft->params;
+  return ft->params.borrow();
 }
 
 wasm_valtype_vec_t wasm_functype_results(wasm_functype_t* ft) {
-  return ft->results;
+  return ft->results.borrow();
 }
 
 WASM_DEFINE_VEC(wasm_functype, *)
@@ -124,29 +176,25 @@ WASM_DEFINE_VEC(wasm_functype, *)
 // Global Types
 
 struct wasm_globaltype_t : wasm_externtype_t {
-  own wasm_valtype_t* content;
+  owned<wasm_valtype_t*> content;
   wasm_mut_t mut;
+
+  wasm_globaltype_t(own wasm_valtype_t* content, wasm_mut_t mut) :
+    wasm_externtype_t(WASM_EXTERN_GLOBAL), content(content), mut(mut) {}
 };
 
+WASM_DEFINE_OWN(wasm_globaltype)
+
 own wasm_globaltype_t* wasm_globaltype_new(own wasm_valtype_t* content, wasm_mut_t mut) {
-  auto gt = new wasm_globaltype_t;
-  gt->kind = WASM_EXTERN_GLOBAL;
-  gt->content = content;
-  gt->mut = mut;
-  return gt;
+  return new wasm_globaltype_t(content, mut);
 }
 
 own wasm_globaltype_t* wasm_globaltype_clone(wasm_globaltype_t* gt) {
-  return wasm_globaltype_new(wasm_valtype_clone(gt->content), gt->mut);
-}
-
-void wasm_globaltype_delete(own wasm_globaltype_t* gt) {
-  wasm_valtype_delete(gt->content);
-  delete gt;
+  return wasm_globaltype_new(wasm_valtype_clone(gt->content.borrow()), gt->mut);
 }
 
 wasm_valtype_t *wasm_globaltype_content(wasm_globaltype_t* gt) {
-  return gt->content;
+  return gt->content.borrow();
 }
 
 wasm_mut_t wasm_globaltype_mut(wasm_globaltype_t* gt) {
@@ -159,29 +207,25 @@ WASM_DEFINE_VEC(wasm_globaltype, *)
 // Table Types
 
 struct wasm_tabletype_t : wasm_externtype_t {
-  own wasm_reftype_t* elem;
+  owned<wasm_reftype_t*> elem;
   wasm_limits_t limits;
+
+  wasm_tabletype_t(own wasm_reftype_t* elem, wasm_limits_t limits) :
+    wasm_externtype_t(WASM_EXTERN_TABLE), elem(elem), limits(limits) {}
 };
 
+WASM_DEFINE_OWN(wasm_tabletype)
+
 own wasm_tabletype_t* wasm_tabletype_new(own wasm_reftype_t* elem, wasm_limits_t limits) {
-  auto tt = new wasm_tabletype_t;
-  tt->kind = WASM_EXTERN_TABLE;
-  tt->elem = elem;
-  tt->limits = limits;
-  return tt;
+  return new wasm_tabletype_t(elem, limits);
 }
 
 own wasm_tabletype_t* wasm_tabletype_clone(wasm_tabletype_t* tt) {
-  return wasm_tabletype_new(wasm_valtype_clone(tt->elem), tt->limits);
-}
-
-void wasm_tabletype_delete(own wasm_tabletype_t* tt) {
-  wasm_valtype_delete(tt->elem);
-  delete tt;
+  return wasm_tabletype_new(wasm_valtype_clone(tt->elem.borrow()), tt->limits);
 }
 
 wasm_reftype_t* wasm_tabletype_elem(wasm_tabletype_t* tt) {
-  return tt->elem;
+  return tt->elem.borrow();
 }
 
 wasm_limits_t wasm_tabletype_limits(wasm_tabletype_t* tt) {
@@ -195,21 +239,19 @@ WASM_DEFINE_VEC(wasm_tabletype, *)
 
 struct wasm_memtype_t : wasm_externtype_t {
   wasm_limits_t limits;
+
+  wasm_memtype_t(wasm_limits_t limits) :
+    wasm_externtype_t(WASM_EXTERN_MEMORY), limits(limits) {}
 };
 
+WASM_DEFINE_OWN(wasm_memtype)
+
 own wasm_memtype_t* wasm_memtype_new(wasm_limits_t limits) {
-  auto mt = new wasm_memtype_t;
-  mt->kind = WASM_EXTERN_MEMORY;
-  mt->limits = limits;
-  return mt;
+  return new wasm_memtype_t(limits);
 }
 
 own wasm_memtype_t* wasm_memtype_clone(wasm_memtype_t* mt) {
   return wasm_memtype_new(mt->limits);
-}
-
-void wasm_memtype_delete(own wasm_memtype_t* mt) {
-  delete mt;
 }
 
 wasm_limits_t wasm_memtype_limits(wasm_memtype_t* mt) {
@@ -220,6 +262,19 @@ WASM_DEFINE_VEC(wasm_memtype, *)
 
 
 // Extern Types
+
+extern "C++" void delete_own(own wasm_externtype_t* et) {
+  switch (et->kind) {
+    case WASM_EXTERN_FUNC: return wasm_functype_delete(wasm_externtype_as_functype(et));
+    case WASM_EXTERN_GLOBAL: return wasm_globaltype_delete(wasm_externtype_as_globaltype(et));
+    case WASM_EXTERN_TABLE: return wasm_tabletype_delete(wasm_externtype_as_tabletype(et));
+    case WASM_EXTERN_MEMORY: return wasm_memtype_delete(wasm_externtype_as_memtype(et));
+  }
+}
+
+void wasm_externtype_delete(own wasm_externtype_t* et) {
+  delete_own(et);
+}
 
 wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t* ft) {
   return ft;
@@ -256,15 +311,6 @@ own wasm_externtype_t* wasm_externtype_clone(wasm_externtype_t* et) {
   }
 }
 
-void wasm_externtype_delete(own wasm_externtype_t* et) {
-  switch (et->kind) {
-    case WASM_EXTERN_FUNC: return wasm_functype_delete(wasm_externtype_as_functype(et));
-    case WASM_EXTERN_GLOBAL: return wasm_globaltype_delete(wasm_externtype_as_globaltype(et));
-    case WASM_EXTERN_TABLE: return wasm_tabletype_delete(wasm_externtype_as_tabletype(et));
-    case WASM_EXTERN_MEMORY: return wasm_memtype_delete(wasm_externtype_as_memtype(et));
-  }
-}
-
 wasm_externkind_t wasm_externtype_kind(wasm_externtype_t* et) {
   return et->kind;
 }
@@ -275,40 +321,38 @@ WASM_DEFINE_VEC(wasm_externtype, *)
 // Import Types
 
 struct wasm_importtype_t {
-  own wasm_name_t module;
-  own wasm_name_t name;
-  own wasm_externtype_t* type;
+  owned<wasm_name_t> module;
+  owned<wasm_name_t> name;
+  owned<wasm_externtype_t*> type;
+
+  wasm_importtype_t(own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t* type) :
+    module(module), name(name), type(type) {}
 };
 
+WASM_DEFINE_OWN(wasm_importtype)
+
 own wasm_importtype_t* wasm_importtype_new(own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t* type) {
-  auto it = new wasm_importtype_t;
-  it->module = module;
-  it->name = name;
-  it->type = type;
-  return it;
+  return new wasm_importtype_t(module, name, type);
 }
 
 own wasm_importtype_t* wasm_importtype_clone(wasm_importtype_t* it) {
-  return wasm_importtype_new(wasm_name_clone(it->module), wasm_name_clone(it->name), wasm_externtype_clone(it->type));
-}
-
-void wasm_importtype_delete(own wasm_importtype_t* it) {
-  wasm_name_delete(it->module);
-  wasm_name_delete(it->name);
-  wasm_externtype_delete(it->type);
-  delete it;
+  return wasm_importtype_new(
+    wasm_name_clone(it->module.borrow()),
+    wasm_name_clone(it->name.borrow()),
+    wasm_externtype_clone(it->type.borrow())
+  );
 }
 
 wasm_name_t wasm_importtype_module(wasm_importtype_t* it) {
-  return it->module;
+  return it->module.borrow();
 }
 
 wasm_name_t wasm_importtype_name(wasm_importtype_t* it) {
-  return it->name;
+  return it->name.borrow();
 }
 
 wasm_externtype_t* wasm_importtype_type(wasm_importtype_t* it) {
-  return it->type;
+  return it->type.borrow();
 }
 
 WASM_DEFINE_VEC(wasm_importtype, *)
@@ -317,33 +361,32 @@ WASM_DEFINE_VEC(wasm_importtype, *)
 // Export Types
 
 struct wasm_exporttype_t {
-  own wasm_name_t name;
-  own wasm_externtype_t* type;
+  owned<wasm_name_t> name;
+  owned<wasm_externtype_t*> type;
+
+  wasm_exporttype_t(own wasm_name_t name, own wasm_externtype_t* type) :
+    name(name), type(type) {}
 };
 
+WASM_DEFINE_OWN(wasm_exporttype)
+
 own wasm_exporttype_t* wasm_exporttype_new(own wasm_name_t name, own wasm_externtype_t* type) {
-  auto et = new wasm_exporttype_t;
-  et->name = name;
-  et->type = type;
-  return et;
+  return new wasm_exporttype_t(name, type);
 }
 
 own wasm_exporttype_t* wasm_exporttype_clone(wasm_exporttype_t* et) {
-  return wasm_exporttype_new(wasm_name_clone(et->name), wasm_externtype_clone(et->type));
-}
-
-void wasm_exporttype_delete(own wasm_exporttype_t* et) {
-  wasm_name_delete(et->name);
-  wasm_externtype_delete(et->type);
-  delete et;
+  return wasm_exporttype_new(
+    wasm_name_clone(et->name.borrow()),
+    wasm_externtype_clone(et->type.borrow())
+  );
 }
 
 wasm_name_t wasm_exporttype_name(wasm_exporttype_t* et) {
-  return et->name;
+  return et->name.borrow();
 }
 
 wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t* et) {
-  return et->type;
+  return et->type.borrow();
 }
 
 WASM_DEFINE_VEC(wasm_exporttype, *)
@@ -356,12 +399,10 @@ WASM_DEFINE_VEC(wasm_exporttype, *)
 
 struct wasm_config_t {};
 
+WASM_DEFINE_OWN(wasm_config)
+
 wasm_config_t* wasm_config_new() {
   return new wasm_config_t;
-}
-
-void wasm_config_delete(own wasm_config_t *config) {
-  delete config;
 }
 
 
@@ -554,7 +595,7 @@ void wasm_store_delete(own wasm_store_t* store) {
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Conversions from and to simple V8 objects
+// Conversions of types from and to V8 objects
 
 extern "C++" {
 
@@ -664,57 +705,6 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 }
 */
 
-
-// Values
-
-v8::Local<v8::Value> wasm_val_to_v8(wasm_store_t* store, wasm_val_t v) {
-  auto isolate = store->isolate();
-  switch (v.kind) {
-    case WASM_I32_VAL: return v8::Integer::NewFromUnsigned(isolate, v.i32);
-    case WASM_I64_VAL: UNIMPLEMENTED("i64 value");
-    case WASM_F32_VAL: return v8::Number::New(isolate, v.f32);
-    case WASM_F64_VAL: return v8::Number::New(isolate, v.f64);
-    case WASM_ANYREF_VAL:
-    case WASM_FUNCREF_VAL: {
-      if (wasm_ref_is_null(v.ref)) {
-        return v8::Null(isolate);
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    }
-    default: assert(false);
-  }
-}
-
-wasm_val_t wasm_v8_to_val(wasm_store_t* store, v8::Local<v8::Value> value, wasm_valtype_t* t) {
-  auto context = store->context();
-  wasm_val_t v;
-  v.kind = wasm_valtype_kind(t);
-  switch (v.kind) {
-    case WASM_I32_VAL: {
-      v.i32 = static_cast<uint32_t>(value->Int32Value(context).ToChecked());
-    } break;
-    case WASM_I64_VAL: {
-      UNIMPLEMENTED("i64 value");
-    }
-    case WASM_F32_VAL: {
-      v.f32 = static_cast<float32_t>(value->NumberValue(context).ToChecked());
-    } break;
-    case WASM_F64_VAL: {
-      v.f64 = value->NumberValue(context).ToChecked();
-    } break;
-    case WASM_ANYREF_VAL:
-    case WASM_FUNCREF_VAL: {
-      if (value->IsNull()) {
-        v.ref = wasm_ref_null();
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    } break;
-  }
-  return v;
-}
-
 }  // extern "C++"
 
 
@@ -785,6 +775,11 @@ void wasm_ref_delete(own wasm_ref_t* r) {
   if (r) r->drop();
 }
 
+own wasm_ref_t* wasm_ref_clone(wasm_ref_t* r) {
+  if (r) r->take();
+  return r;
+}
+
 own wasm_ref_t* wasm_ref_null() {
   return nullptr;
 }
@@ -795,33 +790,113 @@ bool wasm_ref_is_null(wasm_ref_t* r) {
 
 
 #define WASM_DEFINE_REF(name) \
-  void name##_delete(own name##_t* name) { \
-    name->drop(); \
+  extern "C++" void delete_own(own wasm_##name##_t* r) { \
+    r->drop(); \
+  } \
+  void wasm_##name##_delete(own wasm_##name##_t* r) { \
+    delete_own(r); \
+  } \
+  own wasm_##name##_t* wasm_##name##_clone(wasm_##name##_t* r) { \
+    r->take(); \
+    return r; \
   } \
   \
-  /* TODO \
-  wasm_ref_t *name##_as_ref(name##_t*); \
-  name##_t *wasm_ref_as_##name(wasm_ref_t*); \
-  */ \
-  \
-  void* name##_get_host_info(name##_t* name) { \
-    return name->get_host_info(); \
+  wasm_ref_t* wasm_##name##_as_ref(wasm_##name##_t* r) { \
+    return r; \
+  } \
+  wasm_##name##_t* wasm_ref_as_##name(wasm_ref_t* r) { \
+    return static_cast<wasm_##name##_t*>(r); \
   } \
   \
-  void name##_set_host_info(name##_t* name, void* info) { \
-    name->set_host_info(info); \
+  void* wasm_##name##_get_host_info(wasm_##name##_t* r) { \
+    return r->get_host_info(); \
   } \
-  \
-  void name##_set_host_info_with_finalizer(name##_t* name, void* info, void (*finalizer)(void*)) { \
-    name->set_host_info(info, finalizer); \
+  void wasm_##name##_set_host_info(wasm_##name##_t* r, void* info) { \
+    r->set_host_info(info); \
+  } \
+  void wasm_##name##_set_host_info_with_finalizer( \
+    wasm_##name##_t* r, void* info, void (*finalizer)(void*) \
+  ) { \
+    r->set_host_info(info, finalizer); \
   }
-
-
 
 
 // Values
 
+extern "C++"
+void delete_own(wasm_val_t val) {
+  if (wasm_valkind_is_refkind(val.kind)) {
+    wasm_ref_delete(val.ref);
+  }
+}
+
+void wasm_val_delete(wasm_val_t val) {
+  delete_own(val);
+}
+
+own wasm_val_t wasm_val_clone(wasm_val_t val) {
+  if (wasm_valkind_is_refkind(val.kind)) {
+    val.ref = wasm_ref_clone(val.ref);
+  }
+  return val;
+}
+
 WASM_DEFINE_VEC(wasm_val, )
+
+
+// Values
+
+extern "C++" {
+
+v8::Local<v8::Value> wasm_val_to_v8(wasm_store_t* store, wasm_val_t v) {
+  auto isolate = store->isolate();
+  switch (v.kind) {
+    case WASM_I32_VAL: return v8::Integer::NewFromUnsigned(isolate, v.i32);
+    case WASM_I64_VAL: UNIMPLEMENTED("i64 value");
+    case WASM_F32_VAL: return v8::Number::New(isolate, v.f32);
+    case WASM_F64_VAL: return v8::Number::New(isolate, v.f64);
+    case WASM_ANYREF_VAL:
+    case WASM_FUNCREF_VAL: {
+      if (wasm_ref_is_null(v.ref)) {
+        return v8::Null(isolate);
+      } else {
+        UNIMPLEMENTED("ref value");
+      }
+    }
+    default: assert(false);
+  }
+}
+
+wasm_val_t wasm_v8_to_val(wasm_store_t* store, v8::Local<v8::Value> value, wasm_valtype_t* t) {
+  auto context = store->context();
+  wasm_val_t v;
+  v.kind = wasm_valtype_kind(t);
+  switch (v.kind) {
+    case WASM_I32_VAL: {
+      v.i32 = static_cast<uint32_t>(value->Int32Value(context).ToChecked());
+    } break;
+    case WASM_I64_VAL: {
+      UNIMPLEMENTED("i64 value");
+    }
+    case WASM_F32_VAL: {
+      v.f32 = static_cast<float32_t>(value->NumberValue(context).ToChecked());
+    } break;
+    case WASM_F64_VAL: {
+      v.f64 = value->NumberValue(context).ToChecked();
+    } break;
+    case WASM_ANYREF_VAL:
+    case WASM_FUNCREF_VAL: {
+      if (value->IsNull()) {
+        v.ref = wasm_ref_null();
+      } else {
+        UNIMPLEMENTED("ref value");
+      }
+    } break;
+  }
+  return v;
+}
+
+}  // extern "C++"
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -830,20 +905,15 @@ WASM_DEFINE_VEC(wasm_val, )
 // Modules
 
 struct wasm_module_t : wasm_ref_t {
-  own own wasm_importtype_vec_t imports;
-  own own wasm_exporttype_vec_t exports;
+  owned<wasm_importtype_vec_t> imports;
+  owned<wasm_exporttype_vec_t> exports;
 
   wasm_module_t(wasm_store_t* store, v8::Local<v8::Object> obj,
-    own own wasm_importtype_vec_t imports, own own wasm_exporttype_vec_t exports) :
+    own wasm_importtype_vec_t imports, own wasm_exporttype_vec_t exports) :
     wasm_ref_t(store, obj), imports(imports), exports(exports) {}
-
-  ~wasm_module_t() {
-    wasm_importtype_vec_delete(imports);
-    wasm_exporttype_vec_delete(exports);
-  }
 };
 
-WASM_DEFINE_REF(wasm_module)
+WASM_DEFINE_REF(module)
 
 own wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) {
   auto isolate = store->isolate();
@@ -880,7 +950,7 @@ bool wasm_module_validate(wasm_store_t* store, wasm_byte_vec_t binary) {
 
 
 wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
-  return module->imports;
+  return module->imports.borrow();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -915,7 +985,7 @@ wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
 }
 
 wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
-  return module->exports;
+  return module->exports.borrow();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -961,7 +1031,7 @@ struct wasm_hostobj_t : wasm_ref_t {
   using wasm_ref_t::wasm_ref_t;
 };
 
-WASM_DEFINE_REF(wasm_hostobj)
+WASM_DEFINE_REF(hostobj)
 
 own wasm_hostobj_t* wasm_hostobj_new(wasm_store_t* store) {
   auto isolate = store->isolate();
@@ -975,22 +1045,18 @@ own wasm_hostobj_t* wasm_hostobj_new(wasm_store_t* store) {
 // Function Instances
 
 struct wasm_func_t : wasm_ref_t {
-  own wasm_functype_t* type;
+  owned<wasm_functype_t*> type;
   wasm_func_callback_t callback;
 
   wasm_func_t(wasm_store_t* store, v8::Local<v8::Function> obj, wasm_functype_t* type, wasm_func_callback_t callback = nullptr) :
     wasm_ref_t(store, obj), type(type), callback(callback) {}
-
-  ~wasm_func_t() {
-    wasm_functype_delete(type);
-  }
 
   v8::Local<v8::Function> v8_function() const {
     return v8::Local<v8::Function>::Cast(v8_object());
   }
 };
 
-WASM_DEFINE_REF(wasm_func)
+WASM_DEFINE_REF(func)
 
 
 void wasm_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -1002,31 +1068,32 @@ void wasm_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto type = func->type;
+  auto type = func->type.borrow();
+  auto type_params = type->params.borrow();
+  auto type_results = type->results.borrow();
 
-  assert(type->params.size == info.Length());
+  assert(type_params.size == info.Length());
 
-  wasm_val_vec_t args = wasm_val_vec_new_uninitialized(type->params.size);
-  for (size_t i = 0; i < type->params.size; ++i) {
-    args.data[i] = wasm_v8_to_val(store, info[i], type->params.data[i]);
+  owned<wasm_val_vec_t> own_args = wasm_val_vec_new_uninitialized(type_params.size);
+  auto args = own_args.borrow();
+  for (size_t i = 0; i < type_params.size; ++i) {
+    args.data[i] = wasm_v8_to_val(store, info[i], type_params.data[i]);
   }
 
-  auto results = func->callback(args);
+  owned<wasm_val_vec_t> own_results = func->callback(args);
+  auto results = own_results.borrow();
 
-  assert(type->results.size == results.size);
+  assert(type_results.size == results.size);
 
   auto ret = info.GetReturnValue();
-  if (type->results.size == 0) {
+  if (type_results.size == 0) {
     ret.SetUndefined();
-  } else if (type->results.size == 1) {
-    assert(results.data[0].kind == wasm_valtype_kind(type->results.data[0]));
+  } else if (type_results.size == 1) {
+    assert(results.data[0].kind == wasm_valtype_kind(type_results.data[0]));
     ret.Set(wasm_val_to_v8(store, results.data[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }
-
-  wasm_val_vec_delete(args);
-  wasm_val_vec_delete(results);
 }
 
 
@@ -1058,63 +1125,58 @@ wasm_func_t *wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_f
 }
 
 wasm_functype_t* wasm_func_type(wasm_func_t* func) {
-  return func->type;
+  return func->type.borrow();
 }
 
-own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t vs) {
+own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t args) {
   auto store = func->store();
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto type = func->type;
+  auto type = func->type.borrow();
+  auto type_params = type->params.borrow();
+  auto type_results = type->results.borrow();
 
-  assert(vs.size == type->params.size);
+  assert(type_params.size == args.size);
 
-  auto args = new v8::Local<v8::Value>[type->params.size];
-  for (size_t i = 0; i < type->params.size; ++i) {
-    assert(vs.data[i].kind == wasm_valtype_kind(type->params.data[i]));
-    args[i] = wasm_val_to_v8(store, vs.data[i]);
+  auto v8_args = new v8::Local<v8::Value>[type_params.size];
+  for (size_t i = 0; i < type_params.size; ++i) {
+    assert(args.data[i].kind == wasm_valtype_kind(type_params.data[i]));
+    v8_args[i] = wasm_val_to_v8(store, args.data[i]);
   }
 
   auto maybe_result =
-    func->v8_function()->Call(context, v8::Undefined(isolate), vs.size, args);
+    func->v8_function()->Call(context, v8::Undefined(isolate), args.size, v8_args);
   if (maybe_result.IsEmpty()) return wasm_val_vec_empty();
   auto result = maybe_result.ToLocalChecked();
 
-  own wasm_val_vec_t results = wasm_val_vec_empty();
-  if (type->results.size == 0) {
+  if (type_results.size == 0) {
     assert(result->IsUndefined());
-  } else if (type->results.size == 1) {
+    return wasm_val_vec_empty();
+  } else if (type_results.size == 1) {
     assert(!result->IsUndefined());
-    auto v = wasm_v8_to_val(store, result, type->results.data[0]);
-    results = wasm_val_vec_new(1, &v);
+    auto val = wasm_v8_to_val(store, result, type_results.data[0]);
+    return wasm_val_vec_new(1, &val);
   } else {
     UNIMPLEMENTED("multiple results");
   }
-
-  delete[] args;
-  return results;
 }
 
 
 // Global Instances
 
 struct wasm_global_t : wasm_ref_t {
-  own wasm_globaltype_t* type;
+  owned<wasm_globaltype_t*> type;
 
   wasm_global_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_globaltype_t* type) :
     wasm_ref_t(store, obj), type(type) {}
-
-  ~wasm_global_t() {
-    wasm_globaltype_delete(type);
-  }
 };
 
-WASM_DEFINE_REF(wasm_global)
+WASM_DEFINE_REF(global)
 
 wasm_globaltype_t* wasm_global_type(wasm_global_t* global) {
-  return global->type;
+  return global->type.borrow();
 }
 
 wasm_global_t* wasm_global_new(wasm_store_t* store, wasm_globaltype_t* type, wasm_val_t val) {
@@ -1159,7 +1221,8 @@ wasm_val_t wasm_global_get(wasm_global_t* global) {
   if (maybe_val.IsEmpty()) return wasm_null_val();
   auto val = maybe_val.ToLocalChecked();
 
-  return wasm_v8_to_val(store, val, global->type->content);
+  auto content_type = wasm_globaltype_content(global->type.borrow());
+  return wasm_v8_to_val(store, val, content_type);
 }
 
 void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
@@ -1168,7 +1231,8 @@ void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
-  assert(val.kind == wasm_valtype_kind(global->type->content));
+  auto content_type = wasm_globaltype_content(global->type.borrow());
+  assert(val.kind == wasm_valtype_kind(content_type));
 
   // TODO(wasm+): remove
   if (store->v8_function(V8_F_GLOBAL_SET).IsEmpty()) {
@@ -1183,17 +1247,13 @@ void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
 // Table Instances
 
 struct wasm_table_t : wasm_ref_t {
-  own wasm_tabletype_t* type;
+  owned<wasm_tabletype_t*> type;
 
   wasm_table_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_tabletype_t* type) :
     wasm_ref_t(store, obj), type(type) {}
-
-  ~wasm_table_t() {
-    wasm_tabletype_delete(type);
-  }
 };
 
-WASM_DEFINE_REF(wasm_table)
+WASM_DEFINE_REF(table)
 
 wasm_table_t* wasm_table_new(wasm_store_t* store, wasm_tabletype_t* type, wasm_ref_t*) {
   auto isolate = store->isolate();
@@ -1213,7 +1273,7 @@ wasm_table_t* wasm_table_new(wasm_store_t* store, wasm_tabletype_t* type, wasm_r
 }
 
 wasm_tabletype_t* wasm_table_type(wasm_table_t* table) {
-  return table->type;
+  return table->type.borrow();
 }
 
 
@@ -1237,17 +1297,13 @@ wasm_table_size_t wasm_table_grow(wasm_table_t*, wasm_table_size_t delta) {
 // Memory Instances
 
 struct wasm_memory_t : wasm_ref_t {
-  own wasm_memtype_t* type;
+  owned<wasm_memtype_t*> type;
 
   wasm_memory_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_memtype_t* type) :
     wasm_ref_t(store, obj), type(type) {}
-
-  ~wasm_memory_t() {
-    wasm_memtype_delete(type);
-  }
 };
 
-WASM_DEFINE_REF(wasm_memory)
+WASM_DEFINE_REF(memory)
 
 wasm_memory_t* wasm_memory_new(wasm_store_t* store, wasm_memtype_t* type) {
   auto isolate = store->isolate();
@@ -1266,7 +1322,7 @@ wasm_memory_t* wasm_memory_new(wasm_store_t* store, wasm_memtype_t* type) {
 }
 
 wasm_memtype_t* wasm_memory_type(wasm_memory_t* memory) {
-  return memory->type;
+  return memory->type.borrow();
 }
 
 wasm_byte_t* wasm_memory_data(wasm_memory_t*) {
@@ -1288,7 +1344,28 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta) 
 
 // Externals
 
-WASM_DEFINE_VEC(wasm_extern, )
+extern "C++"
+void delete_own(own wasm_extern_t ex) {
+  switch (ex.kind) {
+    case WASM_EXTERN_FUNC: return wasm_func_delete(ex.func);
+    case WASM_EXTERN_GLOBAL: return wasm_global_delete(ex.global);
+    case WASM_EXTERN_TABLE: return wasm_table_delete(ex.table);
+    case WASM_EXTERN_MEMORY: return wasm_memory_delete(ex.memory);
+  }
+}
+
+void wasm_extern_delete(own wasm_extern_t ex) {
+  delete_own(ex);
+}
+
+own wasm_extern_t wasm_extern_clone(wasm_extern_t ex) {
+  switch (ex.kind) {
+    case WASM_EXTERN_FUNC: return wasm_extern_func(wasm_func_clone(ex.func));
+    case WASM_EXTERN_GLOBAL: return wasm_extern_global(wasm_global_clone(ex.global));
+    case WASM_EXTERN_TABLE: return wasm_extern_table(wasm_table_clone(ex.table));
+    case WASM_EXTERN_MEMORY: return wasm_extern_memory(wasm_memory_clone(ex.memory));
+  }
+}
 
 extern "C++"
 v8::Local<v8::Object> wasm_extern_to_v8(wasm_extern_t ex) {
@@ -1300,21 +1377,19 @@ v8::Local<v8::Object> wasm_extern_to_v8(wasm_extern_t ex) {
   }
 }
 
+WASM_DEFINE_VEC(wasm_extern, )
+
 
 // Module Instances
 
 struct wasm_instance_t : wasm_ref_t {
-  own own wasm_extern_vec_t exports;
+  owned<wasm_extern_vec_t> exports;
 
-  wasm_instance_t(wasm_store_t* store, v8::Local<v8::Object> obj, own own wasm_extern_vec_t exports) :
+  wasm_instance_t(wasm_store_t* store, v8::Local<v8::Object> obj, own wasm_extern_vec_t exports) :
     wasm_ref_t(store, obj), exports(exports) {}
-
-  ~wasm_instance_t() {
-    wasm_extern_vec_delete(exports);
-  }
 };
 
-WASM_DEFINE_REF(wasm_instance)
+WASM_DEFINE_REF(instance)
 
 own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* module, wasm_extern_vec_t imports) {
   auto isolate = store->isolate();
@@ -1355,9 +1430,12 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
     instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked());
   assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
 
-  auto exports = wasm_extern_vec_new_uninitialized(module->exports.size);
-  for (size_t i = 0; i < module->exports.size; ++i) {
-    auto name = module->exports.data[i]->name;
+  auto export_types = module->exports.borrow();
+  owned<wasm_extern_vec_t> own_exports =
+    wasm_extern_vec_new_uninitialized(export_types.size);
+  auto exports = own_exports.borrow();
+  for (size_t i = 0; i < export_types.size; ++i) {
+    auto name = export_types.data[i]->name.borrow();
     auto maybe_name_obj = v8::String::NewFromUtf8(isolate, name.data,
       v8::NewStringType::kNormal, name.size);
     if (maybe_name_obj.IsEmpty()) return nullptr;
@@ -1365,34 +1443,31 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
     auto obj = v8::Local<v8::Function>::Cast(
       exports_obj->Get(context, name_obj).ToLocalChecked());
 
-    switch (wasm_externtype_kind(module->exports.data[i]->type)) {
+    auto type = export_types.data[i]->type.borrow();
+    switch (wasm_externtype_kind(type)) {
       case WASM_EXTERN_FUNC: {
-        auto type = wasm_externtype_as_functype(module->exports.data[i]->type);
         auto func_obj = v8::Local<v8::Function>::Cast(obj);
-        auto type_clone = wasm_functype_clone(type);
-        if (type_clone == nullptr) return nullptr;
-        auto func = new wasm_func_t(store, func_obj, type_clone);
+        auto functype = wasm_functype_clone(wasm_externtype_as_functype(type));
+        if (functype == nullptr) return nullptr;
+        auto func = new wasm_func_t(store, func_obj, functype);
         exports.data[i] = wasm_extern_func(func);
       } break;
       case WASM_EXTERN_GLOBAL: {
-        auto type = wasm_externtype_as_globaltype(module->exports.data[i]->type);
-        auto type_clone = wasm_globaltype_clone(type);
-        if (type_clone == nullptr) return nullptr;
-        auto global = new wasm_global_t(store, obj, type_clone);
+        auto globaltype = wasm_globaltype_clone(wasm_externtype_as_globaltype(type));
+        if (globaltype == nullptr) return nullptr;
+        auto global = new wasm_global_t(store, obj, globaltype);
         exports.data[i] = wasm_extern_global(global);
       } break;
       case WASM_EXTERN_TABLE: {
-        auto type = wasm_externtype_as_tabletype(module->exports.data[i]->type);
-        auto type_clone = wasm_tabletype_clone(type);
-        if (type_clone == nullptr) return nullptr;
-        auto table = new wasm_table_t(store, obj, type_clone);
+        auto tabletype = wasm_tabletype_clone(wasm_externtype_as_tabletype(type));
+        if (tabletype == nullptr) return nullptr;
+        auto table = new wasm_table_t(store, obj, tabletype);
         exports.data[i] = wasm_extern_table(table);
       } break;
       case WASM_EXTERN_MEMORY: {
-        auto type = wasm_externtype_as_memtype(module->exports.data[i]->type);
-        auto type_clone = wasm_memtype_clone(type);
-        if (type_clone == nullptr) return nullptr;
-        auto memory = new wasm_memory_t(store, obj, type_clone);
+        auto memtype = wasm_memtype_clone(wasm_externtype_as_memtype(type));
+        if (memtype == nullptr) return nullptr;
+        auto memory = new wasm_memory_t(store, obj, memtype);
         exports.data[i] = wasm_extern_memory(memory);
       } break;
     }
@@ -1401,13 +1476,14 @@ own wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* modul
   return new wasm_instance_t(store, instance_obj, exports);
 }
 
-wasm_extern_t wasm_instance_export(wasm_instance_t* instance, size_t index) {
-  if (index >= instance->exports.size) return wasm_extern_func(nullptr);
-  return instance->exports.data[index];
+own wasm_extern_t wasm_instance_export(wasm_instance_t* instance, size_t index) {
+  auto exports = instance->exports.borrow();
+  if (index >= exports.size) return wasm_extern_func(nullptr);
+  return exports.data[index];
 }
 
-own own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t* instance) {
-  return wasm_extern_vec_clone(instance->exports);
+own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t* instance) {
+  return wasm_extern_vec_clone(instance->exports.borrow());
 }
 
 }  // extern "C"
