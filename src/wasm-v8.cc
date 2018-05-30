@@ -27,7 +27,6 @@ extern "C++" {
 template<class T>
 struct owned {
   own T x;
-  owned() {}
   owned(own T x) : x(x) {}
   ~owned() { delete_own(x); }
   T& borrow() { return x; }
@@ -721,6 +720,9 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 // - when wrapper was found in weakmap, bump refcnt (take)
 // - if refcnt was 0, ClearWeak on persistent handle
 
+// TODO: make refs casted persistent handles directly, 
+// and put extra info on object, with fallback to a weakmap when frozen
+
 class wasm_ref_t {
   int count_ = 1;
   wasm_store_t* store_;
@@ -1124,8 +1126,8 @@ wasm_func_t *wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_f
   UNIMPLEMENTED("wasm_func_new_with_env");
 }
 
-wasm_functype_t* wasm_func_type(wasm_func_t* func) {
-  return func->type.borrow();
+own wasm_functype_t* wasm_func_type(wasm_func_t* func) {
+  return wasm_functype_clone(func->type.borrow());
 }
 
 own wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t args) {
@@ -1175,8 +1177,8 @@ struct wasm_global_t : wasm_ref_t {
 
 WASM_DEFINE_REF(global)
 
-wasm_globaltype_t* wasm_global_type(wasm_global_t* global) {
-  return global->type.borrow();
+own wasm_globaltype_t* wasm_global_type(wasm_global_t* global) {
+  return wasm_globaltype_clone(global->type.borrow());
 }
 
 wasm_global_t* wasm_global_new(wasm_store_t* store, wasm_globaltype_t* type, wasm_val_t val) {
@@ -1272,8 +1274,9 @@ wasm_table_t* wasm_table_new(wasm_store_t* store, wasm_tabletype_t* type, wasm_r
   return new wasm_table_t(store, obj, type_clone);
 }
 
-wasm_tabletype_t* wasm_table_type(wasm_table_t* table) {
-  return table->type.borrow();
+own wasm_tabletype_t* wasm_table_type(wasm_table_t* table) {
+  // TODO: query and update min
+  return wasm_tabletype_clone(table->type.borrow());
 }
 
 
@@ -1321,8 +1324,9 @@ wasm_memory_t* wasm_memory_new(wasm_store_t* store, wasm_memtype_t* type) {
   return new wasm_memory_t(store, obj, type_clone);
 }
 
-wasm_memtype_t* wasm_memory_type(wasm_memory_t* memory) {
-  return memory->type.borrow();
+own wasm_memtype_t* wasm_memory_type(wasm_memory_t* memory) {
+  // TODO: query and update min
+  return wasm_memtype_clone(memory->type.borrow());
 }
 
 wasm_byte_t* wasm_memory_data(wasm_memory_t*) {

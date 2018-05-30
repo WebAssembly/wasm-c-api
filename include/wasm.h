@@ -367,7 +367,7 @@ void wasm_func_delete(own wasm_func_t*);
 wasm_ref_t* wasm_func_as_ref(wasm_func_t*);
 wasm_func_t* wasm_ref_as_func(wasm_ref_t*);
 
-wasm_functype_t* wasm_func_type(wasm_func_t*);
+own wasm_functype_t* wasm_func_type(wasm_func_t*);
 
 own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
 
@@ -386,7 +386,7 @@ void wasm_global_delete(own wasm_global_t*);
 wasm_ref_t* wasm_global_as_ref(wasm_global_t*);
 wasm_global_t* wasm_ref_as_global(wasm_ref_t*);
 
-wasm_globaltype_t* wasm_global_type(wasm_global_t*);
+own wasm_globaltype_t* wasm_global_type(wasm_global_t*);
 
 own wasm_val_t wasm_global_get(wasm_global_t*);
 void wasm_global_set(wasm_global_t*, wasm_val_t);
@@ -407,7 +407,7 @@ void wasm_table_delete(own wasm_table_t*);
 wasm_ref_t* wasm_table_as_ref(wasm_table_t*);
 wasm_table_t* wasm_ref_as_table(wasm_ref_t*);
 
-wasm_tabletype_t* wasm_table_type(wasm_table_t*);
+own wasm_tabletype_t* wasm_table_type(wasm_table_t*);
 
 own wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index);
 void wasm_table_set(wasm_table_t*, wasm_table_size_t index, own wasm_ref_t*);
@@ -434,7 +434,7 @@ void wasm_memory_delete(own wasm_memory_t*);
 wasm_ref_t* wasm_memory_as_ref(wasm_memory_t*);
 wasm_memory_t* wasm_ref_as_memory(wasm_ref_t*);
 
-wasm_memtype_t* wasm_memory_type(wasm_memory_t*);
+own wasm_memtype_t* wasm_memory_type(wasm_memory_t*);
 
 byte_t* wasm_memory_data(wasm_memory_t*);
 size_t wasm_memory_data_size(wasm_memory_t*);
