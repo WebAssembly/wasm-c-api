@@ -16,7 +16,7 @@ WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_SRC}
-WASM_LIBS = wasm-v8 wasm-bin
+WASM_LIBS = wasm-v8 wasm-bin wasm-v8-lowlevel
 WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
 V8_BUILD = ${V8_ARCH}.${V8_MODE}

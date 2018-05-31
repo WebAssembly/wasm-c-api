@@ -13,6 +13,7 @@
 
 #include "api.h"
 #include "wasm/wasm-objects.h"
+#include "wasm/wasm-objects-inl.h"
 
 
 #define own

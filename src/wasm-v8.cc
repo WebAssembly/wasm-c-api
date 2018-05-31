@@ -35,11 +35,11 @@ struct owned {
 }  // extern "C++"
 
 #define WASM_DEFINE_OWN(name) \
-  extern "C++" void delete_own(own name##_t* x) { \
+  extern "C++" void delete_own(own wasm_##name##_t* x) { \
     if (x) delete x; \
   } \
   \
-  void name##_delete(own name##_t* x) { \
+  void wasm_##name##_delete(own wasm_##name##_t* x) { \
     delete_own(x); \
   }
 
@@ -47,14 +47,14 @@ struct owned {
 // Vectors
 
 #define WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
-  own name##_vec_t name##_vec_new_uninitialized(size_t size) { \
-    typedef name##_t ptr_or_none name##_elem_t; \
-    return name##_vec(size, size == 0 ? nullptr : new name##_elem_t[size]); \
+  own wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t size) { \
+    typedef wasm_##name##_t ptr_or_none wasm_##name##_elem_t; \
+    return wasm_##name##_vec(size, size == 0 ? nullptr : new wasm_##name##_elem_t[size]); \
   } \
   \
-  own name##_vec_t name##_vec_new(size_t size, own name##_t ptr_or_none const input[]) { \
-    auto v = name##_vec_new_uninitialized(size); \
-    if (size != 0) memcpy(v.data, input, size * sizeof(name##_t ptr_or_none)); \
+  own wasm_##name##_vec_t wasm_##name##_vec_new(size_t size, own wasm_##name##_t ptr_or_none const input[]) { \
+    auto v = wasm_##name##_vec_new_uninitialized(size); \
+    if (size != 0) memcpy(v.data, input, size * sizeof(wasm_##name##_t ptr_or_none)); \
     return v; \
   }
 
@@ -62,15 +62,15 @@ struct owned {
 #define WASM_DEFINE_VEC_PLAIN(name, ptr_or_none) \
   WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
   \
-  own name##_vec_t name##_vec_clone(name##_vec_t v) { \
-    return name##_vec_new(v.size, v.data); \
+  own wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t v) { \
+    return wasm_##name##_vec_new(v.size, v.data); \
   } \
   \
-  extern "C++" void delete_own(own name##_vec_t v) { \
+  extern "C++" void delete_own(own wasm_##name##_vec_t v) { \
     if (v.size != 0) delete[] v.data; \
   } \
   \
-  void name##_vec_delete(own name##_vec_t v) { \
+  void wasm_##name##_vec_delete(own wasm_##name##_vec_t v) { \
     delete_own(v); \
   }
 
@@ -78,29 +78,29 @@ struct owned {
 #define WASM_DEFINE_VEC(name, ptr_or_none) \
   WASM_DEFINE_VEC_BASE(name, ptr_or_none) \
   \
-  own name##_vec_t name##_vec_clone(name##_vec_t v) { \
-    auto v2 = name##_vec_new_uninitialized(v.size); \
+  own wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t v) { \
+    auto v2 = wasm_##name##_vec_new_uninitialized(v.size); \
     for (size_t i = 0; i < v.size; ++i) { \
-      v2.data[i] = name##_clone(v.data[i]); \
+      v2.data[i] = wasm_##name##_clone(v.data[i]); \
     } \
     return v2; \
   } \
   \
-  extern "C++" void delete_own(own name##_vec_t v) { \
+  extern "C++" void delete_own(own wasm_##name##_vec_t v) { \
     if (v.size != 0) { \
-      for (size_t i = 0; i < v.size; ++i) name##_delete(v.data[i]); \
+      for (size_t i = 0; i < v.size; ++i) wasm_##name##_delete(v.data[i]); \
       delete[] v.data; \
     } \
   } \
   \
-  void name##_vec_delete(own name##_vec_t v) { \
+  void wasm_##name##_vec_delete(own wasm_##name##_vec_t v) { \
     delete_own(v); \
   }
 
 
 // Byte vectors
 
-WASM_DEFINE_VEC_PLAIN(wasm_byte, )
+WASM_DEFINE_VEC_PLAIN(byte, )
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,7 +112,8 @@ struct wasm_valtype_t {
   void operator delete(void*) {}
 };
 
-WASM_DEFINE_OWN(wasm_valtype)
+WASM_DEFINE_OWN(valtype)
+WASM_DEFINE_VEC(valtype, *)
 
 own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t k) {
   return reinterpret_cast<wasm_valtype_t*>(static_cast<intptr_t>(k));
@@ -125,8 +126,6 @@ own wasm_valtype_t* wasm_valtype_clone(wasm_valtype_t* t) {
 wasm_valkind_t wasm_valtype_kind(wasm_valtype_t* t) {
   return static_cast<wasm_valkind_t>(reinterpret_cast<intptr_t>(t));
 }
-
-WASM_DEFINE_VEC(wasm_valtype, *)
 
 
 // Extern Types
@@ -148,7 +147,8 @@ struct wasm_functype_t : wasm_externtype_t {
     wasm_externtype_t(WASM_EXTERN_FUNC), params(params), results(results) {}
 };
 
-WASM_DEFINE_OWN(wasm_functype)
+WASM_DEFINE_OWN(functype)
+WASM_DEFINE_VEC(functype, *)
 
 own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results) {
   return new wasm_functype_t(params, results);
@@ -169,8 +169,6 @@ wasm_valtype_vec_t wasm_functype_results(wasm_functype_t* ft) {
   return ft->results.borrow();
 }
 
-WASM_DEFINE_VEC(wasm_functype, *)
-
 
 // Global Types
 
@@ -182,7 +180,8 @@ struct wasm_globaltype_t : wasm_externtype_t {
     wasm_externtype_t(WASM_EXTERN_GLOBAL), content(content), mut(mut) {}
 };
 
-WASM_DEFINE_OWN(wasm_globaltype)
+WASM_DEFINE_OWN(globaltype)
+WASM_DEFINE_VEC(globaltype, *)
 
 own wasm_globaltype_t* wasm_globaltype_new(own wasm_valtype_t* content, wasm_mut_t mut) {
   return new wasm_globaltype_t(content, mut);
@@ -200,8 +199,6 @@ wasm_mut_t wasm_globaltype_mut(wasm_globaltype_t* gt) {
   return gt->mut;
 }
 
-WASM_DEFINE_VEC(wasm_globaltype, *)
-
 
 // Table Types
 
@@ -213,7 +210,8 @@ struct wasm_tabletype_t : wasm_externtype_t {
     wasm_externtype_t(WASM_EXTERN_TABLE), elem(elem), limits(limits) {}
 };
 
-WASM_DEFINE_OWN(wasm_tabletype)
+WASM_DEFINE_OWN(tabletype)
+WASM_DEFINE_VEC(tabletype, *)
 
 own wasm_tabletype_t* wasm_tabletype_new(own wasm_reftype_t* elem, wasm_limits_t limits) {
   return new wasm_tabletype_t(elem, limits);
@@ -231,8 +229,6 @@ wasm_limits_t wasm_tabletype_limits(wasm_tabletype_t* tt) {
   return tt->limits;
 }
 
-WASM_DEFINE_VEC(wasm_tabletype, *)
-
 
 // Memory Types
 
@@ -243,7 +239,8 @@ struct wasm_memtype_t : wasm_externtype_t {
     wasm_externtype_t(WASM_EXTERN_MEMORY), limits(limits) {}
 };
 
-WASM_DEFINE_OWN(wasm_memtype)
+WASM_DEFINE_OWN(memtype)
+WASM_DEFINE_VEC(memtype, *)
 
 own wasm_memtype_t* wasm_memtype_new(wasm_limits_t limits) {
   return new wasm_memtype_t(limits);
@@ -257,10 +254,10 @@ wasm_limits_t wasm_memtype_limits(wasm_memtype_t* mt) {
   return mt->limits;
 }
 
-WASM_DEFINE_VEC(wasm_memtype, *)
-
 
 // Extern Types
+
+WASM_DEFINE_VEC(externtype, *)
 
 extern "C++" void delete_own(own wasm_externtype_t* et) {
   switch (et->kind) {
@@ -314,8 +311,6 @@ wasm_externkind_t wasm_externtype_kind(wasm_externtype_t* et) {
   return et->kind;
 }
 
-WASM_DEFINE_VEC(wasm_externtype, *)
-
 
 // Import Types
 
@@ -328,7 +323,8 @@ struct wasm_importtype_t {
     module(module), name(name), type(type) {}
 };
 
-WASM_DEFINE_OWN(wasm_importtype)
+WASM_DEFINE_OWN(importtype)
+WASM_DEFINE_VEC(importtype, *)
 
 own wasm_importtype_t* wasm_importtype_new(own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t* type) {
   return new wasm_importtype_t(module, name, type);
@@ -354,8 +350,6 @@ wasm_externtype_t* wasm_importtype_type(wasm_importtype_t* it) {
   return it->type.borrow();
 }
 
-WASM_DEFINE_VEC(wasm_importtype, *)
-
 
 // Export Types
 
@@ -367,7 +361,8 @@ struct wasm_exporttype_t {
     name(name), type(type) {}
 };
 
-WASM_DEFINE_OWN(wasm_exporttype)
+WASM_DEFINE_OWN(exporttype)
+WASM_DEFINE_VEC(exporttype, *)
 
 own wasm_exporttype_t* wasm_exporttype_new(own wasm_name_t name, own wasm_externtype_t* type) {
   return new wasm_exporttype_t(name, type);
@@ -388,8 +383,6 @@ wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t* et) {
   return et->type.borrow();
 }
 
-WASM_DEFINE_VEC(wasm_exporttype, *)
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
@@ -398,7 +391,7 @@ WASM_DEFINE_VEC(wasm_exporttype, *)
 
 struct wasm_config_t {};
 
-WASM_DEFINE_OWN(wasm_config)
+WASM_DEFINE_OWN(config)
 
 wasm_config_t* wasm_config_new() {
   return new wasm_config_t;
@@ -825,6 +818,8 @@ bool wasm_ref_is_null(wasm_ref_t* r) {
 
 // Values
 
+WASM_DEFINE_VEC(val, )
+
 extern "C++"
 void delete_own(wasm_val_t val) {
   if (wasm_valkind_is_refkind(val.kind)) {
@@ -842,8 +837,6 @@ own wasm_val_t wasm_val_clone(wasm_val_t val) {
   }
   return val;
 }
-
-WASM_DEFINE_VEC(wasm_val, )
 
 
 // Values
@@ -1348,6 +1341,8 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta) 
 
 // Externals
 
+WASM_DEFINE_VEC(extern, )
+
 extern "C++"
 void delete_own(own wasm_extern_t ex) {
   switch (ex.kind) {
@@ -1380,8 +1375,6 @@ v8::Local<v8::Object> wasm_extern_to_v8(wasm_extern_t ex) {
     case WASM_EXTERN_MEMORY: return ex.memory->v8_object();
   }
 }
-
-WASM_DEFINE_VEC(wasm_extern, )
 
 
 // Module Instances
