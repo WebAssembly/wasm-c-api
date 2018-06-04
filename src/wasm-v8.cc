@@ -1200,7 +1200,7 @@ wasm_global_t* wasm_global_new(wasm_store_t* store, wasm_globaltype_t* type, was
   return new wasm_global_t(store, obj, type_clone);
 }
 
-wasm_val_t wasm_global_get(wasm_global_t* global) {
+own wasm_val_t wasm_global_get(wasm_global_t* global) {
   auto store = global->store();
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1273,7 +1273,7 @@ own wasm_tabletype_t* wasm_table_type(wasm_table_t* table) {
 }
 
 
-wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index) {
+own wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index) {
   UNIMPLEMENTED("wasm_table_get");
 }
 
