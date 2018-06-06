@@ -39,7 +39,7 @@ example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMP
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
-	clang++ -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	clang -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
 	clang++ $< -o $@ \
