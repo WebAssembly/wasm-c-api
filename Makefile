@@ -39,7 +39,7 @@ example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMP
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
-	clang -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	clang ${CFLAGS} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
 	clang++ $< -o $@ \
@@ -68,7 +68,7 @@ ${EXAMPLE_OUT}: ${OUT_DIR}
 wasm: ${WASM_LIBS:%=%.o}
 
 ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_OUT}
-	clang++ -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
+	clang++ ${CFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
 
 ${WASM_OUT}: ${OUT_DIR}
 	mkdir -p $@
