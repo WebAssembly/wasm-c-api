@@ -9,7 +9,7 @@ EXAMPLE_WAT = hello
 V8_VERSION = master  # or e.g. branch-heads/6.3
 V8_ARCH = x64
 V8_MODE = release
-V8_DIR = v8
+V8_DIR ?= v8
 
 WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 
