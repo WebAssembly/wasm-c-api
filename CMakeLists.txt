@@ -22,6 +22,5 @@ set(V8_INCLUDE
 	${V8V8}
 	${V8V8}/include)
 
-add_subdirectory(v8-samples)
 add_subdirectory(src)
 add_subdirectory(example)
