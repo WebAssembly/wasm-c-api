@@ -32,7 +32,7 @@ V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
 CFLAGS =
-CXXFLAGS =
+CXXFLAGS = ${CFLAGS}
 
 # Example
 
@@ -44,7 +44,7 @@ ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUD
 	clang ${CFLAGS} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
-	clang++ ${CFLAGS} ${CXXFLAGS} $< -o $@ \
+	clang++ ${CXXFLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
@@ -70,7 +70,7 @@ ${EXAMPLE_OUT}: ${OUT_DIR}
 wasm: ${WASM_LIBS:%=%.o}
 
 ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_OUT}
-	clang++ ${CFLAGS} ${CXXFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
+	clang++ ${CXXFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
 
 ${WASM_OUT}: ${OUT_DIR}
 	mkdir -p $@
