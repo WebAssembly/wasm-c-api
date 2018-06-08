@@ -103,7 +103,7 @@ int main(int argc, const char* argv[]) {
   printf("Extracting exports...\n");
   own wasm_extern_t exp = wasm_instance_export(instance, 0);
   if (exp.kind != WASM_EXTERN_FUNC || exp.func == NULL) {
-    printf("> Error accessing export!");
+    printf("> Error accessing export!\n");
     return 1;
   }
   own wasm_func_t* run_func = exp.func;
@@ -113,7 +113,7 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling exports...\n");
-  wasm_val_t args[] = {wasm_i32_val(3), wasm_i32_val(4)};
+  wasm_val_t args[] = { wasm_i32_val(3), wasm_i32_val(4) };
   own wasm_val_vec_t results = wasm_func_call(run_func, wasm_val_vec(2, args));
 
   // Print result.

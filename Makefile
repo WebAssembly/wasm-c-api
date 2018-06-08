@@ -1,3 +1,6 @@
+CFLAGS =
+CXXFLAGS = ${CFLAGS}
+
 OUT_DIR = out
 WASM_DIR = .
 EXAMPLE_DIR = example
@@ -5,6 +8,15 @@ EXAMPLE_DIR = example
 EXAMPLE_NAME = hello
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLE_WAT = hello
+EXAMPLE_LANG = cc
+
+ifeq (${EXAMPLE_LANG},c)
+  EXAMPLE_CLANG = clang ${CFLAGS}
+endif
+ifeq (${EXAMPLE_LANG},cc)
+  EXAMPLE_CLANG = clang++ -std=c++14 ${CXXFLAGS}
+endif
+
 
 V8_VERSION = master  # or e.g. branch-heads/6.3
 V8_ARCH = x64
@@ -16,7 +28,7 @@ WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_SRC}
-WASM_LIBS = wasm-v8 wasm-bin wasm-v8-lowlevel
+WASM_LIBS = wasm-v8 wasm-bin
 WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
@@ -31,17 +43,14 @@ V8_ICU_LIBS = uc i18n
 V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
-CFLAGS =
-CXXFLAGS = ${CFLAGS}
-
 # Example
 
 .PHONY: example
 example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
-	clang ${CFLAGS} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.${EXAMPLE_LANG} ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
+	${EXAMPLE_CLANG} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
 	clang++ ${CXXFLAGS} $< -o $@ \
@@ -70,7 +79,11 @@ ${EXAMPLE_OUT}: ${OUT_DIR}
 wasm: ${WASM_LIBS:%=%.o}
 
 ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_OUT}
+<<<<<<< HEAD
 	clang++ ${CXXFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
+=======
+	clang++ -std=c++14 -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+>>>>>>> WIP
 
 ${WASM_OUT}: ${OUT_DIR}
 	mkdir -p $@

@@ -6,6 +6,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
+
+#include <iostream>  // TODO
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -27,68 +30,146 @@ namespace wasm {
 
 // Ownership
 
-template<class T> struct ownership;
-template<class T> struct ownership<byte_t> { using type = byte_t; };
-template<class T> struct ownership<T*> { using type = std::unique_ptr<T>; };
-template<class T> struct ownership<T[]> {
-  using type = std::unique_ptr<typename ownership<T>::type[]>;
-};
+template<class T> struct owner { using type = T; };
+template<class T> struct owner<T*> { using type = std::unique_ptr<T>; };
+template<class T> struct owner<T[]> { using type = std::unique_ptr<T[]>; };
 
-template<class T> using own = typename ownership<T>::type;
+template<class T>
+using own = typename owner<T>::type;
+
+template<class T>
+auto make_own(T t) { return own<T>(t); }
 
 
 // Vectors
 
-template<class T> struct own_vec;
-template<class T> struct ownership<vec<T>> { using type = own_vec<T>; };
+template<class T, class Data> struct vec;
+template<class T, class Data> struct owner<vec<T, Data>> {
+  using type = vec<T, own<T[]>>;
+};
 
-template<class T>
+template<class T, class Data = T*>
 struct vec {
-  const size_t size = 0;
-  T* const data = nullptr;
+  size_t size;
+  Data data;
 
-  auto operator[](size_t i) const -> T& {
-    return data[i];
+  explicit vec(size_t size = 0, Data data = nullptr) : size(size), data(std::move(data)) {}
+
+  template<class U>
+  vec(vec<U>&& that) : size(that.size), data(that.data) {}
+
+  ~vec() {}
+
+  auto get() -> vec<T> {
+    return vec<T>(size, data.get());
   }
 
-  auto clone() const -> own<vec<T>> {
-    return make(size, data);
+  auto get() const -> vec<const T> {
+    return vec<const T>(size, data.get());
   }
 
-  static auto make(size_t size) -> own<vec<T>> {
-    return own<vec<T>>(vec(size, size == 0 ? nullptr : new T[size]));
+  auto release() -> vec<T> {
+    auto s = size;
+    size = 0;
+    return vec<T>(s, data.release());
   }
 
-  static auto make(size_t size, const T data[]) -> own<vec<T>> {
-    auto v = make(size);
+  void reset() {
+    size = 0;
+    data.reset();
+  }
+
+  operator bool() const {
+    return bool(data);
+  }
+
+  class proxy {
+    T& item;
+  public:
+    proxy(T& item) : item(item) {}
+    auto operator=(T val) -> proxy {
+      item = val;
+      return *this;
+    }
+    auto get() -> T {
+      return item;
+    }
+  };
+
+  auto operator[](size_t i) const -> proxy {
+    return proxy(data[i]);
+  }
+
+  auto clone() -> own<vec<T>> {
+std::cout << "x1" <<std::endl;
+    return vec::make(size, data);
+  }
+
+  static auto make(size_t size = 0) -> own<vec<T>> {
+    auto data = new(std::nothrow) T[size];
+    return own<vec<T>>(size, own<T[]>(std::move(data)));
+  }
+
+  static auto make(size_t size, const Data& data) -> own<vec<T>>&& {
+std::cout << "x2" <<std::endl;
+    auto&& v = vec::make(size);
+std::cout << "x3" <<std::endl;
     for (size_t i = 0; i < size; ++i) v[i] = data[i];
-    return v;
+std::cout << "x4" <<std::endl;
+    return std::move(v);
   }
 
   template<class... Ts>
   static auto make(own<Ts>... args) -> own<vec<T>> {
     T data[] = {args.release()...};
-    return make(sizeof...(Ts), data);
+    return vec::make(sizeof...(Ts), data);
   }
 
   template<class U>
   static auto make(U& x) -> own<vec<T>> {
-    return make(x.length(), x);
+    return vec::make(x.length(), x);
   }
 };
 
+
 template<>
-inline auto vec<byte_t>::make(size_t size, const byte_t data[]) -> own<vec<byte_t>> {
-  auto v = make(size);
-  if (size != 0) memcpy(v.borrow().data, data, size);
-  return v;
+inline auto vec<byte_t>::make(size_t size, byte_t* const& data) -> own<vec<byte_t>>&& {
+  auto&& v = vec<byte_t>::make(size);
+  if (size != 0) memcpy(v.data.get(), data, size);
+  return std::move(v);
+}
+
+template<>
+inline auto vec<const byte_t>::make(size_t size, const byte_t* const& data) -> own<vec<const byte_t>>&& {
+  auto&& v = vec<byte_t>::make(size);
+  if (size != 0) memcpy(v.data.get(), data, size);
+  return own<vec<const byte_t>>(v.release());
 }
 
 template<class T>
-struct own_vec : vec<T> {
-  ~own_vec() {
-    for (size_t i = 0; i < this->s; ++i) delete this->data[i];
-    delete[] this->data;
+inline vec<T*, own<T[]>>::~vec() {
+  for (size_t i = 0; i < size; ++i) if (data[i]) delete data[i];
+}
+
+template<class T, class Data>
+inline auto vec<T*, Data>::make(size_t size = 0) -> own<vec<T*>> {
+  auto data = new(std::nothrow) T*[size];
+  for (size_t i = 0; i < size; ++i) data[i] = nullptr;
+  return own<vec<T*>>(size, own<T*[]>(std::move(data)));
+}
+
+template<class T>
+class vec<T*, own<T[]>>::proxy {
+  T*& item;
+public:
+  own_proxy(T*& item) : item(item) {}
+  auto operator=(own<T*> val) -> own_proxy {
+    if (item) delete item;
+    item = std::move(val);
+    return *this;
+  }
+  auto get() -> T* {
+    return item;
   }
 };
 
@@ -98,13 +179,14 @@ struct own_vec : vec<T> {
 
 // Tyoe atributes
 
-enum class mut { CONST, VAR };
+enum mut { CONST, VAR };
 
 struct limits {
-  size_t min;
-  size_t max;
+  uint32_t min;
+  uint32_t max;
 
-  limits(min, max = SIZE_MAX) : min(min), max(max) {}
+  limits(uint32_t min, uint32_t max = std::numeric_limits<uint32_t>::max()) :
+    min(min), max(max) {}
 };
 
 
@@ -117,8 +199,10 @@ inline bool is_ref(valkind k) { return k >= ANYREF; }
 
 
 class valtype {
+protected:
+  valtype() {}
+
 public:
-  valtype() = delete;
   ~valtype();
 
   static auto make(valkind) -> own<valtype*>;
@@ -135,11 +219,13 @@ public:
 enum class arrow { ARROW };
 
 class functype {
+protected:
+  functype() {}
+
 public:
-  functype() = delete;
   ~functype();
 
-  static auto make(own<vec<valtype*>> params, own<vec<valtype*>> results) -> own<functype*>;
+  static auto make(own<vec<valtype*>>&& params = vec<valtype*>::make(), own<vec<valtype*>>&& results = vec<valtype*>::make()) -> own<functype*>;
 
 /*
   auto make() {
@@ -152,20 +238,22 @@ public:
 
   auto clone() const -> own<functype*>;
 
-  auto params() const -> vec<valtype*>;
-  auto results() const -> vec<valtype*>;
+  auto params() -> vec<valtype*>;
+  auto results() -> vec<valtype*>;
 };
 
 
 // Global Types
 
 class globaltype {
+protected:
+  globaltype() {}
+
 public:
-  globaltype() = delete;
   ~globaltype();
 
-  static auto make(own<valtype*>, mut) -> own<globaltype*>;
-  auto clone() const -> own<functype*>;
+  static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
+  auto clone() const -> own<globaltype*>;
 
   auto content() const -> valtype*;
   auto mut() const -> mut;
@@ -175,11 +263,13 @@ public:
 // Table Types
 
 class tabletype {
+protected:
+  tabletype() {}
+
 public:
-  tabletype() = delete;
   ~tabletype();
 
-  static auto make(own<valtype*>, limits) -> own<tabletype*>;
+  static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
   auto clone() const -> own<tabletype*>;
 
   auto element() const -> valtype*;
@@ -190,8 +280,10 @@ public:
 // Memory Types
 
 class memtype {
+protected:
+  memtype() {}
+
 public:
-  memtype() = delete;
   ~memtype();
 
   static auto make(limits) -> own<memtype*>;
@@ -208,8 +300,10 @@ enum externkind {
 };
 
 class externtype {
+protected:
+  externtype() {}
+
 public:
-  externtype() = delete;
   ~externtype();
 
   static auto make(own<functype*>) -> own<externtype*>;
@@ -217,30 +311,32 @@ public:
   static auto make(own<tabletype*>) -> own<externtype*>;
   static auto make(own<memtype*>) -> own<externtype*>;
 
-  auto clone() const -> own<externtype*>;
+  auto clone() -> own<externtype*>;
 
   auto kind() const -> externkind;
-  auto func() const -> functype*;
-  auto global() const -> globaltype*;
-  auto table() const -> tabletype*;
-  auto memory() const -> memtype*;
+  auto func() -> functype*;
+  auto global() -> globaltype*;
+  auto table() -> tabletype*;
+  auto memory() -> memtype*;
 };
 
 
 // Import Types
 
-using name = vec<byte_t>;
+using name = vec<const byte_t>;
 
 class importtype {
+protected:
+  importtype() {}
+
 public:
-  importtype() = delete;
   ~importtype();
 
-  static auto make(own<name> module, own<name> name, own<externtype*>) -> own<importtype*>;
+  static auto make(own<name>&& module, own<name>&& name, own<externtype*>&&) -> own<importtype*>;
   auto clone() const -> own<importtype*>;
 
-  auto module() const -> name;
-  auto name() const -> name;
+  auto module() -> name;
+  auto name() -> name;
   auto type() const -> externtype*;
 };
 
@@ -248,14 +344,16 @@ public:
 // Export Types
 
 class exporttype {
+protected:
+  exporttype() {}
+
 public:
-  exporttype() = delete;
   ~exporttype();
 
-  static auto make(own<name> name, own<externtype*>) -> own<exporttype*>;
+  static auto make(own<name>&& name, own<externtype*>&&) -> own<exporttype*>;
   auto clone() const -> own<exporttype*>;
 
-  auto name() const -> name;
+  auto name() -> name;
   auto type() const -> externtype*;
 };
 
@@ -266,8 +364,10 @@ public:
 // Initialisation
 
 class config {
+protected:
+  config() {}
+
 public:
-  config() = delete;
   ~config();
 
   static auto make() -> own<config*>;
@@ -275,15 +375,17 @@ public:
   // Embedders may provide custom methods for manipulating configs.
 };
 
-void init(int argc, const char* const argv[], own<config*> = config::make());
+void init(int argc, const char* const argv[], own<config*>&& = config::make());
 void deinit();
 
 
 // Store
 
 class store {
+protected:
+  store() {}
+
 public:
-  store() = delete;
   ~store();
 
   static auto make() -> own<store*>;
@@ -295,13 +397,11 @@ public:
 
 // References
 
-template<class T> struct own_ref;
-class ref;
-template<> struct ownership<ref*> { using type = own_ref<ref>; };
-
 class ref {
+protected:
+  ref() {}
+
 public:
-  ref() = delete;
   ~ref();
 
   auto clone() const -> own<ref*>;
@@ -313,8 +413,10 @@ public:
 
 // Values
 
+struct val;
 struct own_val;
-template<> struct ownership<val> { using type = own_val; };
+template<> struct owner<val> { using type = own_val; };
+template<> struct owner<own_val> { using type = own_val; };
 
 struct val {
   val() : kind_(ANYREF), ref_(nullptr) {}
@@ -334,37 +436,38 @@ struct val {
   auto clone() const -> own<val>;
 
 private:
-  const valkind kind_;
+  valkind kind_;
   union {
-    const int32_t i32_;
-    const int64_t i64_;
-    const float32_t f32_;
-    const float64_t f64_;
+    int32_t i32_;
+    int64_t i64_;
+    float32_t f32_;
+    float64_t f64_;
     wasm::ref* ref_;
   };
 };
 
 struct own_val : val {
-  own_val(val& v) : val(v) {}
-  ~own_val() { if (is_ref(kind_) && ref_ != nullptr) delete ref_; }
+  own_val() {}
+  own_val(const val& v) : val(v) {}
+  ~own_val() { if (is_ref(kind()) && ref() != nullptr) delete ref(); }
 };
 
 
 // Modules
 
-class module;
-template<> struct ownership<module*> { using type = own_ref<module>; };
-
 class module : public ref {
+protected:
+  module() {}
+
 public:
-  module() = delete;
   ~module();
 
   using binary = vec<byte_t>;
   using serialized = vec<byte_t>;
 
+  static auto validate(store*, binary) -> bool;
   static auto make(store*, binary) -> own<module*>;
-  static auto validate(binary) -> bool;
+  auto clone() const -> own<module*>;
 
   auto imports() -> own<vec<importtype*>>;
   auto exports() -> own<vec<exporttype*>>;
@@ -376,52 +479,58 @@ public:
 
 // Host Objects
 
-class hostobj;
-template<> struct ownership<hostobj*> { using type = own_ref<hostobj>; };
-
 class hostobj : public ref {
+protected:
+  hostobj() {}
+
 public:
-  hostobj() = delete;
   ~hostobj();
 
   static auto make(store*) -> own<hostobj*>;
+  auto clone() const -> own<hostobj*>;
 };
 
 
 // Externals
 
-class external;
-template<> struct ownership<external*> { using type = own_ref<external>; };
+class func;
+class global;
+class table;
+class memory;
 
 class external : public ref {
+protected:
+  external() {}
+
 public:
-  external() = delete;
   ~external();
 
-  virtual auto kind() const -> externkind = 0;
+  auto clone() const -> own<external*>;
 
-  template<class T>
-  inline auto to() -> T*;
+  auto kind() const -> externkind;
+  auto func() -> func*;
+  auto global() -> global*;
+  auto table() -> table*;
+  auto memory() -> memory*;
 };
 
 
 // Function Instances
 
-class func;
-template<> struct ownership<func*> { using type = own_ref<func>; };
-
 class func : public external {
+protected:
+  func() {}
+
 public:
-  func() = delete;
   ~func();
 
   using callback = auto (*)(vec<val>) -> own<vec<val>>;
-  using callback_env = auto (*)(void*, vec<val>) -> own<vec<val>>;
+  using callback_with_env = auto (*)(void*, vec<val>) -> own<vec<val>>;
 
   static auto make(store*, functype*, callback) -> own<func*>;
-  static auto make(store*, functype*, callback_env, void*) -> own<func*>;
+  static auto make(store*, functype*, callback_with_env, void*) -> own<func*>;
+  auto clone() const -> own<func*>;
 
-  auto kind() const -> externkind override { return EXTERN_FUNC; };
   auto type() const -> own<functype*>;
   auto call(vec<val>) const -> own<vec<val>>;
 };
@@ -429,17 +538,16 @@ public:
 
 // Global Instances
 
-class global;
-template<> struct ownership<global*> { using type = own_ref<global>; };
-
 class global : public external {
+protected:
+  global() {}
+
 public:
-  global() = delete;
   ~global();
 
   static auto make(store*, globaltype*, val) -> own<global*>;
+  auto clone() const -> own<global*>;
 
-  auto kind() const -> externkind override { return EXTERN_GLOBAL; };
   auto type() const -> own<globaltype*>;
   auto get() const -> own<val>;
   void set(val);
@@ -448,19 +556,18 @@ public:
 
 // Table Instances
 
-class table;
-template<> struct ownership<table*> { using type = own_ref<table>; };
-
 class table : public external {
+protected:
+  table() {}
+
 public:
-  table() = delete;
   ~table();
 
   using size_t = uint32_t;
 
   static auto make(store*, tabletype*, ref*) -> own<table*>;
+  auto clone() const -> own<table*>;
 
-  auto kind() const -> externkind override { return EXTERN_TABLE; };
   auto type() const -> own<tabletype*>;
   auto get(size_t index) const -> own<ref*>;
   void set(size_t index, ref*);
@@ -471,21 +578,20 @@ public:
 
 // Memory Instances
 
-class memory;
-template<> struct ownership<memory*> { using type = own_ref<memory>; };
-
 class memory : public external {
+protected:
+  memory() {}
+
 public:
-  memory() = delete;
   ~memory();
 
   static auto make(store*, memtype*) -> own<memory*>;
+  auto clone() const -> own<memory*>;
 
   using pages_t = uint32_t;
 
   static const size_t page_size = 0x10000;
 
-  auto kind() const -> externkind override { return EXTERN_MEMORY; };
   auto type() const -> own<memtype*>;
   auto data() const -> byte_t*;
   auto data_size() const -> size_t;
@@ -496,15 +602,15 @@ public:
 
 // Module Instances
 
-class instance;
-template<> struct ownership<instance*> { using type = own_ref<instance>; };
-
 class instance : public ref {
+protected:
+  instance() {}
+
 public:
-  instance() = delete;
   ~instance();
 
   static auto make(store*, module*, vec<external*>) -> own<instance*>;
+  auto clone() const -> own<instance*>;
 
   auto exports() const -> own<vec<external*>>;
 };
