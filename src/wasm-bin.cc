@@ -188,12 +188,18 @@ auto section(vec<byte_t> binary, bin::sec_t sec) -> const byte_t* {
 // Type section
 
 auto types(vec<byte_t> binary) -> own<vec<wasm::functype*>> {
+std::cout << "t0" <<std::endl;
   auto pos = bin::section(binary, SEC_TYPE);
+std::cout << "t1" <<std::endl;
   if (pos == nullptr) return vec<wasm::functype*>::make();
+std::cout << "t2" <<std::endl;
   size_t size = bin::u32(pos);
+std::cout << "t3 "<<size <<std::endl;
   // TODO(wasm+): support new deftypes
   auto v = vec<wasm::functype*>::make(size);
+std::cout << "t4" <<std::endl;
   for (uint32_t i = 0; i < size; ++i) v.data[i] = bin::functype(pos).release();
+std::cout << "t5" <<std::endl;
   return v;
 }
 
