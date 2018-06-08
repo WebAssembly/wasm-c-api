@@ -93,25 +93,21 @@ struct vec {
   }
 
   auto clone() -> own<vec<T>> {
-std::cout << "x1" <<std::endl;
     auto v = own_vec<T>::make(size, data);
     vec_traits<T>::clone(v.size, v.data.get());
     return v;
   }
 
   static auto make(size_t size = 0) -> own<vec<T>> {
-std::cout << "m1 "<<size <<std::endl;
     return own_vec<T>::make(size);
   }
 
   static auto make(size_t size, const T* data) -> own<vec<T>> {
-std::cout << "m2 "<<size <<std::endl;
     return own_vec<T>::make(size, data);
   }
 
   template<class... Ts>
   static auto make(own<Ts>... args) -> own<vec<T>> {
-std::cout << "m3 "<<sizeof...(Ts) <<std::endl;
     T data[] = {args.release()...};
     return vec::make(sizeof...(Ts), data);
   }
@@ -149,18 +145,30 @@ struct own_vec {
   size_t size;
   own<T[]> data;
 
-  own_vec() {}
+  own_vec() : size(0) {
+    assert(!!size <= !!data);
+  }
 
   template<class U>
-  own_vec(own_vec<U>&& that) : size(that.size), data(std::move(that.data)) {}
+  own_vec(own_vec<U>&& that) : size(that.size), data(that.data.release()) {
+    that.size = 0;
+    assert(!!size <= !!data);
+    assert(!!that.size <= !!that.data);
+  }
 
-  ~own_vec() { vec_traits<T>::destruct(size, data.get()); }
+  ~own_vec() {
+std::cout << "own_vec(" << size<<", "<<(void*)data.get()<<")"<<std::endl;
+    if (!(!!size <= !!data)) data.get()[0];
+   vec_traits<T>::destruct(size, data.get()); }
 
   template<class U>
   auto operator=(own_vec<U>&& that) -> own_vec& {
     reset();
     size = that.size;
     data.reset(that.data.release());
+    that.size = 0;
+    assert(!!size <= !!data);
+    assert(!!that.size <= !!that.data);
     return *this;
   }
 
@@ -171,6 +179,7 @@ struct own_vec {
   auto release() -> vec<T> {
     auto s = size;
     size = 0;
+assert(!!size <= !!data);
     return vec<T>(s, data.release());
   }
 
@@ -178,6 +187,7 @@ struct own_vec {
     vec_traits<T>::destruct(size, data.get());
     size = 0;
     data.reset();
+    assert(!!size <= !!data);
   }
 
   operator bool() const {
@@ -189,38 +199,29 @@ struct own_vec {
   }
 
   auto clone() -> own<vec<T>> {
-std::cout << "y1" <<std::endl;
     auto v = own_vec<T>(size, data.get());
     vec_traits<T>::clone(size, v.data.get());
     return v;
   }
 
   static auto make(size_t size = 0) -> own_vec<T> {
-std::cout << "v0 "<<size <<std::endl;
     auto data = new(std::nothrow) T[size];
-std::cout << "v1 "<<(void*)data <<std::endl;
     if (!data) size = 0;
-std::cout << "v2 "<<size <<std::endl;
     vec_traits<T>::construct(size, data);
-std::cout << "v3" <<std::endl;
-    auto v = own_vec<T>(size, data);
-std::cout << "v4" <<std::endl;
-    return v;
+    return own_vec<T>(size, data);
   }
 
   static auto make(size_t size, const T* init) -> own<vec<T>> {
-std::cout << "y2" <<std::endl;
     auto data = new(std::nothrow) T[size];
     if (!data) size = 0;
-std::cout << "y3" <<std::endl;
     vec_traits<T>::copy(size, data, init);
-std::cout << "y4" <<std::endl;
     return own_vec<T>(size, data);
   }
 
 private:
   own_vec(size_t size, T data[]) : size(size), data(data) {
-std::cout << "c3" <<std::endl;
+std::cout << "own_vec(" << size<<", "<<(void*)data<<")"<<std::endl;
+    assert(!!size <= !!data);
   }
 };
 

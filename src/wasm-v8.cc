@@ -752,7 +752,7 @@ auto ref::clone() const -> own<ref*> {
 
 auto val::clone() const -> own<val> {
   auto v = *this;
-  if (is_ref(kind_) && v.ref_ != nullptr) v.ref_ = v.ref_->clone().get();
+  if (is_ref(kind_) && v.ref_ != nullptr) v.ref_ = v.ref_->clone().release();
   return make_own(v);
 }
 
@@ -837,25 +837,20 @@ auto module::make(store* store_abs, vec<byte_t> binary) -> own<module*> {
 
   auto array_buffer = v8::ArrayBuffer::New(isolate, binary.data, binary.size);
 
-std::cout << 1 <<std::endl;
   v8::Local<v8::Value> args[] = {array_buffer};
   auto maybe_obj =
     store->v8_function(V8_F_MODULE)->NewInstance(context, 1, args);
   if (maybe_obj.IsEmpty()) return nullptr;
   auto obj = maybe_obj.ToLocalChecked();
 
-std::cout << 2 <<std::endl;
   // TODO(wasm+): use JS API once available?
   auto imports_exports = wasm::bin::imports_exports(binary);
-std::cout << 3 <<std::endl;
   // TODO store->cache_set(module_obj, module);
   auto&& imports = std::get<0>(imports_exports);
-std::cout << 4 <<std::endl;
   auto&& exports = std::get<1>(imports_exports);
-std::cout << 5 <<std::endl;
+  if (!imports || !exports) return own<module*>();
   auto data = make_own(new(std::nothrow) module_data(store, obj, imports, exports));
-std::cout << 6 <<std::endl;
-  return imports && exports && data ? module_impl::make(data) : own<module*>();
+  return data ? module_impl::make(data) : own<module*>();
 }
 
 module::~module() {}
@@ -1072,7 +1067,7 @@ auto func::call(vec<val> args) const -> own<vec<val>> {
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto type = this->type().get();
+  auto& type = func->data->type;
   auto type_params = type->params();
   auto type_results = type->results();
 
@@ -1110,7 +1105,7 @@ void func_data::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto type = func->data->type.get();
+  auto& type = func->data->type;
   auto type_params = type->params();
   auto type_results = type->results();
 
@@ -1400,7 +1395,7 @@ auto instance::make(store* store_abs, module* module_abs, vec<external*> imports
     instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked());
   assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
 
-  auto export_types = module_abs->exports().get();
+  auto export_types = module_abs->exports();
   auto exports = vec<external*>::make(export_types.size);
   if (!exports) return own<instance*>();
   for (size_t i = 0; i < export_types.size; ++i) {

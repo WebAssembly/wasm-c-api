@@ -1,4 +1,4 @@
-CFLAGS =
+CFLAGS = -ggdb
 CXXFLAGS = ${CFLAGS}
 
 OUT_DIR = out
@@ -79,11 +79,7 @@ ${EXAMPLE_OUT}: ${OUT_DIR}
 wasm: ${WASM_LIBS:%=%.o}
 
 ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_OUT}
-<<<<<<< HEAD
-	clang++ ${CXXFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
-=======
-	clang++ -std=c++14 -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
->>>>>>> WIP
+	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
 
 ${WASM_OUT}: ${OUT_DIR}
 	mkdir -p $@

@@ -260,8 +260,9 @@ for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vv[i]; std::cout <<std::e
 auto vvu = new(std::nothrow) std::unique_ptr<char>[4];
 std::cout << vvu << ": " << std::flush;
 for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vvu[i].get(); std::cout <<std::endl;
-auto vvm = vec<char*>::make(4).data;
-std::cout << (void*)vvm.get() << ": " << std::flush;
+auto vvvm = vec<char*>::make(4);
+auto vvm=vvvm.data.get();
+std::cout << (void*)vvm << ": " << std::flush;
 for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vvm[i]; std::cout <<std::endl;
   auto v = vec<wasm::functype*>::make(size + count(imports, EXTERN_FUNC));
 std::cout << "f " << (v.size - size) << "+" <<size<<"="<<v.size<<" "<<size_t(pos)<<std::endl;
@@ -407,7 +408,7 @@ std::cout << -6 <<std::endl;
 std::cout << -7 <<std::endl;
   auto exports = bin::exports(
     binary, funcs.get(), globals.get(), tables.get(), memories.get());
-std::cout << -8 <<std::endl;
+std::cout << -8 <<" "<<!!imports<<" "<<!!exports<<std::endl;
 
   return std::make_tuple(std::move(imports), std::move(exports));
 }
