@@ -241,7 +241,7 @@ wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t*);
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
-// Initialisation
+// Configuration
 
 typedef struct wasm_config_t wasm_config_t;
 
@@ -250,16 +250,21 @@ void wasm_config_delete(own wasm_config_t*);
 
 // Embedders may provide custom functions for manipulating configs.
 
-void wasm_init(int argc, const char* const argv[]);
-void wasm_init_with_config(int argc, const char* const argv[], own wasm_config_t*);
-void wasm_deinit();
+
+// Engine
+
+typedef struct wasm_engine_t wasm_engine_t;
+
+void wasm_engine_new(int argc, const char* const argv[]);
+void wasm_engine_new_with_config(int argc, const char* const argv[], own wasm_config_t*);
+void wasm_engine_delete();
 
 
 // Store
 
 typedef struct wasm_store_t wasm_store_t;
 
-own wasm_store_t* wasm_store_new();
+own wasm_store_t* wasm_store_new(wasm_engine_t*);
 void wasm_store_delete(own wasm_store_t*);
 
 

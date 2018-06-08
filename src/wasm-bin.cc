@@ -1,4 +1,3 @@
-#include <iostream>
 #include "wasm-bin.hh"
 
 namespace wasm {
@@ -188,18 +187,12 @@ auto section(vec<byte_t> binary, bin::sec_t sec) -> const byte_t* {
 // Type section
 
 auto types(vec<byte_t> binary) -> own<vec<wasm::functype*>> {
-std::cout << "t0" <<std::endl;
   auto pos = bin::section(binary, SEC_TYPE);
-std::cout << "t1" <<std::endl;
   if (pos == nullptr) return vec<wasm::functype*>::make();
-std::cout << "t2" <<std::endl;
   size_t size = bin::u32(pos);
-std::cout << "t3 "<<size <<std::endl;
   // TODO(wasm+): support new deftypes
   auto v = vec<wasm::functype*>::make(size);
-std::cout << "t4" <<std::endl;
   for (uint32_t i = 0; i < size; ++i) v.data[i] = bin::functype(pos).release();
-std::cout << "t5" <<std::endl;
   return v;
 }
 
@@ -251,32 +244,16 @@ auto count(vec<importtype*> imports, externkind kind) -> uint32_t {
 
 auto funcs(vec<byte_t> binary, vec<importtype*> imports, vec<wasm::functype*> types) -> own<vec<wasm::functype*>> {
   auto pos = bin::section(binary, SEC_FUNC);
-std::cout << "f0 " <<size_t(pos)<<std::endl;
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-using charp=char*;
-auto vv = new(std::nothrow) charp[4];
-std::cout << vv << ": " << std::flush;
-for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vv[i]; std::cout <<std::endl;
-auto vvu = new(std::nothrow) std::unique_ptr<char>[4];
-std::cout << vvu << ": " << std::flush;
-for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vvu[i].get(); std::cout <<std::endl;
-auto vvvm = vec<char*>::make(4);
-auto vvm=vvvm.data.get();
-std::cout << (void*)vvm << ": " << std::flush;
-for (size_t i = 0; i<4;++i) std::cout << " " << (void*)vvm[i]; std::cout <<std::endl;
   auto v = vec<wasm::functype*>::make(size + count(imports, EXTERN_FUNC));
-std::cout << "f " << (v.size - size) << "+" <<size<<"="<<v.size<<" "<<size_t(pos)<<std::endl;
-for (size_t i = 0; i<v.size;++i) std::cout << " " << v.data[i]; std::cout <<std::endl;
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size; ++i) {
     auto et = imports.data[i]->type();
     if (et->kind() == EXTERN_FUNC) v.data[j++] = et->func()->clone().release();
   }
-std::cout << "f' " << j <<" " <<size_t(pos)<<std::endl;
   if (pos != nullptr) {
     for (; j < v.size; ++j) v.data[j] = types.data[bin::u32(pos)]->clone().release();
   }
-std::cout << "f'' " << j <<std::endl;
   return v;
 }
 
@@ -342,73 +319,48 @@ auto exports(vec<byte_t> binary,
   vec<wasm::tabletype*> tables, vec<wasm::memtype*> memories
 ) -> own<vec<exporttype*>> {
   auto exports = vec<exporttype*>::make();
-std::cout << "a1" <<std::endl;
-for (size_t i = 0; i<funcs.size;++i) std::cout << " " << funcs.data[i]; std::cout <<std::endl;
   auto pos = bin::section(binary, SEC_EXPORT);
-std::cout << "a2" <<std::endl;
   if (pos != nullptr) {
-std::cout << "a3" <<std::endl;
     size_t size = bin::u32(pos);
     exports = vec<exporttype*>::make(size);
-std::cout << "a4" <<std::endl;
     for (uint32_t i = 0; i < size; ++i) {
-std::cout << "a5 " <<i <<std::endl;
       auto name = bin::name(pos);
-std::cout << "a6 " << std::string(name.data.get(), name.size) <<std::endl;
       auto tag = *pos++;
       auto index = bin::u32(pos);
-std::cout << "a7 " <<index <<std::endl;
       own<externtype*> type;
       switch (tag) {
         case 0x00: {
-std::cout << "a1 " <<funcs.data[index] <<std::endl;
           type = externtype::make(funcs.data[index]->clone());
-std::cout << "a1" <<std::endl;
         } break;
         case 0x01: {
-std::cout << "a2" <<std::endl;
           type = externtype::make(tables.data[index]->clone());
         } break;
         case 0x02: {
-std::cout << "a4" <<std::endl;
           type = externtype::make(memories.data[index]->clone());
         } break;
         case 0x03: {
-std::cout << "a5" <<std::endl;
           type = externtype::make(globals.data[index]->clone());
         } break;
         default: {
           assert(false);
         }
       }
-std::cout << "a8" <<std::endl;
       exports.data[i] = exporttype::make(std::move(name), std::move(type)).release();
-std::cout << "a9" <<std::endl;
     }
   }
-std::cout << "a10" <<std::endl;
   return exports;
 }
 
 auto imports_exports(vec<byte_t> binary
 ) -> std::tuple<own<vec<importtype*>>, own<vec<exporttype*>>> {
-std::cout << -1 <<std::endl;
   auto types = bin::types(binary);
-std::cout << -2 <<std::endl;
   auto imports = bin::imports(binary, types.get());
-std::cout << -3 <<std::endl;
   auto funcs = bin::funcs(binary, imports.get(), types.get());
-std::cout << -4 <<std::endl;
-for (size_t i = 0; i<funcs.size;++i) std::cout << " " << funcs.data[i]; std::cout <<std::endl;
   auto globals = bin::globals(binary, imports.get());
-std::cout << -5 <<std::endl;
   auto tables = bin::tables(binary, imports.get());
-std::cout << -6 <<std::endl;
   auto memories = bin::memories(binary, imports.get());
-std::cout << -7 <<std::endl;
   auto exports = bin::exports(
     binary, funcs.get(), globals.get(), tables.get(), memories.get());
-std::cout << -8 <<" "<<!!imports<<" "<<!!exports<<std::endl;
 
   return std::make_tuple(std::move(imports), std::move(exports));
 }

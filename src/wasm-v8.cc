@@ -12,25 +12,26 @@ namespace wasm {
 ///////////////////////////////////////////////////////////////////////////////
 // Auxiliaries
 
-void UNIMPLEMENTED(const char* s) {
+[[noreturn]] void UNIMPLEMENTED(const char* s) {
   std::cerr << "Wasm API: " << s << " not supported yet!\n";
   exit(1);
 }
 
-template<class C> struct implementation;
+
+template<class C> struct implement;
 
 template<class C>
-auto impl(C* x) -> typename implementation <C>::type* {
-  return reinterpret_cast<typename implementation<C>::type*>(x);
+auto impl(C* x) -> typename implement <C>::type* {
+  return reinterpret_cast<typename implement<C>::type*>(x);
 }
 
 template<class C>
-auto impl(const C* x) -> const typename implementation<C>::type* {
-  return reinterpret_cast<const typename implementation<C>::type*>(x);
+auto impl(const C* x) -> const typename implement<C>::type* {
+  return reinterpret_cast<const typename implement<C>::type*>(x);
 }
 
 template<class C>
-auto seal(typename implementation <C>::type* x) -> C* {
+auto seal(typename implement <C>::type* x) -> C* {
   return reinterpret_cast<C*>(x);
 }
 
@@ -64,7 +65,7 @@ struct externtype_impl {
   virtual ~externtype_impl() {}
 };
 
-template<> struct implementation<externtype> { using type = externtype_impl; };
+template<> struct implement<externtype> { using type = externtype_impl; };
 
 
 // Function Types
@@ -77,7 +78,7 @@ struct functype_impl : externtype_impl {
     externtype_impl(EXTERN_FUNC), params(std::move(params)), results(std::move(results)) {}
 };
 
-template<> struct implementation<functype> { using type = functype_impl; };
+template<> struct implement<functype> { using type = functype_impl; };
 
 functype::~functype() {
   impl(this)->~functype_impl();
@@ -115,7 +116,7 @@ struct globaltype_impl : externtype_impl {
     externtype_impl(EXTERN_GLOBAL), content(std::move(content)), mut(mut) {}
 };
 
-template<> struct implementation<globaltype> { using type = globaltype_impl; };
+template<> struct implement<globaltype> { using type = globaltype_impl; };
 
 globaltype::~globaltype() {
   impl(this)->~globaltype_impl();
@@ -150,7 +151,7 @@ struct tabletype_impl : externtype_impl {
     externtype_impl(EXTERN_TABLE), elem(std::move(elem)), limits(limits) {}
 };
 
-template<> struct implementation<tabletype> { using type = tabletype_impl; };
+template<> struct implement<tabletype> { using type = tabletype_impl; };
 
 tabletype::~tabletype() {
   impl(this)->~tabletype_impl();
@@ -184,7 +185,7 @@ struct memtype_impl : externtype_impl {
     externtype_impl(EXTERN_MEMORY), limits(limits) {}
 };
 
-template<> struct implementation<memtype> { using type = memtype_impl; };
+template<> struct implement<memtype> { using type = memtype_impl; };
 
 memtype::~memtype() {
   impl(this)->~memtype_impl();
@@ -266,14 +267,13 @@ struct importtype_impl {
     module(std::move(module)), name(std::move(name)), type(std::move(type)) {}
 };
 
-template<> struct implementation<importtype> { using type = importtype_impl; };
+template<> struct implement<importtype> { using type = importtype_impl; };
 
 importtype::~importtype() {
   impl(this)->~importtype_impl();
 }
 
 auto importtype::make(own<wasm::name>&& module, own<wasm::name>&& name, own<externtype*>&& type) -> own<importtype*> {
-std::cout << !!module << !!name << !!type <<std::endl;
   return module && name && type
     ? own<importtype*>(seal<importtype>(new(std::nothrow) importtype_impl(module, name, type)))
     : own<importtype*>();
@@ -309,7 +309,7 @@ struct exporttype_impl {
     name(std::move(name)), type(std::move(type)) {}
 };
 
-template<> struct implementation<exporttype> { using type = exporttype_impl; };
+template<> struct implement<exporttype> { using type = exporttype_impl; };
 
 exporttype::~exporttype() {
   impl(this)->~exporttype_impl();
@@ -341,7 +341,7 @@ auto exporttype::type() const -> externtype* {
 
 struct config_impl {};
 
-template<> struct implementation<config> { using type = config_impl; };
+template<> struct implement<config> { using type = config_impl; };
 
 config::~config() {
   impl(this)->~config_impl();
@@ -359,7 +359,7 @@ struct engine_impl {
   }
 };
 
-template<> struct implementation<engine> { using type = engine_impl; };
+template<> struct implement<engine> { using type = engine_impl; };
 
 auto engine::make(int argc, const char *const argv[], own<config*>&& config) -> own<engine*> {
   auto engine = make_own(seal<wasm::engine>(new(std::nothrow) engine_impl));
@@ -399,7 +399,7 @@ enum v8_function_t {
 };
 
 class store_impl {
-  friend own<store*> store::make(engine*);
+  friend own<store*> store::make(own<engine*>&);
 
   v8::Isolate::CreateParams create_params_;
   v8::Isolate *isolate_;
@@ -445,9 +445,9 @@ public:
 */
 };
 
-template<> struct implementation<store> { using type = store_impl; };
+template<> struct implement<store> { using type = store_impl; };
 
-auto store::make(engine*) -> own<store*> {
+auto store::make(own<engine*>&) -> own<store*> {
   auto store = make_own(new(std::nothrow) store_impl());
   if (!store) return own<wasm::store*>();
   store->create_params_.array_buffer_allocator =
@@ -578,11 +578,11 @@ v8::Local<v8::Boolean> mut_to_v8(store_impl* store, mut mut) {
 void limits_to_v8(store_impl* store, limits limits, v8::Local<v8::Object> desc) {
   auto isolate = store->isolate();
   auto context = store->context();
-  desc->DefineOwnProperty(context, store->v8_string(V8_S_MINIMUM),
-    v8::Integer::NewFromUnsigned(isolate, limits.min));
+  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MINIMUM),
+    v8::Integer::NewFromUnsigned(isolate, limits.min)));
   if (limits.max != wasm::limits(0).max) {
-    desc->DefineOwnProperty(context, store->v8_string(V8_S_MAXIMUM),
-      v8::Integer::NewFromUnsigned(isolate, limits.max));
+    void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MAXIMUM),
+      v8::Integer::NewFromUnsigned(isolate, limits.max)));
   }
 }
 
@@ -591,10 +591,10 @@ v8::Local<v8::Object> globaltype_to_v8(store_impl* store, globaltype* type) {
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
-  desc->DefineOwnProperty(context, store->v8_string(V8_S_VALUE),
-    valtype_to_v8(store, type->content()));
-  desc->DefineOwnProperty(context, store->v8_string(V8_S_MUTABLE),
-    mut_to_v8(store, type->mut()));
+  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_VALUE),
+    valtype_to_v8(store, type->content())));
+  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MUTABLE),
+    mut_to_v8(store, type->mut())));
   return desc;
 }
 
@@ -602,8 +602,8 @@ v8::Local<v8::Object> tabletype_to_v8(store_impl* store, tabletype* type) {
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
-  desc->DefineOwnProperty(context, store->v8_string(V8_S_ELEMENT),
-    valtype_to_v8(store, type->element()));
+  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_ELEMENT),
+    valtype_to_v8(store, type->element())));
   limits_to_v8(store, type->limits(), desc);
   return desc;
 }
@@ -748,7 +748,7 @@ private:
   explicit ref_impl(Data* data) : data(data) {}
 };
 
-template<> struct implementation<ref> { using type = ref_impl<ref, ref_data>; };
+template<> struct implement<ref> { using type = ref_impl<ref, ref_data>; };
 
 ref::~ref() {
   impl(this)->~ref_impl();
@@ -823,10 +823,10 @@ struct module_data : ref_data {
 };
 
 using module_impl = ref_impl<module, module_data>;
-template<> struct implementation<module> { using type = module_impl; };
+template<> struct implement<module> { using type = module_impl; };
 
-auto module::validate(store* store_abs, vec<byte_t> binary) -> bool {
-  auto store = impl(store_abs);
+auto module::validate(own<store*>& store_abs, vec<byte_t> binary) -> bool {
+  auto store = impl(store_abs.get());
   v8::Isolate* isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -840,8 +840,8 @@ auto module::validate(store* store_abs, vec<byte_t> binary) -> bool {
   return result.ToLocalChecked()->IsTrue();
 }
 
-auto module::make(store* store_abs, vec<byte_t> binary) -> own<module*> {
-  auto store = impl(store_abs);
+auto module::make(own<store*>& store_abs, vec<byte_t> binary) -> own<module*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
@@ -950,10 +950,10 @@ auto module::deserialize(vec<byte_t> serialized) -> own<module*> {
 
 using hostobj_data = ref_data;
 using hostobj_impl = ref_impl<hostobj, hostobj_data>;
-template<> struct implementation<hostobj> { using type = hostobj_impl; };
+template<> struct implement<hostobj> { using type = hostobj_impl; };
 
-auto hostobj::make(store* store_abs) -> own<hostobj*> {
-  auto store = impl(store_abs);
+auto hostobj::make(own<store*>& store_abs) -> own<hostobj*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -979,7 +979,7 @@ struct external_data : ref_data {
 };
 
 using external_impl = ref_impl<external, external_data>;
-template<> struct implementation<external> { using type = external_impl; };
+template<> struct implement<external> { using type = external_impl; };
 
 external::~external() {}
 
@@ -1029,11 +1029,11 @@ struct func_data : external_data {
 };
 
 using func_impl = ref_impl<func, func_data>;
-template<> struct implementation<func> { using type = func_impl; };
+template<> struct implement<func> { using type = func_impl; };
 
 
-auto func::make(store* store_abs, functype* type, func::callback callback) -> own<func*> {
-  auto store = impl(store_abs);
+auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback callback) -> own<func*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
@@ -1057,7 +1057,7 @@ auto func::make(store* store_abs, functype* type, func::callback callback) -> ow
   return func;
 }
 
-auto func::make(store* store_abs, functype* type, callback_with_env callback, void* env) -> own<func*> {
+auto func::make(own<store*>& store_abs, own<functype*>& type, callback_with_env callback, void* env) -> own<func*> {
   UNIMPLEMENTED("func::callback_with_env");
 }
 
@@ -1153,11 +1153,11 @@ struct global_data : external_data {
 };
 
 using global_impl = ref_impl<global, global_data>;
-template<> struct implementation<global> { using type = global_impl; };
+template<> struct implement<global> { using type = global_impl; };
 
 
-auto global::make(store* store_abs, globaltype* type, val val) -> own<global*> {
-  auto store = impl(store_abs);
+auto global::make(own<store*>& store_abs, own<globaltype*>& type, val val) -> own<global*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
@@ -1170,7 +1170,7 @@ auto global::make(store* store_abs, globaltype* type, val val) -> own<global*> {
   }
 
   v8::Local<v8::Value> args[] = {
-    globaltype_to_v8(store, type),
+    globaltype_to_v8(store, type.get()),
     val_to_v8(store, val)
   };
   auto maybe_obj =
@@ -1229,7 +1229,8 @@ void global::set(val val) {
   }
 
   v8::Local<v8::Value> args[] = { val_to_v8(store, val) };
-  store->v8_function(V8_F_GLOBAL_SET)->Call(context, global->data->v8_object(), 1, args);
+  void(store->v8_function(V8_F_GLOBAL_SET)->Call(
+    context, global->data->v8_object(), 1, args));
 }
 
 
@@ -1243,17 +1244,17 @@ struct table_data : external_data {
 };
 
 using table_impl = ref_impl<table, table_data>;
-template<> struct implementation<table> { using type = table_impl; };
+template<> struct implement<table> { using type = table_impl; };
 
 
-auto table::make(store* store_abs, tabletype* type, ref* ref) -> own<table*> {
-  auto store = impl(store_abs);
+auto table::make(own<store*>& store_abs, own<tabletype*>& type, ref* ref) -> own<table*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
   // TODO(wasm+): handle reference initialiser
-  v8::Local<v8::Value> args[] = { tabletype_to_v8(store, type) };
+  v8::Local<v8::Value> args[] = { tabletype_to_v8(store, type.get()) };
   auto maybe_obj =
     store->v8_function(V8_F_TABLE)->NewInstance(context, 1, args);
   if (maybe_obj.IsEmpty()) return own<table*>();
@@ -1303,16 +1304,16 @@ struct memory_data : external_data {
 };
 
 using memory_impl = ref_impl<memory, memory_data>;
-template<> struct implementation<memory> { using type = memory_impl; };
+template<> struct implement<memory> { using type = memory_impl; };
 
 
-auto memory::make(store* store_abs, memtype* type) -> own<memory*> {
-  auto store = impl(store_abs);
+auto memory::make(own<store*>& store_abs, own<memtype*>& type) -> own<memory*> {
+  auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
-  v8::Local<v8::Value> args[] = { memtype_to_v8(store, type) };
+  v8::Local<v8::Value> args[] = { memtype_to_v8(store, type.get()) };
   auto maybe_obj =
     store->v8_function(V8_F_MEMORY)->NewInstance(context, 1, args);
   if (maybe_obj.IsEmpty()) return own<memory*>();
@@ -1362,12 +1363,12 @@ struct instance_data : ref_data {
 };
 
 using instance_impl = ref_impl<instance, instance_data>;
-template<> struct implementation<instance> { using type = instance_impl; };
+template<> struct implement<instance> { using type = instance_impl; };
 
 
-auto instance::make(store* store_abs, module* module_abs, vec<external*> imports) -> own<instance*> {
-  auto store = impl(store_abs);
-  auto module = impl(module_abs);
+auto instance::make(own<store*>& store_abs, own<module*>& module_abs, vec<external*> imports) -> own<instance*> {
+  auto store = impl(store_abs.get());
+  auto module = impl(module_abs.get());
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
@@ -1393,10 +1394,10 @@ auto instance::make(store* store_abs, module* module_abs, vec<external*> imports
         imports_obj->Get(context, module_str).ToLocalChecked());
     } else {
       module_obj = v8::Object::New(isolate);
-      imports_obj->DefineOwnProperty(context, module_str, module_obj);
+      void(imports_obj->DefineOwnProperty(context, module_str, module_obj));
     }
 
-    module_obj->DefineOwnProperty(context, name_str, extern_to_v8(imports.data[i]));
+    void(module_obj->DefineOwnProperty(context, name_str, extern_to_v8(imports.data[i])));
   }
 
   v8::Local<v8::Value> instantiate_args[] = {module->data->v8_object(), imports_obj};

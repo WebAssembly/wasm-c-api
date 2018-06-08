@@ -8,8 +8,6 @@
 #include <memory>
 #include <limits>
 
-#include <iostream>  // TODO
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Auxiliaries
@@ -145,20 +143,14 @@ struct own_vec {
   size_t size;
   own<T[]> data;
 
-  own_vec() : size(0) {
-    assert(!!size <= !!data);
-  }
+  own_vec() : size(0) {}
 
   template<class U>
   own_vec(own_vec<U>&& that) : size(that.size), data(that.data.release()) {
     that.size = 0;
-    assert(!!size <= !!data);
-    assert(!!that.size <= !!that.data);
   }
 
-  ~own_vec() {
-std::cout << "own_vec(" << size<<", "<<(void*)data.get()<<")"<<std::endl;
-   vec_traits<T>::destruct(size, data.get()); }
+  ~own_vec() { vec_traits<T>::destruct(size, data.get()); }
 
   template<class U>
   auto operator=(own_vec<U>&& that) -> own_vec& {
@@ -166,8 +158,6 @@ std::cout << "own_vec(" << size<<", "<<(void*)data.get()<<")"<<std::endl;
     size = that.size;
     data.reset(that.data.release());
     that.size = 0;
-    assert(!!size <= !!data);
-    assert(!!that.size <= !!that.data);
     return *this;
   }
 
@@ -178,7 +168,6 @@ std::cout << "own_vec(" << size<<", "<<(void*)data.get()<<")"<<std::endl;
   auto release() -> vec<T> {
     auto s = size;
     size = 0;
-assert(!!size <= !!data);
     return vec<T>(s, data.release());
   }
 
@@ -186,7 +175,6 @@ assert(!!size <= !!data);
     vec_traits<T>::destruct(size, data.get());
     size = 0;
     data.reset();
-    assert(!!size <= !!data);
   }
 
   operator bool() const {
@@ -218,10 +206,7 @@ assert(!!size <= !!data);
   }
 
 private:
-  own_vec(size_t size, T data[]) : size(size), data(data) {
-std::cout << "own_vec(" << size<<", "<<(void*)data<<")"<<std::endl;
-    assert(!!size <= !!data);
-  }
+  own_vec(size_t size, T data[]) : size(size), data(data) {}
 };
 
 
@@ -250,10 +235,8 @@ inline bool is_ref(valkind k) { return k >= ANYREF; }
 
 
 class valtype {
-protected:
-  valtype() {}
-
 public:
+  valtype() = delete;
   ~valtype();
 
   static auto make(valkind) -> own<valtype*>;
@@ -270,22 +253,14 @@ public:
 enum class arrow { ARROW };
 
 class functype {
-protected:
-  functype() {}
-
 public:
+  functype() = delete;
   ~functype();
 
-  static auto make(own<vec<valtype*>>&& params = vec<valtype*>::make(), own<vec<valtype*>>&& results = vec<valtype*>::make()) -> own<functype*>;
-
-/*
-  auto make() {
-    return make(vec<valtype*>(), vec<valtype*>());
-  }
-  auto make(std::initializer_list<own<valtype*>> params) {
-    return make(vec<valtype*>::make(params.size(),), vec<valtype*>());
-  }
-*/
+  static auto make(
+    own<vec<valtype*>>&& params = vec<valtype*>::make(),
+    own<vec<valtype*>>&& results = vec<valtype*>::make()
+  ) -> own<functype*>;
 
   auto clone() const -> own<functype*>;
 
@@ -297,10 +272,8 @@ public:
 // Global Types
 
 class globaltype {
-protected:
-  globaltype() {}
-
 public:
+  globaltype() = delete;
   ~globaltype();
 
   static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
@@ -314,10 +287,8 @@ public:
 // Table Types
 
 class tabletype {
-protected:
-  tabletype() {}
-
 public:
+  tabletype() = delete;
   ~tabletype();
 
   static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
@@ -331,10 +302,8 @@ public:
 // Memory Types
 
 class memtype {
-protected:
-  memtype() {}
-
 public:
+  memtype() = delete;
   ~memtype();
 
   static auto make(limits) -> own<memtype*>;
@@ -351,10 +320,8 @@ enum externkind {
 };
 
 class externtype {
-protected:
-  externtype() {}
-
 public:
+  externtype() = delete;
   ~externtype();
 
   static auto make(own<functype*>) -> own<externtype*>;
@@ -377,10 +344,8 @@ public:
 using name = vec<byte_t>;
 
 class importtype {
-protected:
-  importtype() {}
-
 public:
+  importtype() = delete;
   ~importtype();
 
   static auto make(own<name>&& module, own<name>&& name, own<externtype*>&&) -> own<importtype*>;
@@ -395,10 +360,8 @@ public:
 // Export Types
 
 class exporttype {
-protected:
-  exporttype() {}
-
 public:
+  exporttype() = delete;
   ~exporttype();
 
   static auto make(own<name>&& name, own<externtype*>&&) -> own<exporttype*>;
@@ -412,13 +375,11 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
-// Initialisation
+// Configuration
 
 class config {
-protected:
-  config() {}
-
 public:
+  config() = delete;
   ~config();
 
   static auto make() -> own<config*>;
@@ -427,11 +388,11 @@ public:
 };
 
 
-class engine {
-protected:
-  engine() {}
+// Engine
 
+class engine {
 public:
+  engine() = delete;
   ~engine();
 
   static auto make(int argc, const char* const argv[], own<config*>&& = config::make()) -> own<engine*>;
@@ -441,13 +402,11 @@ public:
 // Store
 
 class store {
-protected:
-  store() {}
-
 public:
+  store() = delete;
   ~store();
 
-  static auto make(engine*) -> own<store*>;
+  static auto make(own<engine*>&) -> own<store*>;
 };
 
 
@@ -457,10 +416,8 @@ public:
 // References
 
 class ref {
-protected:
-  ref() {}
-
 public:
+  ref() = delete;
   ~ref();
 
   auto clone() const -> own<ref*>;
@@ -472,29 +429,7 @@ public:
 
 // Values
 
-struct val;
-struct own_val;
-template<> struct owner<val> { using type = own_val; };
-template<> struct owner<own_val> { using type = own_val; };
-
-struct val {
-  val() : kind_(ANYREF), ref_(nullptr) {}
-  val(int32_t i) : kind_(I32), i32_(i) {}
-  val(int64_t i) : kind_(I64), i64_(i) {}
-  val(float32_t z) : kind_(F32), f32_(z) {}
-  val(float64_t z) : kind_(F64), f64_(z) {}
-  val(wasm::ref* r) : kind_(ANYREF), ref_(r) {}
-
-  auto kind() const -> valkind { return kind_; }
-  auto i32() const -> int32_t { return kind_ == I32 ? i32_ : 0; }
-  auto i64() const -> int64_t { return kind_ == I64 ? i64_ : 0; }
-  auto f32() const -> float32_t { return kind_ == F32 ? f32_ : 0; }
-  auto f64() const -> float64_t { return kind_ == F64 ? f64_ : 0; }
-  auto ref() const -> wasm::ref* { return is_ref(kind_) ? ref_ : nullptr; }
-
-  auto clone() const -> own<val>;
-
-private:
+class val {
   valkind kind_;
   union {
     int32_t i32_;
@@ -503,29 +438,40 @@ private:
     float64_t f64_;
     wasm::ref* ref_;
   };
-};
 
-struct own_val : val {
-  own_val() {}
-  own_val(const val& v) : val(v) {}
-  ~own_val() { if (is_ref(kind()) && ref() != nullptr) delete ref(); }
+public:
+  val() : kind_(ANYREF), ref_(nullptr) {}
+  val(int32_t i) : kind_(I32), i32_(i) {}
+  val(int64_t i) : kind_(I64), i64_(i) {}
+  val(float32_t z) : kind_(F32), f32_(z) {}
+  val(float64_t z) : kind_(F64), f64_(z) {}
+  val(own<wasm::ref*>&& r) : kind_(ANYREF), ref_(r.release()) {}
+
+  ~val() { if (is_ref(kind_) && ref_) delete ref_; }
+
+  auto kind() const -> valkind { return kind_; }
+  auto i32() const -> int32_t { return kind_ == I32 ? i32_ : 0; }
+  auto i64() const -> int64_t { return kind_ == I64 ? i64_ : 0; }
+  auto f32() const -> float32_t { return kind_ == F32 ? f32_ : 0; }
+  auto f64() const -> float64_t { return kind_ == F64 ? f64_ : 0; }
+  auto ref() const -> wasm::ref* { return is_ref(kind_) ? ref_ : nullptr; }
+
+  auto clone() const -> val;
 };
 
 
 // Modules
 
 class module : public ref {
-protected:
-  module() {}
-
 public:
+  module() = delete;
   ~module();
 
   using binary = vec<byte_t>;
   using serialized = vec<byte_t>;
 
-  static auto validate(store*, binary) -> bool;
-  static auto make(store*, binary) -> own<module*>;
+  static auto validate(own<store*>&, binary) -> bool;
+  static auto make(own<store*>&, binary) -> own<module*>;
   auto clone() const -> own<module*>;
 
   auto imports() -> own<vec<importtype*>>;
@@ -539,13 +485,11 @@ public:
 // Host Objects
 
 class hostobj : public ref {
-protected:
-  hostobj() {}
-
 public:
+  hostobj() = delete;
   ~hostobj();
 
-  static auto make(store*) -> own<hostobj*>;
+  static auto make(own<store*>&) -> own<hostobj*>;
   auto clone() const -> own<hostobj*>;
 };
 
@@ -558,10 +502,8 @@ class table;
 class memory;
 
 class external : public ref {
-protected:
-  external() {}
-
 public:
+  external() = delete;
   ~external();
 
   auto clone() const -> own<external*>;
@@ -577,17 +519,15 @@ public:
 // Function Instances
 
 class func : public external {
-protected:
-  func() {}
-
 public:
+  func() = delete;
   ~func();
 
   using callback = auto (*)(vec<val>) -> own<vec<val>>;
   using callback_with_env = auto (*)(void*, vec<val>) -> own<vec<val>>;
 
-  static auto make(store*, functype*, callback) -> own<func*>;
-  static auto make(store*, functype*, callback_with_env, void*) -> own<func*>;
+  static auto make(own<store*>&, own<functype*>&, callback) -> own<func*>;
+  static auto make(own<store*>&, own<functype*>&, callback_with_env, void*) -> own<func*>;
   auto clone() const -> own<func*>;
 
   auto type() const -> own<functype*>;
@@ -598,17 +538,15 @@ public:
 // Global Instances
 
 class global : public external {
-protected:
-  global() {}
-
 public:
+  global() = delete;
   ~global();
 
-  static auto make(store*, globaltype*, val) -> own<global*>;
+  static auto make(own<store*>&, own<globaltype*>&, val) -> own<global*>;
   auto clone() const -> own<global*>;
 
   auto type() const -> own<globaltype*>;
-  auto get() const -> own<val>;
+  auto get() const -> val;
   void set(val);
 };
 
@@ -616,15 +554,13 @@ public:
 // Table Instances
 
 class table : public external {
-protected:
-  table() {}
-
 public:
+  table() = delete;
   ~table();
 
   using size_t = uint32_t;
 
-  static auto make(store*, tabletype*, ref*) -> own<table*>;
+  static auto make(own<store*>&, own<tabletype*>&, ref*) -> own<table*>;
   auto clone() const -> own<table*>;
 
   auto type() const -> own<tabletype*>;
@@ -638,13 +574,11 @@ public:
 // Memory Instances
 
 class memory : public external {
-protected:
-  memory() {}
-
 public:
+  memory() = delete;
   ~memory();
 
-  static auto make(store*, memtype*) -> own<memory*>;
+  static auto make(own<store*>&, own<memtype*>&) -> own<memory*>;
   auto clone() const -> own<memory*>;
 
   using pages_t = uint32_t;
@@ -662,59 +596,16 @@ public:
 // Module Instances
 
 class instance : public ref {
-protected:
-  instance() {}
-
 public:
+  instance() = delete;
   ~instance();
 
-  static auto make(store*, module*, vec<external*>) -> own<instance*>;
+  static auto make(own<store*>&, own<module*>&, vec<external*>) -> own<instance*>;
   auto clone() const -> own<instance*>;
 
   auto exports() const -> own<vec<external*>>;
 };
 
-
-///////////////////////////////////////////////////////////////////////////////
-// Convenience
-
-// Value Type construction short-hands
-
-inline own<valtype*> valtype_i32() { return valtype::make(I32); }
-inline own<valtype*> valtype_i64() { return valtype::make(I64); }
-inline own<valtype*> valtype_f32() { return valtype::make(F32); }
-inline own<valtype*> valtype_f64() { return valtype::make(F64); }
-inline own<valtype*> valtype_anyref() { return valtype::make(ANYREF); }
-inline own<valtype*> valtype_funcref() { return valtype::make(FUNCREF); }
-
-
-// Function Types construction short-hands
-
-/*
-
-// Value construction short-hands
-
-inline own wasm_val_t wasm_null_val() {
-  return wasm_ref_val(wasm_ref_null());
-}
-
-inline own wasm_val_t wasm_ptr_val(void* p) {
-#if UINTPTR_MAX == UINT32_MAX
-  return wasm_i32_val((uintptr_t)p);
-#elif UINTPTR_MAX == UINT64_MAX
-  return wasm_i64_val((uintptr_t)p);
-#endif
-}
-
-inline void* wasm_val_ptr(wasm_val_t v) {
-#if UINTPTR_MAX == UINT32_MAX
-  return (void*)(uintptr_t)v.i32;
-#elif UINTPTR_MAX == UINT64_MAX
-  return (void*)(uintptr_t)v.i64;
-#endif
-}
-
-*/
 
 ///////////////////////////////////////////////////////////////////////////////
 
