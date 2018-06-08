@@ -352,17 +352,28 @@ auto config::make() -> own<config*> {
 }
 
 
-void init(int argc, const char *const argv[], own<config*>&& config) {
+struct engine_impl {
+  ~engine_impl() {
+    v8::V8::Dispose();
+    v8::V8::ShutdownPlatform();
+  }
+};
+
+template<> struct implementation<engine> { using type = engine_impl; };
+
+auto engine::make(int argc, const char *const argv[], own<config*>&& config) -> own<engine*> {
+  auto engine = make_own(seal<wasm::engine>(new(std::nothrow) engine_impl));
+  if (!engine) return engine;
   v8::V8::InitializeExternalStartupData(argv[0]);
   static std::unique_ptr<v8::Platform> platform =
     v8::platform::NewDefaultPlatform();
   v8::V8::InitializePlatform(platform.get());
   v8::V8::Initialize();
+  return engine;
 }
 
-void deinit() {
-  v8::V8::Dispose();
-  v8::V8::ShutdownPlatform();
+engine::~engine() {
+  impl(this)->~engine_impl();
 }
 
 
@@ -388,7 +399,7 @@ enum v8_function_t {
 };
 
 class store_impl {
-  friend own<store*> store::make();
+  friend own<store*> store::make(engine*);
 
   v8::Isolate::CreateParams create_params_;
   v8::Isolate *isolate_;
@@ -436,7 +447,7 @@ public:
 
 template<> struct implementation<store> { using type = store_impl; };
 
-auto store::make() -> own<store*> {
+auto store::make(engine*) -> own<store*> {
   auto store = make_own(new(std::nothrow) store_impl());
   if (!store) return own<wasm::store*>();
   store->create_params_.array_buffer_allocator =

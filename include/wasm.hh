@@ -158,7 +158,6 @@ struct own_vec {
 
   ~own_vec() {
 std::cout << "own_vec(" << size<<", "<<(void*)data.get()<<")"<<std::endl;
-    if (!(!!size <= !!data)) data.get()[0];
    vec_traits<T>::destruct(size, data.get()); }
 
   template<class U>
@@ -427,8 +426,16 @@ public:
   // Embedders may provide custom methods for manipulating configs.
 };
 
-void init(int argc, const char* const argv[], own<config*>&& = config::make());
-void deinit();
+
+class engine {
+protected:
+  engine() {}
+
+public:
+  ~engine();
+
+  static auto make(int argc, const char* const argv[], own<config*>&& = config::make()) -> own<engine*>;
+};
 
 
 // Store
@@ -440,7 +447,7 @@ protected:
 public:
   ~store();
 
-  static auto make() -> own<store*>;
+  static auto make(engine*) -> own<store*>;
 };
 
 
