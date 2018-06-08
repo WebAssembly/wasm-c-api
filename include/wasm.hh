@@ -43,22 +43,62 @@ auto make_own(T t) { return own<T>(t); }
 
 // Vectors
 
-template<class T, class Data> struct vec;
-template<class T, class Data> struct owner<vec<T, Data>> {
-  using type = vec<T, own<T[]>>;
-};
+template<class T> struct vec;
+template<class T> struct own_vec;
+template<class T> struct owner<vec<T>> { using type = own_vec<T>; };
 
-template<class T, class Data = T*>
+template<class T>
 struct vec {
   size_t size;
-  Data data;
+  T* data;
 
-  explicit vec(size_t size = 0, Data data = nullptr) : size(size), data(std::move(data)) {}
+  explicit vec(size_t size = 0, T data[] = nullptr) : size(size), data(data) {}
+
+  operator bool() const {
+    return bool(data);
+  }
+
+  auto operator[](size_t i) const -> T& {
+    return data[i];
+  }
+
+  auto clone() -> own<vec<T>> {
+std::cout << "x1" <<std::endl;
+    own_vec<T> v = own_vec<T>::make(size, data);
+    v->clone_items();
+    return v;
+  }
+
+  static auto make(size_t size = 0) -> own<vec<T>> {
+    return own_vec<T>::make(size);
+  }
+
+  static auto make(size_t size, const T* data) -> own<vec<T>> {
+    return own_vec<T>::make(size, data);
+  }
+
+  template<class... Ts>
+  static auto make(own<Ts>... args) -> own<vec<T>> {
+    T data[] = {args.release()...};
+    return vec::make(sizeof...(Ts), data);
+  }
 
   template<class U>
-  vec(vec<U>&& that) : size(that.size), data(that.data) {}
+  static auto make(U& x) -> own<vec<T>> {
+    return vec::make(x.length(), x);
+  }
+};
 
-  ~vec() {}
+
+template<class T>
+struct own_vec {
+  size_t size;
+  own<T[]> data;
+
+  template<class U>
+  own_vec(vec<U>&& that) : size(that.size), data(std::move(that.data)) {}
+
+  ~own_vec() { destruct_items(); }
 
   auto get() -> vec<T> {
     return vec<T>(size, data.get());
@@ -75,6 +115,7 @@ struct vec {
   }
 
   void reset() {
+    destruct_items();
     size = 0;
     data.reset();
   }
@@ -101,35 +142,80 @@ struct vec {
   }
 
   auto clone() -> own<vec<T>> {
-std::cout << "x1" <<std::endl;
-    return vec::make(size, data);
+std::cout << "y1" <<std::endl;
+    own<vec<T>> v = make(size, data);
+    clone_items();
+    return v;
   }
 
-  static auto make(size_t size = 0) -> own<vec<T>> {
+  static auto make(size_t size = 0) -> own_vec<T> {
     auto data = new(std::nothrow) T[size];
-    return own<vec<T>>(size, own<T[]>(std::move(data)));
+    if (!data) size = 0;
+    construct_items();
+    return own_vec(size, data);
   }
 
-  static auto make(size_t size, const Data& data) -> own<vec<T>>&& {
-std::cout << "x2" <<std::endl;
-    auto&& v = vec::make(size);
-std::cout << "x3" <<std::endl;
-    for (size_t i = 0; i < size; ++i) v[i] = data[i];
-std::cout << "x4" <<std::endl;
-    return std::move(v);
+  static auto make(size_t size, const T* init) -> own<vec<T>> {
+std::cout << "y2" <<std::endl;
+    auto data = new(std::nothrow) T[size];
+    if (!data) size = 0;
+std::cout << "y3" <<std::endl;
+    copy_items(init);
+std::cout << "y4" <<std::endl;
+    return own_vec(size, data);
   }
 
-  template<class... Ts>
-  static auto make(own<Ts>... args) -> own<vec<T>> {
-    T data[] = {args.release()...};
-    return vec::make(sizeof...(Ts), data);
+private:
+  template<class T> friend class vec;
+  own_vec(size_t size, T data[]) : size(size), data(data) {}
+  void construct_items() {}
+  void destruct_items() {}
+  void copy_items(const T* init) {
+    for (size_t i = 0; i < size; ++i) data[i] = init[i];
   }
+  void clone_items(const T* init) { copy_items(init); }
+};
 
-  template<class U>
-  static auto make(U& x) -> own<vec<T>> {
-    return vec::make(x.length(), x);
+template<>
+inline void own_vec<byte_t>::copy_items(const byte_t* data) {
+  if (size != 0) memcpy(data.get(), init, size);
+}
+
+template<>
+inline void own_vec<const byte_t>::copy_items(const byte_t* data) {
+  if (size != 0) memcpy(const_cast<byte_t*>(data.get()), init, size);
+}
+
+template<class T>
+inline void own_vec<T*>::construct_items() {
+  for (size_t i = 0; i < size; ++i) data[i] = nullptr;
+}
+
+template<class T>
+inline void own_vec<T*>::destruct_items() {
+  for (size_t i = 0; i < size; ++i) if (data[i]) delete data[i];
+}
+
+template<class T>
+inline void own_vec<T*>::clone_items() {
+  for (size_t i = 0; i < size; ++i) if (data[i]) data[i] = data[i]->clone();
+}
+
+template<class T>
+class own_vec<T*>::proxy {
+  T*& item;
+public:
+  own_proxy(T*& item) : item(item) {}
+  auto operator=(own<T*> val) -> own_proxy {
+    if (item) delete item;
+    item = std::move(val);
+    return *this;
+  }
+  auto get() -> T* {
+    return item;
   }
 };
+
 
 
 template<>
@@ -144,11 +230,6 @@ inline auto vec<const byte_t>::make(size_t size, const byte_t* const& data) -> o
   auto&& v = vec<byte_t>::make(size);
   if (size != 0) memcpy(v.data.get(), data, size);
   return own<vec<const byte_t>>(v.release());
-}
-
-template<class T>
-inline vec<T*, own<T[]>>::~vec() {
-  for (size_t i = 0; i < size; ++i) if (data[i]) delete data[i];
 }
 
 template<class T, class Data>
