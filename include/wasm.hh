@@ -14,10 +14,10 @@
 
 // Machine types
 
-static_assert(sizeof(float) == sizeof(uint32_t), "incompatible float type");
-static_assert(sizeof(double) == sizeof(uint64_t), "incompatible double type");
-static_assert(sizeof(intptr_t) == sizeof(uint32_t) ||
-              sizeof(intptr_t) == sizeof(uint64_t), "incompatible pointer type");
+static_assert(sizeof(float) == sizeof(int32_t), "incompatible float type");
+static_assert(sizeof(double) == sizeof(int64_t), "incompatible double type");
+static_assert(sizeof(intptr_t) == sizeof(int32_t) ||
+              sizeof(intptr_t) == sizeof(int64_t), "incompatible pointer type");
 
 using byte_t = char;
 using float32_t = float;
