@@ -24,16 +24,18 @@ void u32_skip(const byte_t*& pos) {
 
 // Names
 
-auto name(const byte_t*& pos) -> own<wasm::name> {
-  auto len = bin::u32(pos);
+auto name(const byte_t*& pos) -> wasm::name {
+  auto size = bin::u32(pos);
   auto start = pos;
-  pos += len;
-  return name::make(len, start);
+  auto name = name::make_uninitialized(size);
+  memcpy(name.get(), start, size);
+  pos += size;
+  return name;
 }
 
 void name_skip(const byte_t*& pos) {
-  auto len = bin::u32(pos);
-  pos += len;
+  auto size = bin::u32(pos);
+  pos += size;
 }
 
 
@@ -68,12 +70,10 @@ auto limits(const byte_t*& pos) -> limits {
   }
 }
 
-auto stacktype(const byte_t*& pos) -> own<vec<wasm::valtype*>> {
-  size_t n = bin::u32(pos);
-  auto v = vec<wasm::valtype*>::make(n);
-  for (uint32_t i = 0; i < n; ++i) {
-    v.data[i] = bin::valtype(pos).release();
-  }
+auto stacktype(const byte_t*& pos) -> vec<wasm::valtype*> {
+  size_t size = bin::u32(pos);
+  auto v = vec<wasm::valtype*>::make_uninitialized(size);
+  for (uint32_t i = 0; i < size; ++i) v[i] = bin::valtype(pos);
   return v;
 }
 
@@ -169,9 +169,9 @@ enum sec_t : byte_t {
   SEC_EXPORT = 7
 };
 
-auto section(vec<byte_t> binary, bin::sec_t sec) -> const byte_t* {
-  const byte_t* end = binary.data + binary.size;
-  const byte_t* pos = binary.data + 8;  // skip header
+auto section(vec<byte_t>& binary, bin::sec_t sec) -> const byte_t* {
+  const byte_t* end = binary.get() + binary.size();
+  const byte_t* pos = binary.get() + 8;  // skip header
   while (pos < end && *pos != sec) {
     ++pos;
     auto size = bin::u32(pos);
@@ -186,24 +186,27 @@ auto section(vec<byte_t> binary, bin::sec_t sec) -> const byte_t* {
 
 // Type section
 
-auto types(vec<byte_t> binary) -> own<vec<wasm::functype*>> {
+auto types(vec<byte_t>& binary) -> vec<wasm::functype*> {
   auto pos = bin::section(binary, SEC_TYPE);
   if (pos == nullptr) return vec<wasm::functype*>::make();
   size_t size = bin::u32(pos);
   // TODO(wasm+): support new deftypes
-  auto v = vec<wasm::functype*>::make(size);
-  for (uint32_t i = 0; i < size; ++i) v.data[i] = bin::functype(pos).release();
+  auto v = vec<wasm::functype*>::make_uninitialized(size);
+  for (uint32_t i = 0; i < size; ++i) {
+    v[i] = bin::functype(pos);
+  }
   return v;
 }
 
 
 // Import section
 
-auto imports(vec<byte_t> binary, vec<wasm::functype*> types) -> own<vec<importtype*>> {
+auto imports(vec<byte_t>& binary, vec<wasm::functype*>& types)
+-> vec<importtype*> {
   auto pos = bin::section(binary, SEC_IMPORT);
   if (pos == nullptr) return vec<importtype*>::make();
   size_t size = bin::u32(pos);
-  auto v = vec<importtype*>::make(size);
+  auto v = vec<importtype*>::make_uninitialized(size);
   for (uint32_t i = 0; i < size; ++i) {
     auto module = bin::name(pos);
     auto name = bin::name(pos);
@@ -211,7 +214,7 @@ auto imports(vec<byte_t> binary, vec<wasm::functype*> types) -> own<vec<importty
     switch (*pos++) {
       case 0x00: {
         auto index = bin::u32(pos);
-        type = externtype::make(types.data[index]->clone());
+        type = externtype::make(types[index]->clone());
       } break;
       case 0x01: {
         type = externtype::make(bin::tabletype(pos));
@@ -226,15 +229,15 @@ auto imports(vec<byte_t> binary, vec<wasm::functype*> types) -> own<vec<importty
         assert(false);
       }
     }
-    v.data[i] = importtype::make(std::move(module), std::move(name), std::move(type)).release();
+    v[i] = importtype::make(std::move(module), std::move(name), std::move(type));
   }
   return v;
 }
 
-auto count(vec<importtype*> imports, externkind kind) -> uint32_t {
+auto count(vec<importtype*>& imports, externkind kind) -> uint32_t {
   uint32_t n = 0;
-  for (uint32_t i = 0; i < imports.size; ++i) {
-    if (imports.data[i]->type()->kind() == kind) ++n;
+  for (uint32_t i = 0; i < imports.size(); ++i) {
+    if (imports[i]->type()->kind() == kind) ++n;
   }
   return n;
 }
@@ -242,17 +245,23 @@ auto count(vec<importtype*> imports, externkind kind) -> uint32_t {
 
 // Function section
 
-auto funcs(vec<byte_t> binary, vec<importtype*> imports, vec<wasm::functype*> types) -> own<vec<wasm::functype*>> {
+auto funcs(
+  vec<byte_t>& binary, vec<importtype*>& imports, vec<wasm::functype*>& types
+) -> vec<wasm::functype*> {
   auto pos = bin::section(binary, SEC_FUNC);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<wasm::functype*>::make(size + count(imports, EXTERN_FUNC));
+  auto v = vec<wasm::functype*>::make_uninitialized(size + count(imports, EXTERN_FUNC));
   size_t j = 0;
-  for (uint32_t i = 0; i < imports.size; ++i) {
-    auto et = imports.data[i]->type();
-    if (et->kind() == EXTERN_FUNC) v.data[j++] = et->func()->clone().release();
+  for (uint32_t i = 0; i < imports.size(); ++i) {
+    auto& et = imports[i]->type();
+    if (et->kind() == EXTERN_FUNC) {
+      v[j++] = et->func()->clone();
+    }
   }
   if (pos != nullptr) {
-    for (; j < v.size; ++j) v.data[j] = types.data[bin::u32(pos)]->clone().release();
+    for (; j < v.size(); ++j) {
+      v[j] = types[bin::u32(pos)]->clone();
+    }
   }
   return v;
 }
@@ -260,17 +269,22 @@ auto funcs(vec<byte_t> binary, vec<importtype*> imports, vec<wasm::functype*> ty
 
 // Global section
 
-auto globals(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::globaltype*>> {
+auto globals(vec<byte_t>& binary, vec<importtype*>& imports)
+-> vec<wasm::globaltype*> {
   auto pos = bin::section(binary, SEC_GLOBAL);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<wasm::globaltype*>::make(size + count(imports, EXTERN_GLOBAL));
+  auto v = vec<wasm::globaltype*>::make_uninitialized(size + count(imports, EXTERN_GLOBAL));
   size_t j = 0;
-  for (uint32_t i = 0; i < imports.size; ++i) {
-    auto et = imports.data[i]->type();
-    if (et->kind() == EXTERN_GLOBAL) v.data[j++] = et->global()->clone().release();
+  for (uint32_t i = 0; i < imports.size(); ++i) {
+    auto& et = imports[i]->type();
+    if (et->kind() == EXTERN_GLOBAL) {
+      v[j++] = et->global()->clone();
+    }
   }
   if (pos != nullptr) {
-    for (; j < size; ++j) v.data[j] = bin::globaltype(pos).release();
+    for (; j < v.size(); ++j) {
+      v[j] = bin::globaltype(pos);
+    }
   }
   return v;
 }
@@ -278,17 +292,22 @@ auto globals(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::glob
 
 // Table section
 
-auto tables(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::tabletype*>> {
+auto tables(vec<byte_t>& binary, vec<importtype*>& imports)
+-> vec<wasm::tabletype*> {
   auto pos = bin::section(binary, SEC_TABLE);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<wasm::tabletype*>::make(size + count(imports, EXTERN_TABLE));
+  auto v = vec<wasm::tabletype*>::make_uninitialized(size + count(imports, EXTERN_TABLE));
   size_t j = 0;
-  for (uint32_t i = 0; i < imports.size; ++i) {
-    auto et = imports.data[i]->type();
-    if (et->kind() == EXTERN_TABLE) v.data[j++] = et->table()->clone().release();
+  for (uint32_t i = 0; i < imports.size(); ++i) {
+    auto& et = imports[i]->type();
+    if (et->kind() == EXTERN_TABLE) {
+      v[j++] = et->table()->clone();
+    }
   }
   if (pos != nullptr) {
-    for (; j < size; ++j) v.data[j] = bin::tabletype(pos).release();
+    for (; j < v.size(); ++j) {
+      v[j] = bin::tabletype(pos);
+    }
   }
   return v;
 }
@@ -296,17 +315,22 @@ auto tables(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::table
 
 // Memory section
 
-auto memories(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::memtype*>> {
+auto memories(vec<byte_t>& binary, vec<importtype*>& imports)
+-> vec<wasm::memtype*> {
   auto pos = bin::section(binary, SEC_MEMORY);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<wasm::memtype*>::make(size + count(imports, EXTERN_MEMORY));
+  auto v = vec<wasm::memtype*>::make_uninitialized(size + count(imports, EXTERN_MEMORY));
   size_t j = 0;
-  for (uint32_t i = 0; i < imports.size; ++i) {
-    auto et = imports.data[i]->type();
-    if (et->kind() == EXTERN_MEMORY) v.data[j++] = et->memory()->clone().release();
+  for (uint32_t i = 0; i < imports.size(); ++i) {
+    auto& et = imports[i]->type();
+    if (et->kind() == EXTERN_MEMORY) {
+      v[j++] = et->memory()->clone();
+    }
   }
   if (pos != nullptr) {
-    for (; j < size; ++j) v.data[j] = bin::memtype(pos).release();
+    for (; j < v.size(); ++j) {
+      v[j] = bin::memtype(pos);
+    }
   }
   return v;
 }
@@ -314,15 +338,15 @@ auto memories(vec<byte_t> binary, vec<importtype*> imports) -> own<vec<wasm::mem
 
 // Export section
 
-auto exports(vec<byte_t> binary,
-  vec<wasm::functype*> funcs, vec<wasm::globaltype*> globals,
-  vec<wasm::tabletype*> tables, vec<wasm::memtype*> memories
-) -> own<vec<exporttype*>> {
+auto exports(vec<byte_t>& binary,
+  vec<wasm::functype*>& funcs, vec<wasm::globaltype*>& globals,
+  vec<wasm::tabletype*>& tables, vec<wasm::memtype*>& memories
+) -> vec<exporttype*> {
   auto exports = vec<exporttype*>::make();
   auto pos = bin::section(binary, SEC_EXPORT);
   if (pos != nullptr) {
     size_t size = bin::u32(pos);
-    exports = vec<exporttype*>::make(size);
+    exports = vec<exporttype*>::make_uninitialized(size);
     for (uint32_t i = 0; i < size; ++i) {
       auto name = bin::name(pos);
       auto tag = *pos++;
@@ -330,37 +354,36 @@ auto exports(vec<byte_t> binary,
       own<externtype*> type;
       switch (tag) {
         case 0x00: {
-          type = externtype::make(funcs.data[index]->clone());
+          type = externtype::make(funcs[index]->clone());
         } break;
         case 0x01: {
-          type = externtype::make(tables.data[index]->clone());
+          type = externtype::make(tables[index]->clone());
         } break;
         case 0x02: {
-          type = externtype::make(memories.data[index]->clone());
+          type = externtype::make(memories[index]->clone());
         } break;
         case 0x03: {
-          type = externtype::make(globals.data[index]->clone());
+          type = externtype::make(globals[index]->clone());
         } break;
         default: {
           assert(false);
         }
       }
-      exports.data[i] = exporttype::make(std::move(name), std::move(type)).release();
+      exports[i] = exporttype::make(std::move(name), std::move(type));
     }
   }
   return exports;
 }
 
-auto imports_exports(vec<byte_t> binary
-) -> std::tuple<own<vec<importtype*>>, own<vec<exporttype*>>> {
+auto imports_exports(vec<byte_t>& binary)
+-> std::tuple<vec<importtype*>, vec<exporttype*>> {
   auto types = bin::types(binary);
-  auto imports = bin::imports(binary, types.get());
-  auto funcs = bin::funcs(binary, imports.get(), types.get());
-  auto globals = bin::globals(binary, imports.get());
-  auto tables = bin::tables(binary, imports.get());
-  auto memories = bin::memories(binary, imports.get());
-  auto exports = bin::exports(
-    binary, funcs.get(), globals.get(), tables.get(), memories.get());
+  auto imports = bin::imports(binary, types);
+  auto funcs = bin::funcs(binary, imports, types);
+  auto globals = bin::globals(binary, imports);
+  auto tables = bin::tables(binary, imports);
+  auto memories = bin::memories(binary, imports);
+  auto exports = bin::exports(binary, funcs, globals, tables, memories);
 
   return std::make_tuple(std::move(imports), std::move(exports));
 }

@@ -92,6 +92,36 @@ static inline own wasm_name_t wasm_name_new_from_string(const char* s) {
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Runtime Environment
+
+// Configuration
+
+typedef struct wasm_config_t wasm_config_t;
+
+own wasm_config_t* wasm_config_new();
+void wasm_config_delete(own wasm_config_t*);
+
+// Embedders may provide custom functions for manipulating configs.
+
+
+// Engine
+
+typedef struct wasm_engine_t wasm_engine_t;
+
+void wasm_engine_new(int argc, const char* const argv[]);
+void wasm_engine_new_with_config(int argc, const char* const argv[], own wasm_config_t*);
+void wasm_engine_delete();
+
+
+// Store
+
+typedef struct wasm_store_t wasm_store_t;
+
+own wasm_store_t* wasm_store_new(wasm_engine_t*);
+void wasm_store_delete(own wasm_store_t*);
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Type Representations
 
 // Generic
@@ -236,36 +266,6 @@ own wasm_exporttype_t* wasm_exporttype_new(own wasm_name_t, own wasm_externtype_
 
 wasm_name_t wasm_exporttype_name(wasm_exporttype_t*);
 wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t*);
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Runtime Environment
-
-// Configuration
-
-typedef struct wasm_config_t wasm_config_t;
-
-own wasm_config_t* wasm_config_new();
-void wasm_config_delete(own wasm_config_t*);
-
-// Embedders may provide custom functions for manipulating configs.
-
-
-// Engine
-
-typedef struct wasm_engine_t wasm_engine_t;
-
-void wasm_engine_new(int argc, const char* const argv[]);
-void wasm_engine_new_with_config(int argc, const char* const argv[], own wasm_config_t*);
-void wasm_engine_delete();
-
-
-// Store
-
-typedef struct wasm_store_t wasm_store_t;
-
-own wasm_store_t* wasm_store_new(wasm_engine_t*);
-void wasm_store_delete(own wasm_store_t*);
 
 
 ///////////////////////////////////////////////////////////////////////////////
