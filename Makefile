@@ -8,15 +8,6 @@ EXAMPLE_DIR = example
 EXAMPLE_NAME = hello
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLE_WAT = hello
-EXAMPLE_LANG = cc
-
-ifeq (${EXAMPLE_LANG},c)
-  EXAMPLE_CLANG = clang ${CFLAGS}
-endif
-ifeq (${EXAMPLE_LANG},cc)
-  EXAMPLE_CLANG = clang++ -std=c++14 ${CXXFLAGS}
-endif
-
 
 V8_VERSION = master  # or e.g. branch-heads/6.3
 V8_ARCH = x64
@@ -45,14 +36,20 @@ V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
 # Example
 
-.PHONY: example
-example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
-	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
+.PHONY: examples
+examples: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-cc ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
+	cd ${EXAMPLE_OUT} \
+	echo ==== C++ ====; \
+	./${EXAMPLE_NAME}-cc \
+	echo ==== Done ====
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.${EXAMPLE_LANG} ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
-	${EXAMPLE_CLANG} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.c.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
+	clang -c ${CFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.cc.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.cc ${WASM_INCLUDE}/wasm.hh ${EXAMPLE_OUT}
+	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+
+${EXAMPLE_OUT}/${EXAMPLE_NAME}-%: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.%.o ${WASM_O}
 	clang++ ${CXXFLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
