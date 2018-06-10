@@ -50,8 +50,8 @@ own wasm_val_vec_t print_wasm(wasm_val_vec_t args) {
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_init(argc, argv);
-  wasm_store_t* store = wasm_store_new();
+  wasm_engine_t* engine = wasm_engine_new(argc, argv);
+  wasm_store_t* store = wasm_store_new(engine);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -126,7 +126,7 @@ int main(int argc, const char* argv[]) {
   // Shut down.
   printf("Shutting down...\n");
   wasm_store_delete(store);
-  wasm_deinit();
+  wasm_engine_delete(engine);
 
   // All done.
   printf("Done.\n");

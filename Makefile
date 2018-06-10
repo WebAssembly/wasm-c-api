@@ -36,8 +36,17 @@ V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
 # Example
 
-.PHONY: examples
-examples: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-cc ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
+.PHONY: examples c cc
+examples: c cc
+	echo ==== Done ====
+
+c: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-c ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
+	cd ${EXAMPLE_OUT} \
+	echo ==== C ====; \
+	./${EXAMPLE_NAME}-c \
+	echo ==== Done ====
+
+cc: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-cc ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
 	cd ${EXAMPLE_OUT} \
 	echo ==== C++ ====; \
 	./${EXAMPLE_NAME}-cc \

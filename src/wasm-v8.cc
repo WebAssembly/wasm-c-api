@@ -676,6 +676,55 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Values
 
+// Values
+
+auto val::clone() const -> val {
+  auto v = *this;
+  if (is_ref(kind_) && v.ref_ != nullptr) v.ref_ = v.ref_->clone().release();
+  return v;
+}
+
+
+auto val_to_v8(store_impl* store, val v) -> v8::Local<v8::Value> {
+  auto isolate = store->isolate();
+  switch (v.kind()) {
+    case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
+    case I64: UNIMPLEMENTED("i64 value");
+    case F32: return v8::Number::New(isolate, v.f32());
+    case F64: return v8::Number::New(isolate, v.f64());
+    case ANYREF:
+    case FUNCREF: {
+      if (v.ref() == nullptr) {
+        return v8::Null(isolate);
+      } else {
+        UNIMPLEMENTED("ref value");
+      }
+    }
+    default: assert(false);
+  }
+}
+
+auto v8_to_val(store_impl* store, v8::Local<v8::Value> value, const own<valtype*>& t) -> own<val> {
+  auto context = store->context();
+  switch (t->kind()) {
+    case I32: return val(value->Int32Value(context).ToChecked());
+    case I64: UNIMPLEMENTED("i64 value");
+    case F32: {
+      return val(static_cast<float32_t>(value->NumberValue(context).ToChecked()));
+    }
+    case F64: return val(value->NumberValue(context).ToChecked());
+    case ANYREF:
+    case FUNCREF: {
+      if (value->IsNull()) {
+        return val(nullptr);
+      } else {
+        UNIMPLEMENTED("ref value");
+      }
+    }
+  }
+}
+
+
 // References
 
 // - each API wrapper has C side reference count
@@ -775,55 +824,6 @@ void ref::operator delete(void *p) {
 
 auto ref::clone() const -> own<ref*> {
   return impl(this)->clone();
-}
-
-
-// Values
-
-auto val::clone() const -> val {
-  auto v = *this;
-  if (is_ref(kind_) && v.ref_ != nullptr) v.ref_ = v.ref_->clone().release();
-  return v;
-}
-
-
-auto val_to_v8(store_impl* store, val v) -> v8::Local<v8::Value> {
-  auto isolate = store->isolate();
-  switch (v.kind()) {
-    case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
-    case I64: UNIMPLEMENTED("i64 value");
-    case F32: return v8::Number::New(isolate, v.f32());
-    case F64: return v8::Number::New(isolate, v.f64());
-    case ANYREF:
-    case FUNCREF: {
-      if (v.ref() == nullptr) {
-        return v8::Null(isolate);
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    }
-    default: assert(false);
-  }
-}
-
-auto v8_to_val(store_impl* store, v8::Local<v8::Value> value, const own<valtype*>& t) -> own<val> {
-  auto context = store->context();
-  switch (t->kind()) {
-    case I32: return val(value->Int32Value(context).ToChecked());
-    case I64: UNIMPLEMENTED("i64 value");
-    case F32: {
-      return val(static_cast<float32_t>(value->NumberValue(context).ToChecked()));
-    }
-    case F64: return val(value->NumberValue(context).ToChecked());
-    case ANYREF:
-    case FUNCREF: {
-      if (value->IsNull()) {
-        return val(nullptr);
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    }
-  }
 }
 
 

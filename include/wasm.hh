@@ -110,6 +110,9 @@ class vec {
     if (!data_) size_ = 0;
   }
 
+  // Unsafe
+  vec(size_t size, T data[]) : size_(size), data_(data) {}
+
 public:
   vec() : size_(0) {}
 
@@ -180,6 +183,11 @@ public:
   static auto make(Ts&&... args) -> vec<T> {
     own<T> data[] = { make_own(args)... };
     return make(sizeof...(Ts), data);
+  }
+
+  // Unsafe
+  static auto adopt(size_t size, T data[]) -> vec<T> {
+    return vec(size, data);
   }
 };
 
