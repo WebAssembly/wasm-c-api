@@ -212,22 +212,11 @@ auto imports(vec<byte_t>& binary, vec<wasm::functype*>& types)
     auto name = bin::name(pos);
     own<externtype*> type;
     switch (*pos++) {
-      case 0x00: {
-        auto index = bin::u32(pos);
-        type = externtype::make(types[index]->clone());
-      } break;
-      case 0x01: {
-        type = externtype::make(bin::tabletype(pos));
-      } break;
-      case 0x02: {
-        type = externtype::make(bin::memtype(pos));
-      } break;
-      case 0x03: {
-        type = externtype::make(bin::globaltype(pos));
-      } break;
-      default: {
-        assert(false);
-      }
+      case 0x00: type = types[bin::u32(pos)]->clone(); break;
+      case 0x01: type = bin::tabletype(pos); break;
+      case 0x02: type = bin::memtype(pos); break;
+      case 0x03: type = bin::globaltype(pos); break;
+      default: assert(false);
     }
     v[i] = importtype::make(std::move(module), std::move(name), std::move(type));
   }
@@ -353,21 +342,11 @@ auto exports(vec<byte_t>& binary,
       auto index = bin::u32(pos);
       own<externtype*> type;
       switch (tag) {
-        case 0x00: {
-          type = externtype::make(funcs[index]->clone());
-        } break;
-        case 0x01: {
-          type = externtype::make(tables[index]->clone());
-        } break;
-        case 0x02: {
-          type = externtype::make(memories[index]->clone());
-        } break;
-        case 0x03: {
-          type = externtype::make(globals[index]->clone());
-        } break;
-        default: {
-          assert(false);
-        }
+        case 0x00: type = funcs[index]->clone(); break;
+        case 0x01: type = tables[index]->clone(); break;
+        case 0x02: type = memories[index]->clone(); break;
+        case 0x03: type = globals[index]->clone(); break;
+        default: assert(false);
       }
       exports[i] = exporttype::make(std::move(name), std::move(type));
     }

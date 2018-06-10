@@ -264,15 +264,41 @@ public:
 };
 
 
+// External Types
+
+enum externkind {
+  EXTERN_FUNC, EXTERN_GLOBAL, EXTERN_TABLE, EXTERN_MEMORY
+};
+
+class functype;
+class globaltype;
+class tabletype;
+class memtype;
+
+class externtype {
+public:
+  externtype() = delete;
+  ~externtype();
+  void operator delete(void*);
+
+  auto clone() const-> own<externtype*>;
+
+  auto kind() const -> externkind;
+  auto func() -> functype*;
+  auto global() -> globaltype*;
+  auto table() -> tabletype*;
+  auto memory() -> memtype*;
+};
+
+
 // Function Types
 
 enum class arrow { ARROW };
 
-class functype {
+class functype : public externtype {
 public:
   functype() = delete;
   ~functype();
-  void operator delete(void*);
 
   static auto make(
     vec<valtype*>&& params = vec<valtype*>::make(),
@@ -288,11 +314,10 @@ public:
 
 // Global Types
 
-class globaltype {
+class globaltype : public externtype {
 public:
   globaltype() = delete;
   ~globaltype();
-  void operator delete(void*);
 
   static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
   auto clone() const -> own<globaltype*>;
@@ -304,11 +329,10 @@ public:
 
 // Table Types
 
-class tabletype {
+class tabletype : public externtype {
 public:
   tabletype() = delete;
   ~tabletype();
-  void operator delete(void*);
 
   static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
   auto clone() const -> own<tabletype*>;
@@ -320,43 +344,15 @@ public:
 
 // Memory Types
 
-class memtype {
+class memtype : public externtype {
 public:
   memtype() = delete;
   ~memtype();
-  void operator delete(void*);
 
   static auto make(limits) -> own<memtype*>;
   auto clone() const -> own<memtype*>;
 
   auto limits() const -> limits;
-};
-
-
-// External Types
-
-enum externkind {
-  EXTERN_FUNC, EXTERN_GLOBAL, EXTERN_TABLE, EXTERN_MEMORY
-};
-
-class externtype {
-public:
-  externtype() = delete;
-  ~externtype();
-  void operator delete(void*);
-
-  static auto make(own<functype*>&&) -> own<externtype*>;
-  static auto make(own<globaltype*>&&) -> own<externtype*>;
-  static auto make(own<tabletype*>&&) -> own<externtype*>;
-  static auto make(own<memtype*>&&) -> own<externtype*>;
-
-  auto clone() const-> own<externtype*>;
-
-  auto kind() const -> externkind;
-  auto func() -> functype*;
-  auto global() -> globaltype*;
-  auto table() -> tabletype*;
-  auto memory() -> memtype*;
 };
 
 
@@ -452,7 +448,6 @@ class module : public ref {
 public:
   module() = delete;
   ~module();
-  void operator delete(void*);
 
   static auto validate(own<store*>&, size_t, const byte_t[]) -> bool;
   static auto make(own<store*>&, size_t, const byte_t[]) -> own<module*>;
@@ -479,7 +474,6 @@ class hostobj : public ref {
 public:
   hostobj() = delete;
   ~hostobj();
-  void operator delete(void*);
 
   static auto make(own<store*>&) -> own<hostobj*>;
   auto clone() const -> own<hostobj*>;
@@ -497,7 +491,6 @@ class external : public ref {
 public:
   external() = delete;
   ~external();
-  void operator delete(void*);
 
   auto clone() const -> own<external*>;
 
@@ -515,7 +508,6 @@ class func : public external {
 public:
   func() = delete;
   ~func();
-  void operator delete(void*);
 
   using callback = auto (*)(vec<val>&) -> vec<val>;
   using callback_with_env = auto (*)(void*, vec<val>&) -> vec<val>;
@@ -540,7 +532,6 @@ class global : public external {
 public:
   global() = delete;
   ~global();
-  void operator delete(void*);
 
   static auto make(own<store*>&, own<globaltype*>&, val) -> own<global*>;
   auto clone() const -> own<global*>;
@@ -557,7 +548,6 @@ class table : public external {
 public:
   table() = delete;
   ~table();
-  void operator delete(void*);
 
   using size_t = uint32_t;
 
@@ -578,7 +568,6 @@ class memory : public external {
 public:
   memory() = delete;
   ~memory();
-  void operator delete(void*);
 
   static auto make(own<store*>&, own<memtype*>&) -> own<memory*>;
   auto clone() const -> own<memory*>;
@@ -601,7 +590,6 @@ class instance : public ref {
 public:
   instance() = delete;
   ~instance();
-  void operator delete(void*);
 
   static auto make(own<store*>&, own<module*>&, vec<external*>&) -> own<instance*>;
   auto clone() const -> own<instance*>;

@@ -286,7 +286,7 @@ auto valtype::kind() const -> valkind {
 }
 
 
-// Extern Types, implementation
+// Extern Types
 
 struct externtype_impl {
   externkind kind;
@@ -296,6 +296,29 @@ struct externtype_impl {
 };
 
 template<> struct implement<externtype> { using type = externtype_impl; };
+
+
+externtype::~externtype() {
+  impl(this)->~externtype_impl();
+}
+
+void externtype::operator delete(void *p) {
+  ::operator delete(p);
+}
+
+auto externtype::clone() const -> own<externtype*> {
+  auto self = const_cast<externtype*>(this);
+  switch (kind()) {
+    case EXTERN_FUNC: return self->func()->clone();
+    case EXTERN_GLOBAL: return self->global()->clone();
+    case EXTERN_TABLE: return self->table()->clone();
+    case EXTERN_MEMORY: return self->memory()->clone();
+  }
+}
+
+auto externtype::kind() const -> externkind {
+  return impl(this)->kind;
+}
 
 
 // Function Types
@@ -310,13 +333,8 @@ struct functype_impl : externtype_impl {
 
 template<> struct implement<functype> { using type = functype_impl; };
 
-functype::~functype() {
-  impl(this)->~functype_impl();
-}
 
-void functype::operator delete(void *p) {
-  ::operator delete(p);
-}
+functype::~functype() {}
 
 auto functype::make(vec<valtype*>&& params, vec<valtype*>&& results)
   -> own<functype*> {
@@ -340,6 +358,11 @@ auto functype::results() -> vec<valtype*>& {
 }
 
 
+auto externtype::func() -> functype* {
+  return kind() == EXTERN_FUNC ? seal<functype>(static_cast<functype_impl*>(impl(this))) : nullptr;
+}
+
+
 // Global Types
 
 struct globaltype_impl : externtype_impl {
@@ -352,13 +375,8 @@ struct globaltype_impl : externtype_impl {
 
 template<> struct implement<globaltype> { using type = globaltype_impl; };
 
-globaltype::~globaltype() {
-  impl(this)->~globaltype_impl();
-}
 
-void globaltype::operator delete(void *p) {
-  ::operator delete(p);
-}
+globaltype::~globaltype() {}
 
 auto globaltype::make(own<valtype*>&& content, wasm::mut mut) -> own<globaltype*> {
   return content
@@ -379,6 +397,11 @@ auto globaltype::mut() const -> wasm::mut {
 }
 
 
+auto externtype::global() -> globaltype* {
+  return kind() == EXTERN_GLOBAL ? seal<globaltype>(static_cast<globaltype_impl*>(impl(this))) : nullptr;
+}
+
+
 // Table Types
 
 struct tabletype_impl : externtype_impl {
@@ -391,13 +414,8 @@ struct tabletype_impl : externtype_impl {
 
 template<> struct implement<tabletype> { using type = tabletype_impl; };
 
-tabletype::~tabletype() {
-  impl(this)->~tabletype_impl();
-}
 
-void tabletype::operator delete(void *p) {
-  ::operator delete(p);
-}
+tabletype::~tabletype() {}
 
 auto tabletype::make(own<valtype*>&& elem, wasm::limits limits) -> own<tabletype*> {
   return elem
@@ -418,6 +436,11 @@ auto tabletype::limits() const -> wasm::limits {
 }
 
 
+auto externtype::table() -> tabletype* {
+  return kind() == EXTERN_TABLE ? seal<tabletype>(static_cast<tabletype_impl*>(impl(this))) : nullptr;
+}
+
+
 // Memory Types
 
 struct memtype_impl : externtype_impl {
@@ -429,13 +452,8 @@ struct memtype_impl : externtype_impl {
 
 template<> struct implement<memtype> { using type = memtype_impl; };
 
-memtype::~memtype() {
-  impl(this)->~memtype_impl();
-}
 
-void memtype::operator delete(void *p) {
-  ::operator delete(p);
-}
+memtype::~memtype() {}
 
 auto memtype::make(wasm::limits limits) -> own<memtype*> {
   return own<memtype*>(seal<memtype>(new(std::nothrow) memtype_impl(limits)));
@@ -449,58 +467,6 @@ auto memtype::limits() const -> wasm::limits {
   return impl(this)->limits;
 }
 
-
-// Extern Types, interface
-
-externtype::~externtype() {
-  impl(this)->~externtype_impl();
-}
-
-void externtype::operator delete(void *p) {
-  ::operator delete(p);
-}
-
-auto externtype::make(own<functype*>&& ft) -> own<externtype*> {
-  return make_own(seal<externtype>(impl(ft.release())));
-}
-
-auto externtype::make(own<globaltype*>&& gt) -> own<externtype*> {
-  return make_own(seal<externtype>(impl(gt.release())));
-}
-
-auto externtype::make(own<tabletype*>&& tt) -> own<externtype*> {
-  return make_own(seal<externtype>(impl(tt.release())));
-}
-
-auto externtype::make(own<memtype*>&& mt) -> own<externtype*> {
-  return make_own(seal<externtype>(impl(mt.release())));
-}
-
-auto externtype::clone() const -> own<externtype*> {
-  auto self = const_cast<externtype*>(this);
-  switch (kind()) {
-    case EXTERN_FUNC: return make(self->func()->clone());
-    case EXTERN_GLOBAL: return make(self->global()->clone());
-    case EXTERN_TABLE: return make(self->table()->clone());
-    case EXTERN_MEMORY: return make(self->memory()->clone());
-  }
-}
-
-auto externtype::kind() const -> externkind {
-  return impl(this)->kind;
-}
-
-auto externtype::func() -> functype* {
-  return kind() == EXTERN_FUNC ? seal<functype>(static_cast<functype_impl*>(impl(this))) : nullptr;
-}
-
-auto externtype::global() -> globaltype* {
-  return kind() == EXTERN_GLOBAL ? seal<globaltype>(static_cast<globaltype_impl*>(impl(this))) : nullptr;
-}
-
-auto externtype::table() -> tabletype* {
-  return kind() == EXTERN_TABLE ? seal<tabletype>(static_cast<tabletype_impl*>(impl(this))) : nullptr;
-}
 
 auto externtype::memory() -> memtype* {
   return kind() == EXTERN_MEMORY ? seal<memtype>(static_cast<memtype_impl*>(impl(this))) : nullptr;
@@ -519,6 +485,7 @@ struct importtype_impl {
 };
 
 template<> struct implement<importtype> { using type = importtype_impl; };
+
 
 importtype::~importtype() {
   impl(this)->~importtype_impl();
@@ -565,6 +532,7 @@ struct exporttype_impl {
 };
 
 template<> struct implement<exporttype> { using type = exporttype_impl; };
+
 
 exporttype::~exporttype() {
   impl(this)->~exporttype_impl();
@@ -796,6 +764,7 @@ private:
 
 template<> struct implement<ref> { using type = ref_impl<ref, ref_data>; };
 
+
 ref::~ref() {
   impl(this)->~ref_impl();
 }
@@ -877,10 +846,6 @@ template<> struct implement<module> { using type = module_impl; };
 
 
 module::~module() {}
-
-void module::operator delete(void *p) {
-  ::operator delete(p);
-}
 
 auto module::clone() const -> own<module*> {
   return impl(this)->clone();
@@ -1014,10 +979,6 @@ template<> struct implement<hostobj> { using type = hostobj_impl; };
 
 hostobj::~hostobj() {}
 
-void hostobj::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto hostobj::clone() const -> own<hostobj*> {
   return impl(this)->clone();
 }
@@ -1047,10 +1008,6 @@ template<> struct implement<external> { using type = external_impl; };
 
 
 external::~external() {}
-
-void external::operator delete(void *p) {
-  ::operator delete(p);
-}
 
 auto external::clone() const -> own<external*> {
   return impl(this)->clone();
@@ -1102,10 +1059,6 @@ template<> struct implement<func> { using type = func_impl; };
 
 
 func::~func() {}
-
-void func::operator delete(void *p) {
-  ::operator delete(p);
-}
 
 auto func::clone() const -> own<func*> {
   return impl(this)->clone();
@@ -1229,10 +1182,6 @@ template<> struct implement<global> { using type = global_impl; };
 
 global::~global() {}
 
-void global::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto global::clone() const -> own<global*> {
   return impl(this)->clone();
 }
@@ -1324,10 +1273,6 @@ template<> struct implement<table> { using type = table_impl; };
 
 table::~table() {}
 
-void table::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto table::clone() const -> own<table*> {
   return impl(this)->clone();
 }
@@ -1388,10 +1333,6 @@ template<> struct implement<memory> { using type = memory_impl; };
 
 memory::~memory() {}
 
-void memory::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto memory::clone() const -> own<memory*> {
   return impl(this)->clone();
 }
@@ -1450,10 +1391,6 @@ template<> struct implement<instance> { using type = instance_impl; };
 
 
 instance::~instance() {}
-
-void instance::operator delete(void *p) {
-  ::operator delete(p);
-}
 
 auto instance::clone() const -> own<instance*> {
   return impl(this)->clone();
