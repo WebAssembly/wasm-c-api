@@ -36,6 +36,11 @@ auto seal(typename implement <C>::type* x) -> C* {
 }
 
 
+// Vectors
+
+vec_impl<void*>* empty_vec_impl = new(0) vec_impl<void*>(0);
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
@@ -269,12 +274,30 @@ auto store::make(own<engine*>&) -> own<store*> {
 
 // Value Types
 
+struct valtype_impl {
+  valkind kind;
+
+  valtype_impl(valkind kind) : kind(kind) {}
+};
+
+template<> struct implement<valtype> { using type = valtype_impl; };
+
+valtype_impl* valtypes[] = {
+  new valtype_impl(I32),
+  new valtype_impl(I64),
+  new valtype_impl(F32),
+  new valtype_impl(F64),
+  new valtype_impl(ANYREF),
+  new valtype_impl(FUNCREF),
+};
+
+
 valtype::~valtype() {}
 
 void valtype::operator delete(void*) {}
 
 auto valtype::make(valkind k) -> own<valtype*> {
-  return own<valtype*>(reinterpret_cast<valtype*>(static_cast<intptr_t>(k)));
+  return own<valtype*>(seal<valtype>(valtypes[k]));
 }
 
 auto valtype::clone() const -> own<valtype*> {
@@ -282,7 +305,7 @@ auto valtype::clone() const -> own<valtype*> {
 }
 
 auto valtype::kind() const -> valkind {
-  return static_cast<valkind>(reinterpret_cast<intptr_t>(this));
+  return impl(this)->kind;
 }
 
 

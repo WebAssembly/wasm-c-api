@@ -102,80 +102,87 @@ struct vec_traits<T*> {
 
 
 template<class T>
-class vec {
-  size_t size_;
-  std::unique_ptr<T[]> data_;
+struct vec_impl {
+  size_t size;
+  T data[0];
 
-  vec(size_t size) : size_(size), data_(new(std::nothrow) T[size]) {
-    if (!data_) size_ = 0;
+  vec_impl(size_t size) : size(size) {}
+
+  void* operator new(size_t base_size, size_t count) {
+    return ::new(std::nothrow) byte_t[base_size + sizeof(T[count])];
   }
+  void operator delete(void* p) {
+    ::delete[] static_cast<byte_t*>(p);
+  }
+};
 
-  // Unsafe
-  vec(size_t size, T data[]) : size_(size), data_(data) {}
+
+template<class T>
+class vec {
+  std::unique_ptr<vec_impl<T>> impl_;
+
+  static inline auto empty() -> vec_impl<T>*;
+
+  vec(size_t size) : impl_(size ? new(size) vec_impl<T>(size) : empty()) {}
 
 public:
-  vec() : size_(0) {}
+  vec() {}
 
   template<class U>
-  vec(vec<U>&& that) : size_(that.size_), data_(that.data_.release()) {
-    that.size_ = 0;
-  }
+  vec(vec<U>&& that) : impl_(that.impl_.release()) {}
 
   ~vec() {
-    vec_traits<T>::destruct(size_, data_.get());
+    if (impl_) {
+      if (impl_.get() == empty()) {
+        impl_.release();
+      } else {
+        vec_traits<T>::destruct(impl_->size, impl_->data);
+      }
+    }
   }
 
   template<class U>
   auto operator=(vec<U>&& that) -> vec& {
-    reset();
-    size_ = that.size_;
-    that.size_ = 0;
-    data_.reset(that.data_.release());
+    impl_.reset(that.impl_.release());
     return *this;
   }
 
   auto size() const -> size_t {
-    return size_;
+    return impl_->size;
   }
 
   auto get() -> T* {
-    return data_.get();
+    return impl_->data;
   }
 
-  auto release() -> T* {
-    size_ = 0;
-    return data_.release();
-  }
-
-  void reset() {
-    vec_traits<T>::destruct(size_, data_.get());
-    size_ = 0;
-    data_.reset();
+  template<class U>
+  void reset(vec<U>& that) {
+    impl_.reset(that.impl_.release());
   }
 
   operator bool() const {
-    return bool(data_);
+    return bool(impl_);
   }
 
   auto operator[](size_t i) const -> typename vec_traits<T>::proxy {
-    return typename vec_traits<T>::proxy(data_[i]);
+    return typename vec_traits<T>::proxy(impl_->data[i]);
   }
 
   auto clone() -> vec<T> {
-    auto v = vec<T>(size_);
-    vec_traits<T>::clone(v.size_, v.data_.get(), data_.get());
+    auto v = vec(impl_->size);
+    if (v) vec_traits<T>::clone(impl_->size, v.impl_->data, impl_->data);
     return v;
   }
 
   static auto make_uninitialized(size_t size = 0) -> vec<T> {
-    auto v = vec<T>(size);
-    vec_traits<T>::construct(v.size_, v.data_.get());
+    auto v = vec(size);
+    if (v) vec_traits<T>::construct(size, v.impl_->data);
     return v;
   }
 
   static auto make(size_t size, own<T> init[]) -> vec<T> {
-    auto v = vec<T>(size);
-    vec_traits<T>::move(v.size_, v.data_.get(), init);
+    auto v = vec(size);
+    if (v) vec_traits<T>::move(size, v.impl_->data, init);
     return v;
   }
 
@@ -184,12 +191,14 @@ public:
     own<T> data[] = { make_own(args)... };
     return make(sizeof...(Ts), data);
   }
-
-  // Unsafe
-  static auto adopt(size_t size, T data[]) -> vec<T> {
-    return vec(size, data);
-  }
 };
+
+extern vec_impl<void*>* empty_vec_impl;
+
+template<class T>
+inline auto vec<T>::empty() -> vec_impl<T>* {
+  return reinterpret_cast<vec_impl<T>*>(empty_vec_impl);
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
