@@ -36,10 +36,10 @@ template<class T>
 using own = typename owner<T>::type;
 
 template<class T>
-auto make_own(T x) { return own<T>(x); }
+auto make_own(T x) { return own<T>(std::move(x)); }
 
 template<class T>
-auto make_own(std::unique_ptr<T>& x) { return own<T*>(std::move(x)); }
+auto make_own(own<T*>& x) { return own<T*>(std::move(x)); }
 
 
 // Vectors
@@ -49,7 +49,7 @@ struct vec_traits {
   static void construct(size_t size, T data[]) {}
   static void destruct(size_t size, T data[]) {}
   static void move(size_t size, T* data, T init[]) {
-    for (size_t i = 0; i < size; ++i) data[i] = init[i];
+    for (size_t i = 0; i < size; ++i) data[i].reset(init[i]);
   }
   static void clone(size_t size, T data[], T init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i];
@@ -96,109 +96,103 @@ struct vec_traits<T*> {
     }
     auto move() -> own<T*> { return make_own(release()); }
     auto get() -> T* { return elem_; }
+    auto get() const -> const T* { return elem_; }
     auto operator->() -> T* { return elem_; }
+    auto operator->() const -> const T* { return elem_; }
   };
 };
 
 
 template<class T>
-struct vec_impl {
-  size_t size;
-  T data[0];
-
-  vec_impl(size_t size) : size(size) {}
-
-  void* operator new(size_t base_size, size_t count) {
-    return ::new(std::nothrow) byte_t[base_size + sizeof(T[count])];
-  }
-  void operator delete(void* p) {
-    ::delete[] static_cast<byte_t*>(p);
-  }
-};
-
-
-template<class T>
 class vec {
-  std::unique_ptr<vec_impl<T>> impl_;
+  static const size_t invalid_size = SIZE_MAX;
 
-  static inline auto empty() -> vec_impl<T>*;
+  size_t size_;
+  std::unique_ptr<T[]> data_;
 
-  vec(size_t size) : impl_(size ? new(size) vec_impl<T>(size) : empty()) {}
+  vec(size_t size) : vec(size, size ? new(std::nothrow) T[size] : nullptr) {}
+  vec(size_t size, T* data) : size_(size), data_(data) {
+    assert(!!size_ == !!data_ || size_ == invalid_size);
+  }
 
 public:
-  vec() {}
-
   template<class U>
-  vec(vec<U>&& that) : impl_(that.impl_.release()) {}
+  vec(vec<U>&& that) : vec(that.size_, that.data_.release()) {}
 
   ~vec() {
-    if (impl_) {
-      if (impl_.get() == empty()) {
-        impl_.release();
-      } else {
-        vec_traits<T>::destruct(impl_->size, impl_->data);
-      }
-    }
-  }
-
-  template<class U>
-  auto operator=(vec<U>&& that) -> vec& {
-    impl_.reset(that.impl_.release());
-    return *this;
-  }
-
-  auto size() const -> size_t {
-    return impl_->size;
-  }
-
-  auto get() -> T* {
-    return impl_->data;
-  }
-
-  template<class U>
-  void reset(vec<U>& that) {
-    impl_.reset(that.impl_.release());
+    if (data_) vec_traits<T>::destruct(size_, data_.get());
   }
 
   operator bool() const {
-    return bool(impl_);
+    return bool(size_ != invalid_size);
   }
 
-  auto operator[](size_t i) const -> typename vec_traits<T>::proxy {
-    return typename vec_traits<T>::proxy(impl_->data[i]);
+  auto size() const -> size_t {
+    return size_;
   }
 
-  auto clone() -> vec<T> {
-    auto v = vec(impl_->size);
-    if (v) vec_traits<T>::clone(impl_->size, v.impl_->data, impl_->data);
+  auto get() const -> const T* {
+    return data_.get();
+  }
+
+  auto get() -> T* {
+    return data_.get();
+  }
+
+  auto release() -> T* {
+    return data_.release();
+  }
+
+  void reset(vec& that = vec()) {
+    size_ = that.size_;
+    data_.reset(that.data_.release());
+  }
+
+  auto operator=(vec&& that) -> vec& {
+    reset(that);
+    return *this;
+  }
+
+  auto operator[](size_t i) -> typename vec_traits<T>::proxy {
+    return typename vec_traits<T>::proxy(data_[i]);
+  }
+
+  auto operator[](size_t i) const -> const typename vec_traits<T>::proxy {
+    return typename vec_traits<T>::proxy(data_[i]);
+  }
+
+  auto clone() -> vec {
+    auto v = vec(size_);
+    if (v) vec_traits<T>::clone(size_, v.data_.get(), data_.get());
     return v;
   }
 
-  static auto make_uninitialized(size_t size = 0) -> vec<T> {
+  static auto make_uninitialized(size_t size = 0) -> vec {
     auto v = vec(size);
-    if (v) vec_traits<T>::construct(size, v.impl_->data);
+    if (v) vec_traits<T>::construct(size, v.data_.get());
     return v;
   }
 
-  static auto make(size_t size, own<T> init[]) -> vec<T> {
+  static auto make(size_t size, own<T> init[]) -> vec {
     auto v = vec(size);
-    if (v) vec_traits<T>::move(size, v.impl_->data, init);
+    if (v) vec_traits<T>::move(size, v.data_.get(), init);
     return v;
   }
 
   template<class... Ts>
-  static auto make(Ts&&... args) -> vec<T> {
-    own<T> data[] = { make_own(args)... };
+  static auto make(Ts&&... args) -> vec {
+    own<T> data[] = { make_own(std::move(args))... };
     return make(sizeof...(Ts), data);
   }
+
+  static auto adopt(size_t size, T data[]) -> vec {
+    return vec(size, data);
+  }
+
+  static auto invalid() -> vec {
+    return vec(invalid_size, nullptr);
+  }
 };
-
-extern vec_impl<void*>* empty_vec_impl;
-
-template<class T>
-inline auto vec<T>::empty() -> vec_impl<T>* {
-  return reinterpret_cast<vec_impl<T>*>(empty_vec_impl);
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -430,32 +424,72 @@ public:
 
 class val {
   valkind kind_;
-  union {
-    int32_t i32_;
-    int64_t i64_;
-    float32_t f32_;
-    float64_t f64_;
-    wasm::ref* ref_;
-  };
+  union impl {
+    int32_t i32;
+    int64_t i64;
+    float32_t f32;
+    float64_t f64;
+    wasm::ref* ref;
+  } impl_;
+
+  val(valkind kind, impl impl) : kind_(kind), impl_(impl) {}
 
 public:
-  val() : kind_(ANYREF), ref_(nullptr) {}
-  val(int32_t i) : kind_(I32), i32_(i) {}
-  val(int64_t i) : kind_(I64), i64_(i) {}
-  val(float32_t z) : kind_(F32), f32_(z) {}
-  val(float64_t z) : kind_(F64), f64_(z) {}
-  val(own<wasm::ref*>&& r) : kind_(ANYREF), ref_(r.release()) {}
+  val() : kind_(ANYREF) { impl_.ref = nullptr; }
+  val(int32_t i) : kind_(I32) { impl_.i32 = i; }
+  val(int64_t i) : kind_(I64) { impl_.i64 = i; }
+  val(float32_t z) : kind_(F32) { impl_.f32 = z; }
+  val(float64_t z) : kind_(F64) { impl_.f64 = z; }
+  val(own<wasm::ref*>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
 
-  ~val() { if (is_ref(kind_) && ref_) delete ref_; }
+  val(val&& that) : kind_(that.kind_), impl_(that.impl_) {
+    if (is_ref(kind_)) that.impl_.ref = nullptr;
+  }
+
+  ~val() {
+   reset(); }
+
+  void reset() {
+    if (is_ref(kind_) && impl_.ref) {
+      delete impl_.ref;
+      impl_.ref = nullptr;
+    }
+  }
+
+  void reset(val& that) {
+    reset();
+    kind_ = that.kind_;
+    impl_ = that.impl_;
+    if (is_ref(kind_)) that.impl_.ref = nullptr;
+  }
+
+  auto operator=(val&& that) -> val& {
+    reset(that);
+    return *this;
+  } 
 
   auto kind() const -> valkind { return kind_; }
-  auto i32() const -> int32_t { return kind_ == I32 ? i32_ : 0; }
-  auto i64() const -> int64_t { return kind_ == I64 ? i64_ : 0; }
-  auto f32() const -> float32_t { return kind_ == F32 ? f32_ : 0; }
-  auto f64() const -> float64_t { return kind_ == F64 ? f64_ : 0; }
-  auto ref() const -> wasm::ref* { return is_ref(kind_) ? ref_ : nullptr; }
+  auto i32() const -> int32_t { assert(kind_ == I32); return impl_.i32; }
+  auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
+  auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
+  auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
+  auto ref() const -> wasm::ref* { assert(is_ref(kind_) || 1); return impl_.ref; }
 
-  auto clone() const -> val;
+  auto clone() const -> val {
+    if (is_ref(kind_) && impl_.ref != nullptr) {
+      impl impl = {.ref = impl_.ref->clone().release()};
+      return val(kind_, impl);
+    } else {
+      return val(kind_, impl_);
+    }
+  }
+
+  auto release_ref() -> own<wasm::ref*> {
+    if (!is_ref(kind_)) return own<wasm::ref*>();
+    auto ref = impl_.ref;
+    ref = nullptr;
+    return own<wasm::ref*>(ref);
+  }
 };
 
 
@@ -526,19 +560,19 @@ public:
   func() = delete;
   ~func();
 
-  using callback = auto (*)(vec<val>&) -> vec<val>;
-  using callback_with_env = auto (*)(void*, vec<val>&) -> vec<val>;
+  using callback = auto (*)(const vec<val>&) -> vec<val>;
+  using callback_with_env = auto (*)(void*, const vec<val>&) -> vec<val>;
 
   static auto make(own<store*>&, own<functype*>&, callback) -> own<func*>;
-  static auto make(own<store*>&, own<functype*>&, callback_with_env, void*) -> own<func*>;
+  static auto make(own<store*>&, own<functype*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<func*>;
   auto clone() const -> own<func*>;
 
   auto type() const -> own<functype*>;
-  auto call(vec<val>) const -> vec<val>;
+  auto call(const vec<val>&) const -> vec<val>;
 
   template<class... Args>
-  auto call(Args... vals) const -> vec<val> {
-    return call(vec<val>::make(vals...));
+  auto call(const Args&... vals) const -> vec<val> {
+    return call(vec<val>::make(vals.clone()...));
   }
 };
 
@@ -550,12 +584,12 @@ public:
   global() = delete;
   ~global();
 
-  static auto make(own<store*>&, own<globaltype*>&, val) -> own<global*>;
+  static auto make(own<store*>&, own<globaltype*>&, val&) -> own<global*>;
   auto clone() const -> own<global*>;
 
   auto type() const -> own<globaltype*>;
   auto get() const -> val;
-  void set(val);
+  void set(val&);
 };
 
 
@@ -568,7 +602,7 @@ public:
 
   using size_t = uint32_t;
 
-  static auto make(own<store*>&, own<tabletype*>&, ref*) -> own<table*>;
+  static auto make(own<store*>&, own<tabletype*>&, own<ref*>&) -> own<table*>;
   auto clone() const -> own<table*>;
 
   auto type() const -> own<tabletype*>;

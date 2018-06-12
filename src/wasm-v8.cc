@@ -36,11 +36,6 @@ auto seal(typename implement <C>::type* x) -> C* {
 }
 
 
-// Vectors
-
-vec_impl<void*>* empty_vec_impl = new(0) vec_impl<void*>(0);
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
@@ -129,7 +124,7 @@ public:
     context()->Exit();
     isolate_->Exit();
     isolate_->Dispose();
-    delete create_params_.array_buffer_allocator;
+    // delete create_params_.array_buffer_allocator;
   }
 
   v8::Isolate* isolate() const {
@@ -701,14 +696,7 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 
 // Values
 
-auto val::clone() const -> val {
-  auto v = *this;
-  if (is_ref(kind_) && v.ref_ != nullptr) v.ref_ = v.ref_->clone().release();
-  return v;
-}
-
-
-auto val_to_v8(store_impl* store, val v) -> v8::Local<v8::Value> {
+auto val_to_v8(store_impl* store, val& v) -> v8::Local<v8::Value> {
   auto isolate = store->isolate();
   switch (v.kind()) {
     case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
@@ -795,9 +783,8 @@ public:
 
   virtual ~ref_data() {}
 
-  auto store() const -> store_impl* { return store_; }
-  auto v8_object() const -> v8::Local<v8::Object> {
-    return obj_.Get(store_->isolate());
+  auto store() const -> store_impl* {
+    return store_;
   }
 };
 
@@ -822,10 +809,15 @@ struct ref_impl {
     return data->store_;
   }
 
-  auto get_host_info() -> void* const {
+  auto v8_object() const -> v8::Local<v8::Object> {
+    return data->obj_.Get(data->store_->isolate());
+  }
+
+  auto get_host_info() const -> void* {
     return data->host_info_;
   }
-  void set_host_info(void* info, void (*finalizer)(void*) = nullptr) {
+
+  void set_host_info(void* info, void (*finalizer)(void*)) {
     data->host_info_ = info;
     data->host_finalizer_ = finalizer;
   }
@@ -847,6 +839,14 @@ void ref::operator delete(void *p) {
 
 auto ref::clone() const -> own<ref*> {
   return impl(this)->clone();
+}
+
+auto ref::get_host_info() const -> void* {
+  return impl(this)->get_host_info();
+}
+
+void ref::set_host_info(void* info, void (*finalizer)(void*)) {
+  impl(this)->set_host_info(info, finalizer);
 }
 
 
@@ -1057,7 +1057,7 @@ auto external::memory() -> wasm::memory* {
 }
 
 auto extern_to_v8(const own<external*>& ex) -> v8::Local<v8::Object> {
-  return impl(ex.get())->data->v8_object();
+  return impl(ex.get())->v8_object();
 }
 
 
@@ -1065,13 +1065,19 @@ auto extern_to_v8(const own<external*>& ex) -> v8::Local<v8::Object> {
 
 struct func_data : external_data {
   own<functype*> type;
-  func::callback callback;
+  enum { CALLBACK, CALLBACK_WITH_ENV } kind;
+  union {
+    func::callback callback;
+    func::callback_with_env callback_with_env;
+  };
+  void* env;
+  void (*finalizer)(void*);
 
-  func_data(store_impl* store, v8::Local<v8::Function> obj, own<functype*>& type, func::callback callback = nullptr) :
-    external_data(store, obj, EXTERN_FUNC), type(std::move(type)), callback(callback) {}
+  func_data(store_impl* store, v8::Local<v8::Function> obj, own<functype*>& type) :
+    external_data(store, obj, EXTERN_FUNC), type(std::move(type)) {}
 
-  v8::Local<v8::Function> v8_function() const {
-    return v8::Local<v8::Function>::Cast(v8_object());
+  ~func_data() {
+    if (kind == CALLBACK_WITH_ENV && finalizer) finalizer(env);
   }
 
   static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
@@ -1087,7 +1093,8 @@ auto func::clone() const -> own<func*> {
   return impl(this)->clone();
 }
 
-auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback callback) -> own<func*> {
+namespace {
+auto make_func(own<store*>& store_abs, own<functype*>& type) -> own<func*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1106,20 +1113,38 @@ auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback cal
 
   auto type_clone = type->clone();
   if (!type_clone) return own<func*>();
-  auto data = make_own(new(std::nothrow) func_data(store, func_obj, type_clone, callback));
+  auto data = make_own(new(std::nothrow) func_data(store, func_obj, type_clone));
   if (data) v8_data->SetAlignedPointerInInternalField(0, data.get());
   return func_impl::make(data);
 }
+}
 
-auto func::make(own<store*>& store_abs, own<functype*>& type, callback_with_env callback, void* env) -> own<func*> {
-  UNIMPLEMENTED("func::callback_with_env");
+auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback callback) -> own<func*> {
+  auto func = make_func(store_abs, type);
+  auto data = impl(func.get())->data;
+  data->kind = func_data::CALLBACK;
+  data->callback = callback;
+  return func;
+}
+
+auto func::make(
+  own<store*>& store_abs, own<functype*>& type,
+  callback_with_env callback, void* env, void (*finalizer)(void*)
+) -> own<func*> {
+  auto func = make_func(store_abs, type);
+  auto data = impl(func.get())->data;
+  data->kind = func_data::CALLBACK_WITH_ENV;
+  data->callback_with_env = callback;
+  data->env = env;
+  data->finalizer = finalizer;
+  return func;
 }
 
 auto func::type() const -> own<functype*> {
   return impl(this)->data->type->clone();
 }
 
-auto func::call(vec<val> args) const -> vec<val> {
+auto func::call(const vec<val>& args) const -> vec<val> {
   auto func = impl(this);
   auto store = func->store();
   auto isolate = store->isolate();
@@ -1138,14 +1163,15 @@ auto func::call(vec<val> args) const -> vec<val> {
     v8_args[i] = val_to_v8(store, args[i]);
   }
 
+  auto v8_function = v8::Local<v8::Function>::Cast(func->v8_object());
   auto maybe_result =
-    func->data->v8_function()->Call(context, v8::Undefined(isolate), args.size(), v8_args.get());
-  if (maybe_result.IsEmpty()) return vec<val>();
+    v8_function->Call(context, v8::Undefined(isolate), args.size(), v8_args.get());
+  if (maybe_result.IsEmpty()) return vec<val>::invalid();
   auto result = maybe_result.ToLocalChecked();
 
   if (type_results.size() == 0) {
     assert(result->IsUndefined());
-    return vec<val>();
+    return vec<val>::make();
   } else if (type_results.size() == 1) {
     assert(!result->IsUndefined());
     return vec<val>::make(v8_to_val(store, result, type_results[0].move()));
@@ -1169,12 +1195,17 @@ void func_data::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
 
   assert(type_params.size() == info.Length());
 
-  vec<val> args = vec<val>::make_uninitialized(type_params.size());
+  auto args = vec<val>::make_uninitialized(type_params.size());
   for (size_t i = 0; i < type_params.size(); ++i) {
     args[i] = v8_to_val(store, info[i], type_params[i].move());
   }
 
-  vec<val> results = self->callback(args);
+  auto results = vec<val>::invalid();
+  if (self->kind == CALLBACK_WITH_ENV) {
+    results = self->callback_with_env(self->env, args);
+  } else {
+    results = self->callback(args);
+  }
 
   assert(type_results.size() == results.size());
 
@@ -1209,7 +1240,7 @@ auto global::clone() const -> own<global*> {
   return impl(this)->clone();
 }
 
-auto global::make(own<store*>& store_abs, own<globaltype*>& type, val val) -> own<global*> {
+auto global::make(own<store*>& store_abs, own<globaltype*>& type, val& val) -> own<global*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1254,14 +1285,14 @@ auto global::get() const -> own<val> {
   }
 
   auto maybe_val =
-    store->v8_function(V8_F_GLOBAL_GET)->Call(context, global->data->v8_object(), 0, nullptr);
+    store->v8_function(V8_F_GLOBAL_GET)->Call(context, global->v8_object(), 0, nullptr);
   if (maybe_val.IsEmpty()) return val();
   auto val = maybe_val.ToLocalChecked();
 
   return v8_to_val(store, val, this->type()->content());
 }
 
-void global::set(val val) {
+void global::set(val& val) {
   auto global = impl(this);
   auto store = global->store();
   auto isolate = store->isolate();
@@ -1277,7 +1308,7 @@ void global::set(val val) {
 
   v8::Local<v8::Value> args[] = { val_to_v8(store, val) };
   void(store->v8_function(V8_F_GLOBAL_SET)->Call(
-    context, global->data->v8_object(), 1, args));
+    context, global->v8_object(), 1, args));
 }
 
 
@@ -1300,16 +1331,19 @@ auto table::clone() const -> own<table*> {
   return impl(this)->clone();
 }
 
-auto table::make(own<store*>& store_abs, own<tabletype*>& type, ref* ref) -> own<table*> {
+auto table::make(own<store*>& store_abs, own<tabletype*>& type, own<ref*>& ref) -> own<table*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
   // TODO(wasm+): handle reference initialiser
-  v8::Local<v8::Value> args[] = { tabletype_to_v8(store, type) };
+  v8::Local<v8::Value> args[] = {
+    tabletype_to_v8(store, type),
+    impl(ref.get())->v8_object()
+  };
   auto maybe_obj =
-    store->v8_function(V8_F_TABLE)->NewInstance(context, 1, args);
+    store->v8_function(V8_F_TABLE)->NewInstance(context, 2, args);
   if (maybe_obj.IsEmpty()) return own<table*>();
   auto obj = maybe_obj.ToLocalChecked();
 
@@ -1426,7 +1460,7 @@ auto instance::make(own<store*>& store_abs, own<module*>& module_abs, vec<extern
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Value> imports_args[] = { module->data->v8_object() };
+  v8::Local<v8::Value> imports_args[] = { module->v8_object() };
   auto imports_result = store->v8_function(V8_F_IMPORTS)->Call(
     context, v8::Undefined(isolate), 1, imports_args);
   if (imports_result.IsEmpty()) return own<instance*>();
@@ -1453,7 +1487,7 @@ auto instance::make(own<store*>& store_abs, own<module*>& module_abs, vec<extern
     void(module_obj->DefineOwnProperty(context, name_str, extern_to_v8(imports[i].move())));
   }
 
-  v8::Local<v8::Value> instantiate_args[] = {module->data->v8_object(), imports_obj};
+  v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};
   auto instance_obj =
     store->v8_function(V8_F_INSTANCE)->NewInstance(context, 2, instantiate_args).ToLocalChecked();
   auto exports_obj = v8::Local<v8::Object>::Cast(

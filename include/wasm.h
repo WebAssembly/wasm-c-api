@@ -233,12 +233,13 @@ wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t*);
 wasm_externtype_t* wasm_globaltype_as_externtype(wasm_globaltype_t*);
 wasm_externtype_t* wasm_tabletype_as_externtype(wasm_tabletype_t*);
 wasm_externtype_t* wasm_memtype_as_externtype(wasm_memtype_t*);
+
+wasm_externkind_t wasm_externtype_kind(wasm_externtype_t*);
+
 wasm_functype_t* wasm_externtype_as_functype(wasm_externtype_t*);
 wasm_globaltype_t* wasm_externtype_as_globaltype(wasm_externtype_t*);
 wasm_tabletype_t* wasm_externtype_as_tabletype(wasm_externtype_t*);
 wasm_memtype_t* wasm_externtype_as_memtype(wasm_externtype_t*);
-
-wasm_externkind_t wasm_externtype_kind(wasm_externtype_t*);
 
 
 // Import Types
@@ -272,8 +273,8 @@ struct wasm_ref_t;
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
   union {
-    uint32_t i32;
-    uint64_t i64;
+    int32_t i32;
+    int64_t i64;
     float32_t f32;
     float64_t f64;
     struct wasm_ref_t* ref;
@@ -336,7 +337,7 @@ typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
 typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
 
 own wasm_func_t* wasm_func_new(wasm_store_t*, wasm_functype_t*, wasm_func_callback_t);
-own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_with_env_t, own wasm_ref_t* env);
+own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_with_env_t, wasm_ref_t* env, void (*finalizer)(void*));
 
 own wasm_functype_t* wasm_func_type(wasm_func_t*);
 
@@ -393,30 +394,29 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
 
 // Externals
 
-typedef struct wasm_extern_t {
-  wasm_externkind_t kind;
-  union {
-    wasm_func_t* func;
-    wasm_global_t* global;
-    wasm_table_t* table;
-    wasm_memory_t* memory;
-  };
-} wasm_extern_t;
+WASM_DECLARE_REF(external)
+WASM_DECLARE_VEC(external, *)
 
-void wasm_extern_delete(own wasm_extern_t v);
-own wasm_extern_t wasm_extern_clone(wasm_extern_t);
+wasm_external_t* wasm_func_as_external(wasm_func_t*);
+wasm_external_t* wasm_global_as_external(wasm_global_t*);
+wasm_external_t* wasm_table_as_external(wasm_table_t*);
+wasm_external_t* wasm_memory_as_external(wasm_memory_t*);
 
-WASM_DECLARE_VEC(extern, )
+wasm_externkind_t wasm_external_kind(wasm_external_t*);
+
+wasm_func_t* wasm_external_as_func(wasm_external_t*);
+wasm_global_t* wasm_external_as_global(wasm_external_t*);
+wasm_table_t* wasm_external_as_table(wasm_external_t*);
+wasm_memory_t* wasm_external_as_memory(wasm_external_t*);
 
 
 // Module Instances
 
 WASM_DECLARE_REF(instance)
 
-own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_extern_vec_t imports);
+own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_external_vec_t imports);
 
-own wasm_extern_t wasm_instance_export(wasm_instance_t*, size_t index);
-own wasm_extern_vec_t wasm_instance_exports(wasm_instance_t*);
+own wasm_external_vec_t wasm_instance_exports(wasm_instance_t*);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -563,33 +563,6 @@ static inline void* wasm_val_ptr(wasm_val_t v) {
 #elif UINTPTR_MAX == UINT64_MAX
   return (void*)(uintptr_t)v.i64;
 #endif
-}
-
-
-// Extern construction and release short-hands
-
-static inline wasm_extern_t wasm_extern_func(wasm_func_t* func) {
-  wasm_extern_t v = {WASM_EXTERN_FUNC};
-  v.func = func;
-  return v;
-}
-
-static inline wasm_extern_t wasm_extern_global(wasm_global_t* global) {
-  wasm_extern_t v = {WASM_EXTERN_GLOBAL};
-  v.global = global;
-  return v;
-}
-
-static inline wasm_extern_t wasm_extern_table(wasm_table_t* table) {
-  wasm_extern_t v = {WASM_EXTERN_TABLE};
-  v.table = table;
-  return v;
-}
-
-static inline wasm_extern_t wasm_extern_memory(wasm_memory_t* memory) {
-  wasm_extern_t v = {WASM_EXTERN_MEMORY};
-  v.memory = memory;
-  return v;
 }
 
 
