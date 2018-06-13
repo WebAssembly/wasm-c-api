@@ -930,7 +930,7 @@ auto module::make(own<store*>& store_abs, size_t size, const byte_t binary[]) ->
   return data ? module_impl::make(data) : own<module*>();
 }
 
-auto module::imports() -> vec<importtype*> {
+auto module::imports() const -> vec<importtype*> {
   return impl(this)->data->imports.clone();
 /* OBSOLETE?
   auto store = module->store();
@@ -965,7 +965,7 @@ auto module::imports() -> vec<importtype*> {
 */
 }
 
-auto module::exports() -> vec<exporttype*> {
+auto module::exports() const -> vec<exporttype*> {
   return impl(this)->data->exports.clone();
 /* OBSOLETE?
   auto store = module->store();
@@ -997,7 +997,7 @@ auto module::exports() -> vec<exporttype*> {
 */
 }
 
-auto module::serialize() -> vec<byte_t> {
+auto module::serialize() const -> vec<byte_t> {
   UNIMPLEMENTED("module::serialize");
 }
 
@@ -1085,8 +1085,8 @@ auto external::memory() const -> const wasm::memory* {
   return kind() == EXTERN_MEMORY ? static_cast<const wasm::memory*>(this) : nullptr;
 }
 
-auto extern_to_v8(const own<external*>& ex) -> v8::Local<v8::Object> {
-  return impl(ex.get())->v8_object();
+auto external_to_v8(const external* ex) -> v8::Local<v8::Object> {
+  return impl(ex)->v8_object();
 }
 
 
@@ -1123,7 +1123,7 @@ auto func::clone() const -> own<func*> {
 }
 
 namespace {
-auto make_func(own<store*>& store_abs, own<functype*>& type) -> own<func*> {
+auto make_func(own<store*>& store_abs, const own<functype*>& type) -> own<func*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1148,7 +1148,7 @@ auto make_func(own<store*>& store_abs, own<functype*>& type) -> own<func*> {
 }
 }
 
-auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback callback) -> own<func*> {
+auto func::make(own<store*>& store_abs, const own<functype*>& type, func::callback callback) -> own<func*> {
   auto func = make_func(store_abs, type);
   auto data = impl(func.get())->data;
   data->kind = func_data::CALLBACK;
@@ -1157,7 +1157,7 @@ auto func::make(own<store*>& store_abs, own<functype*>& type, func::callback cal
 }
 
 auto func::make(
-  own<store*>& store_abs, own<functype*>& type,
+  own<store*>& store_abs, const own<functype*>& type,
   callback_with_env callback, void* env, void (*finalizer)(void*)
 ) -> own<func*> {
   auto func = make_func(store_abs, type);
@@ -1269,7 +1269,7 @@ auto global::clone() const -> own<global*> {
   return impl(this)->clone();
 }
 
-auto global::make(own<store*>& store_abs, own<globaltype*>& type, val& val) -> own<global*> {
+auto global::make(own<store*>& store_abs, const own<globaltype*>& type, val& val) -> own<global*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1360,7 +1360,7 @@ auto table::clone() const -> own<table*> {
   return impl(this)->clone();
 }
 
-auto table::make(own<store*>& store_abs, own<tabletype*>& type, own<ref*>& ref) -> own<table*> {
+auto table::make(own<store*>& store_abs, const own<tabletype*>& type, own<ref*>& ref) -> own<table*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1423,7 +1423,7 @@ auto memory::clone() const -> own<memory*> {
   return impl(this)->clone();
 }
 
-auto memory::make(own<store*>& store_abs, own<memtype*>& type) -> own<memory*> {
+auto memory::make(own<store*>& store_abs, const own<memtype*>& type) -> own<memory*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1482,7 +1482,7 @@ auto instance::clone() const -> own<instance*> {
   return impl(this)->clone();
 }
 
-auto instance::make(own<store*>& store_abs, own<module*>& module_abs, vec<external*>& imports) -> own<instance*> {
+auto instance::make(own<store*>& store_abs, const own<module*>& module_abs, const vec<external*>& imports) -> own<instance*> {
   auto store = impl(store_abs.get());
   auto module = impl(module_abs.get());
   auto isolate = store->isolate();
@@ -1513,7 +1513,7 @@ auto instance::make(own<store*>& store_abs, own<module*>& module_abs, vec<extern
       void(imports_obj->DefineOwnProperty(context, module_str, module_obj));
     }
 
-    void(module_obj->DefineOwnProperty(context, name_str, extern_to_v8(imports[i].move())));
+    void(module_obj->DefineOwnProperty(context, name_str, external_to_v8(imports[i])));
   }
 
   v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};

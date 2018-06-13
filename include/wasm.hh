@@ -519,10 +519,10 @@ public:
     return make(store, binary.size(), binary.get());
   }
 
-  auto imports() -> vec<importtype*>;
-  auto exports() -> vec<exporttype*>;
+  auto imports() const -> vec<importtype*>;
+  auto exports() const -> vec<exporttype*>;
 
-  auto serialize() -> vec<byte_t>;
+  auto serialize() const -> vec<byte_t>;
   static auto deserialize(vec<byte_t>&) -> own<module*>;
 };
 
@@ -577,8 +577,8 @@ public:
   using callback = auto (*)(const vec<val>&) -> vec<val>;
   using callback_with_env = auto (*)(void*, const vec<val>&) -> vec<val>;
 
-  static auto make(own<store*>&, own<functype*>&, callback) -> own<func*>;
-  static auto make(own<store*>&, own<functype*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<func*>;
+  static auto make(own<store*>&, const own<functype*>&, callback) -> own<func*>;
+  static auto make(own<store*>&, const own<functype*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<func*>;
   auto clone() const -> own<func*>;
 
   auto type() const -> own<functype*>;
@@ -598,7 +598,7 @@ public:
   global() = delete;
   ~global();
 
-  static auto make(own<store*>&, own<globaltype*>&, val&) -> own<global*>;
+  static auto make(own<store*>&, const own<globaltype*>&, val&) -> own<global*>;
   auto clone() const -> own<global*>;
 
   auto type() const -> own<globaltype*>;
@@ -616,7 +616,7 @@ public:
 
   using size_t = uint32_t;
 
-  static auto make(own<store*>&, own<tabletype*>&, own<ref*>&) -> own<table*>;
+  static auto make(own<store*>&, const own<tabletype*>&, own<ref*>&) -> own<table*>;
   auto clone() const -> own<table*>;
 
   auto type() const -> own<tabletype*>;
@@ -634,7 +634,7 @@ public:
   memory() = delete;
   ~memory();
 
-  static auto make(own<store*>&, own<memtype*>&) -> own<memory*>;
+  static auto make(own<store*>&, const own<memtype*>&) -> own<memory*>;
   auto clone() const -> own<memory*>;
 
   using pages_t = uint32_t;
@@ -656,7 +656,7 @@ public:
   instance() = delete;
   ~instance();
 
-  static auto make(own<store*>&, own<module*>&, vec<external*>&) -> own<instance*>;
+  static auto make(own<store*>&, const own<module*>&, const vec<external*>&) -> own<instance*>;
   auto clone() const -> own<instance*>;
 
   auto exports() const -> vec<external*>;

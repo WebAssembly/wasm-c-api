@@ -106,7 +106,7 @@ int main(int argc, const char* argv[]) {
     printf("> Error accessing exports!\n");
     return 1;
   }
-  wasm_func_t* run_func = wasm_external_as_func(exports.data[0]);
+  const wasm_func_t* run_func = wasm_external_as_func(exports.data[0]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
     return 1;

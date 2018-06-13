@@ -17,6 +17,7 @@ struct borrowed {
   own<T> it;
   borrowed(T x) : it(x) {}
   borrowed(borrowed<T>&& that) : it(std::move(that.it)) {}
+  borrowed(const borrowed<T>&& that) : it(std::move(const_cast<own<T>&>(that.it))) {}
   ~borrowed() { it.release(); }
 };
 
@@ -64,6 +65,10 @@ struct borrowed_vec {
   } \
   extern "C++" inline auto borrow(wasm_##name##_t* x) -> borrowed<name*> { \
     return borrowed<name*>(x); \
+  } \
+  extern "C++" inline auto borrow(const wasm_##name##_t* x) -> const borrowed<name*> { \
+    /* TODO: fishy? */ \
+    return borrowed<name*>(const_cast<wasm_##name##_t*>(x)); \
   }
 
 
@@ -339,33 +344,33 @@ wasm_limits_t wasm_memtype_limits(const wasm_memtype_t* mt) {
 
 WASM_DEFINE_TYPE(externtype)
 
-wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t* ft) {
-  return hide(static_cast<externtype*>(ft));
+const wasm_externtype_t* wasm_functype_as_externtype(const wasm_functype_t* ft) {
+  return hide(static_cast<const externtype*>(ft));
 }
-wasm_externtype_t* wasm_globaltype_as_externtype(wasm_globaltype_t* gt) {
-  return hide(static_cast<externtype*>(gt));
+const wasm_externtype_t* wasm_globaltype_as_externtype(const wasm_globaltype_t* gt) {
+  return hide(static_cast<const externtype*>(gt));
 }
-wasm_externtype_t* wasm_tabletype_as_externtype(wasm_tabletype_t* tt) {
-  return hide(static_cast<externtype*>(tt));
+const wasm_externtype_t* wasm_tabletype_as_externtype(const wasm_tabletype_t* tt) {
+  return hide(static_cast<const externtype*>(tt));
 }
-wasm_externtype_t* wasm_memtype_as_externtype(wasm_memtype_t* mt) {
-  return hide(static_cast<externtype*>(mt));
-}
-
-wasm_functype_t* wasm_externtype_as_functype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_FUNC ? hide(static_cast<functype*>(reveal(et))) : nullptr;
-}
-wasm_globaltype_t* wasm_externtype_as_globaltype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_GLOBAL ? hide(static_cast<globaltype*>(reveal(et))) : nullptr;
-}
-wasm_tabletype_t* wasm_externtype_as_tabletype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_TABLE ? hide(static_cast<tabletype*>(reveal(et))) : nullptr;
-}
-wasm_memtype_t* wasm_externtype_as_memtype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_MEMORY ? hide(static_cast<memtype*>(reveal(et))) : nullptr;
+const wasm_externtype_t* wasm_memtype_as_externtype(const wasm_memtype_t* mt) {
+  return hide(static_cast<const externtype*>(mt));
 }
 
-wasm_externkind_t wasm_externtype_kind(wasm_externtype_t* et) {
+const wasm_functype_t* wasm_externtype_as_functype(const wasm_externtype_t* et) {
+  return et->kind() == EXTERN_FUNC ? hide(static_cast<const functype*>(reveal(et))) : nullptr;
+}
+const wasm_globaltype_t* wasm_externtype_as_globaltype(const wasm_externtype_t* et) {
+  return et->kind() == EXTERN_GLOBAL ? hide(static_cast<const globaltype*>(reveal(et))) : nullptr;
+}
+const wasm_tabletype_t* wasm_externtype_as_tabletype(const wasm_externtype_t* et) {
+  return et->kind() == EXTERN_TABLE ? hide(static_cast<const tabletype*>(reveal(et))) : nullptr;
+}
+const wasm_memtype_t* wasm_externtype_as_memtype(const wasm_externtype_t* et) {
+  return et->kind() == EXTERN_MEMORY ? hide(static_cast<const memtype*>(reveal(et))) : nullptr;
+}
+
+wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* et) {
   return hide(et->kind());
 }
 
@@ -423,18 +428,18 @@ wasm_ref_t* wasm_ref_clone(wasm_ref_t* r) {
 #define WASM_DEFINE_REF(name) \
   WASM_DEFINE_OWN(name) \
   \
-  wasm_##name##_t* wasm_##name##_clone(wasm_##name##_t* t) { \
+  wasm_##name##_t* wasm_##name##_clone(const wasm_##name##_t* t) { \
     return release(t->clone()); \
   } \
   \
-  wasm_ref_t* wasm_##name##_as_ref(wasm_##name##_t* r) { \
-    return hide(static_cast<ref*>(reveal(r))); \
+  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t* r) { \
+    return hide(static_cast<const ref*>(reveal(r))); \
   } \
-  wasm_##name##_t* wasm_ref_as_##name(wasm_ref_t* r) { \
-    return hide(static_cast<name*>(reveal(r))); \
+  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t* r) { \
+    return hide(static_cast<const name*>(reveal(r))); \
   } \
   \
-  void* wasm_##name##_get_host_info(wasm_##name##_t* r) { \
+  void* wasm_##name##_get_host_info(const wasm_##name##_t* r) { \
     return r->get_host_info(); \
   } \
   void wasm_##name##_set_host_info(wasm_##name##_t* r, void* info) { \
@@ -555,15 +560,15 @@ wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) {
 }
 
 
-wasm_importtype_vec_t wasm_module_imports(wasm_module_t* module) {
+wasm_importtype_vec_t wasm_module_imports(const wasm_module_t* module) {
   return release(reveal(module)->imports());
 }
 
-wasm_exporttype_vec_t wasm_module_exports(wasm_module_t* module) {
+wasm_exporttype_vec_t wasm_module_exports(const wasm_module_t* module) {
   return release(reveal(module)->exports());
 }
 
-wasm_byte_vec_t wasm_module_serialize(wasm_module_t* module) {
+wasm_byte_vec_t wasm_module_serialize(const wasm_module_t* module) {
   return release(reveal(module)->serialize());
 }
 
@@ -610,24 +615,24 @@ void wasm_callback_env_finalizer(void* env) {
 
 }  // extern "C++"
 
-wasm_func_t* wasm_func_new(wasm_store_t* store, wasm_functype_t* type, wasm_func_callback_t callback) {
+wasm_func_t* wasm_func_new(wasm_store_t* store, const wasm_functype_t* type, wasm_func_callback_t callback) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
   return release(func::make(store_.it, type_.it, wasm_callback, reinterpret_cast<void*>(callback)));
 }
 
-wasm_func_t *wasm_func_new_with_env(wasm_store_t* store, wasm_functype_t* type, wasm_func_callback_with_env_t callback, wasm_ref_t *env, void (*finalizer)(void*)) {
+wasm_func_t *wasm_func_new_with_env(wasm_store_t* store, const wasm_functype_t* type, wasm_func_callback_with_env_t callback, wasm_ref_t *env, void (*finalizer)(void*)) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
   auto env2 = new wasm_callback_env(callback, env);
   return release(func::make(store_.it, type_.it, wasm_callback_with_env, env2));
 }
 
-wasm_functype_t* wasm_func_type(wasm_func_t* func) {
+wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
   return release(func->type());
 }
 
-wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t args) {
+wasm_val_vec_t wasm_func_call(const wasm_func_t* func, wasm_val_vec_t args) {
   auto func_ = borrow(func);
   auto args_ = borrow(args);
   return release(func_.it->call(args_.it));
@@ -638,18 +643,18 @@ wasm_val_vec_t wasm_func_call(wasm_func_t* func, wasm_val_vec_t args) {
 
 WASM_DEFINE_REF(global)
 
-wasm_global_t* wasm_global_new(wasm_store_t* store, wasm_globaltype_t* type, wasm_val_t val) {
+wasm_global_t* wasm_global_new(wasm_store_t* store, const wasm_globaltype_t* type, wasm_val_t val) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
   auto val_ = borrow(val);
   return release(global::make(store_.it, type_.it, val_.it));
 }
 
-wasm_globaltype_t* wasm_global_type(wasm_global_t* global) {
+wasm_globaltype_t* wasm_global_type(const wasm_global_t* global) {
   return release(global->type());
 }
 
-wasm_val_t wasm_global_get(wasm_global_t* global) {
+wasm_val_t wasm_global_get(const wasm_global_t* global) {
   return release(global->get());
 }
 
@@ -663,18 +668,18 @@ void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
 
 WASM_DEFINE_REF(table)
 
-wasm_table_t* wasm_table_new(wasm_store_t* store, wasm_tabletype_t* type, wasm_ref_t* ref) {
+wasm_table_t* wasm_table_new(wasm_store_t* store, const wasm_tabletype_t* type, wasm_ref_t* ref) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
   auto ref_ = borrow(ref);
   return release(table::make(store_.it, type_.it, ref_.it));
 }
 
-wasm_tabletype_t* wasm_table_type(wasm_table_t* table) {
+wasm_tabletype_t* wasm_table_type(const wasm_table_t* table) {
   return release(table->type());
 }
 
-wasm_ref_t* wasm_table_get(wasm_table_t* table, wasm_table_size_t index) {
+wasm_ref_t* wasm_table_get(const wasm_table_t* table, wasm_table_size_t index) {
   return release(table->get(index));
 }
 
@@ -683,7 +688,7 @@ void wasm_table_set(wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* re
   table->set(index, ref_.it);
 }
 
-wasm_table_size_t wasm_table_size(wasm_table_t* table) {
+wasm_table_size_t wasm_table_size(const wasm_table_t* table) {
   return table->size();
 }
 
@@ -696,13 +701,13 @@ wasm_table_size_t wasm_table_grow(wasm_table_t* table, wasm_table_size_t delta) 
 
 WASM_DEFINE_REF(memory)
 
-wasm_memory_t* wasm_memory_new(wasm_store_t* store, wasm_memtype_t* type) {
+wasm_memory_t* wasm_memory_new(wasm_store_t* store, const wasm_memtype_t* type) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
   return release(memory::make(store_.it, type_.it));
 }
 
-wasm_memtype_t* wasm_memory_type(wasm_memory_t* memory) {
+wasm_memtype_t* wasm_memory_type(const wasm_memory_t* memory) {
   return release(memory->type());
 }
 
@@ -710,11 +715,11 @@ wasm_byte_t* wasm_memory_data(wasm_memory_t* memory) {
   return memory->data();
 }
 
-size_t wasm_memory_data_size(wasm_memory_t* memory) {
+size_t wasm_memory_data_size(const wasm_memory_t* memory) {
   return memory->data_size();
 }
 
-wasm_memory_pages_t wasm_memory_size(wasm_memory_t* memory) {
+wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* memory) {
   return memory->size();
 }
 
@@ -728,33 +733,33 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t* memory, wasm_memory_pages_t 
 WASM_DEFINE_REF(external)
 WASM_DEFINE_VEC(external, *)
 
-wasm_external_t* wasm_func_as_external(wasm_func_t* func) {
-  return hide(static_cast<wasm::external*>(reveal(func)));
+const wasm_external_t* wasm_func_as_external(const wasm_func_t* func) {
+  return hide(static_cast<const wasm::external*>(reveal(func)));
 }
-wasm_external_t* wasm_global_as_external(wasm_global_t* global) {
-  return hide(static_cast<wasm::external*>(reveal(global)));
+const wasm_external_t* wasm_global_as_external(const wasm_global_t* global) {
+  return hide(static_cast<const wasm::external*>(reveal(global)));
 }
-wasm_external_t* wasm_table_as_external(wasm_table_t* table) {
-  return hide(static_cast<wasm::external*>(reveal(table)));
+const wasm_external_t* wasm_table_as_external(const wasm_table_t* table) {
+  return hide(static_cast<const wasm::external*>(reveal(table)));
 }
-wasm_external_t* wasm_memory_as_external(wasm_memory_t* memory) {
-  return hide(static_cast<wasm::external*>(reveal(memory)));
+const wasm_external_t* wasm_memory_as_external(const wasm_memory_t* memory) {
+  return hide(static_cast<const wasm::external*>(reveal(memory)));
 }
 
-wasm_externkind_t wasm_external_kind(wasm_external_t* external) {
+wasm_externkind_t wasm_external_kind(const wasm_external_t* external) {
   return hide(external->kind());
 }
 
-wasm_func_t* wasm_external_as_func(wasm_external_t* external) {
+const wasm_func_t* wasm_external_as_func(const wasm_external_t* external) {
   return hide(external->func());
 }
-wasm_global_t* wasm_external_as_global(wasm_external_t* external) {
+const wasm_global_t* wasm_external_as_global(const wasm_external_t* external) {
   return hide(external->global());
 }
-wasm_table_t* wasm_external_as_table(wasm_external_t* external) {
+const wasm_table_t* wasm_external_as_table(const wasm_external_t* external) {
   return hide(external->table());
 }
-wasm_memory_t* wasm_external_as_memory(wasm_external_t* external) {
+const wasm_memory_t* wasm_external_as_memory(const wasm_external_t* external) {
   return hide(external->memory());
 }
 
@@ -763,14 +768,14 @@ wasm_memory_t* wasm_external_as_memory(wasm_external_t* external) {
 
 WASM_DEFINE_REF(instance)
 
-wasm_instance_t* wasm_instance_new(wasm_store_t* store, wasm_module_t* module, wasm_external_vec_t imports) {
+wasm_instance_t* wasm_instance_new(wasm_store_t* store, const wasm_module_t* module, wasm_external_vec_t imports) {
   auto store_ = borrow(store);
   auto module_ = borrow(module);
   auto imports_ = borrow(imports);
   return release(instance::make(store_.it, module_.it, imports_.it));
 }
 
-wasm_external_vec_t wasm_instance_exports(wasm_instance_t* instance) {
+wasm_external_vec_t wasm_instance_exports(const wasm_instance_t* instance) {
   return release(instance->exports());
 }
 

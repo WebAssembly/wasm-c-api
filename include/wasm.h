@@ -233,17 +233,17 @@ typedef enum wasm_externkind_t {
   WASM_EXTERN_FUNC, WASM_EXTERN_GLOBAL, WASM_EXTERN_TABLE, WASM_EXTERN_MEMORY
 } wasm_externkind_t;
 
-wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t*);
-wasm_externtype_t* wasm_globaltype_as_externtype(wasm_globaltype_t*);
-wasm_externtype_t* wasm_tabletype_as_externtype(wasm_tabletype_t*);
-wasm_externtype_t* wasm_memtype_as_externtype(wasm_memtype_t*);
+const wasm_externtype_t* wasm_functype_as_externtype(const wasm_functype_t*);
+const wasm_externtype_t* wasm_globaltype_as_externtype(const wasm_globaltype_t*);
+const wasm_externtype_t* wasm_tabletype_as_externtype(const wasm_tabletype_t*);
+const wasm_externtype_t* wasm_memtype_as_externtype(const wasm_memtype_t*);
 
-wasm_externkind_t wasm_externtype_kind(wasm_externtype_t*);
+wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t*);
 
-wasm_functype_t* wasm_externtype_as_functype(wasm_externtype_t*);
-wasm_globaltype_t* wasm_externtype_as_globaltype(wasm_externtype_t*);
-wasm_tabletype_t* wasm_externtype_as_tabletype(wasm_externtype_t*);
-wasm_memtype_t* wasm_externtype_as_memtype(wasm_externtype_t*);
+const wasm_functype_t* wasm_externtype_as_functype(const wasm_externtype_t*);
+const wasm_globaltype_t* wasm_externtype_as_globaltype(const wasm_externtype_t*);
+const wasm_tabletype_t* wasm_externtype_as_tabletype(const wasm_externtype_t*);
+const wasm_memtype_t* wasm_externtype_as_memtype(const wasm_externtype_t*);
 
 
 // Import Types
@@ -301,12 +301,12 @@ own wasm_ref_t* wasm_ref_clone(wasm_ref_t*);
 #define WASM_DECLARE_REF(name) \
   WASM_DECLARE_OWN(name) \
   \
-  own wasm_##name##_t* wasm_##name##_clone(wasm_##name##_t*); \
+  own wasm_##name##_t* wasm_##name##_clone(const wasm_##name##_t*); \
   \
-  wasm_ref_t* wasm_##name##_as_ref(wasm_##name##_t*); \
-  wasm_##name##_t* wasm_ref_as_##name(wasm_ref_t*); \
+  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t*); \
+  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t*); \
   \
-  void* wasm_##name##_get_host_info(wasm_##name##_t*); \
+  void* wasm_##name##_get_host_info(const wasm_##name##_t*); \
   void wasm_##name##_set_host_info(wasm_##name##_t*, void*); \
   void wasm_##name##_set_host_info_with_finalizer(wasm_##name##_t*, void*, void (*)(void*));
 
@@ -319,10 +319,10 @@ own wasm_module_t* wasm_module_new(wasm_store_t*, const wasm_byte_vec_t binary);
 
 bool wasm_module_validate(wasm_store_t*, const wasm_byte_vec_t binary);
 
-wasm_importtype_vec_t wasm_module_imports(wasm_module_t*);
-wasm_exporttype_vec_t wasm_module_exports(wasm_module_t*);
+own wasm_importtype_vec_t wasm_module_imports(const wasm_module_t*);
+own wasm_exporttype_vec_t wasm_module_exports(const wasm_module_t*);
 
-own wasm_byte_vec_t wasm_module_serialize(wasm_module_t*);
+own wasm_byte_vec_t wasm_module_serialize(const wasm_module_t*);
 own wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t);
 
 
@@ -340,23 +340,23 @@ WASM_DECLARE_REF(func)
 typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
 typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
 
-own wasm_func_t* wasm_func_new(wasm_store_t*, wasm_functype_t*, wasm_func_callback_t);
-own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, wasm_functype_t* type, wasm_func_callback_with_env_t, wasm_ref_t* env, void (*finalizer)(void*));
+own wasm_func_t* wasm_func_new(wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
+own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t, wasm_ref_t* env, void (*finalizer)(void*));
 
-own wasm_functype_t* wasm_func_type(wasm_func_t*);
+own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 
-own wasm_val_vec_t wasm_func_call(wasm_func_t*, wasm_val_vec_t);
+own wasm_val_vec_t wasm_func_call(const wasm_func_t*, wasm_val_vec_t);
 
 
 // Global Instances
 
 WASM_DECLARE_REF(global)
 
-own wasm_global_t* wasm_global_new(wasm_store_t*, wasm_globaltype_t*, wasm_val_t);
+own wasm_global_t* wasm_global_new(wasm_store_t*, const wasm_globaltype_t*, wasm_val_t);
 
-own wasm_globaltype_t* wasm_global_type(wasm_global_t*);
+own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
-own wasm_val_t wasm_global_get(wasm_global_t*);
+own wasm_val_t wasm_global_get(const wasm_global_t*);
 void wasm_global_set(wasm_global_t*, wasm_val_t);
 
 
@@ -366,14 +366,14 @@ WASM_DECLARE_REF(table)
 
 typedef uint32_t wasm_table_size_t;
 
-own wasm_table_t* wasm_table_new(wasm_store_t*, wasm_tabletype_t*, wasm_ref_t*);
+own wasm_table_t* wasm_table_new(wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t*);
 
-own wasm_tabletype_t* wasm_table_type(wasm_table_t*);
+own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
-own wasm_ref_t* wasm_table_get(wasm_table_t*, wasm_table_size_t index);
+own wasm_ref_t* wasm_table_get(const wasm_table_t*, wasm_table_size_t index);
 void wasm_table_set(wasm_table_t*, wasm_table_size_t index, wasm_ref_t*);
 
-wasm_table_size_t wasm_table_size(wasm_table_t*);
+wasm_table_size_t wasm_table_size(const wasm_table_t*);
 wasm_table_size_t wasm_table_grow(wasm_table_t*, wasm_table_size_t delta);
 
 
@@ -385,14 +385,14 @@ typedef uint32_t wasm_memory_pages_t;
 
 static const size_t MEMORY_PAGE_SIZE = 0x10000;
 
-own wasm_memory_t* wasm_memory_new(wasm_store_t*, wasm_memtype_t*);
+own wasm_memory_t* wasm_memory_new(wasm_store_t*, const wasm_memtype_t*);
 
-own wasm_memtype_t* wasm_memory_type(wasm_memory_t*);
+own wasm_memtype_t* wasm_memory_type(const wasm_memory_t*);
 
 byte_t* wasm_memory_data(wasm_memory_t*);
-size_t wasm_memory_data_size(wasm_memory_t*);
+size_t wasm_memory_data_size(const wasm_memory_t*);
 
-wasm_memory_pages_t wasm_memory_size(wasm_memory_t*);
+wasm_memory_pages_t wasm_memory_size(const wasm_memory_t*);
 wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
 
 
@@ -401,26 +401,26 @@ wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
 WASM_DECLARE_REF(external)
 WASM_DECLARE_VEC(external, *)
 
-wasm_external_t* wasm_func_as_external(wasm_func_t*);
-wasm_external_t* wasm_global_as_external(wasm_global_t*);
-wasm_external_t* wasm_table_as_external(wasm_table_t*);
-wasm_external_t* wasm_memory_as_external(wasm_memory_t*);
+const wasm_external_t* wasm_func_as_external(const wasm_func_t*);
+const wasm_external_t* wasm_global_as_external(const wasm_global_t*);
+const wasm_external_t* wasm_table_as_external(const wasm_table_t*);
+const wasm_external_t* wasm_memory_as_external(const wasm_memory_t*);
 
-wasm_externkind_t wasm_external_kind(wasm_external_t*);
+wasm_externkind_t wasm_external_kind(const wasm_external_t*);
 
-wasm_func_t* wasm_external_as_func(wasm_external_t*);
-wasm_global_t* wasm_external_as_global(wasm_external_t*);
-wasm_table_t* wasm_external_as_table(wasm_external_t*);
-wasm_memory_t* wasm_external_as_memory(wasm_external_t*);
+const wasm_func_t* wasm_external_as_func(const wasm_external_t*);
+const wasm_global_t* wasm_external_as_global(const wasm_external_t*);
+const wasm_table_t* wasm_external_as_table(const wasm_external_t*);
+const wasm_memory_t* wasm_external_as_memory(const wasm_external_t*);
 
 
 // Module Instances
 
 WASM_DECLARE_REF(instance)
 
-own wasm_instance_t* wasm_instance_new(wasm_store_t*, wasm_module_t*, wasm_external_vec_t imports);
+own wasm_instance_t* wasm_instance_new(wasm_store_t*, const wasm_module_t*, const wasm_external_vec_t imports);
 
-own wasm_external_vec_t wasm_instance_exports(wasm_instance_t*);
+own wasm_external_vec_t wasm_instance_exports(const wasm_instance_t*);
 
 
 ///////////////////////////////////////////////////////////////////////////////
