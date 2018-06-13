@@ -36,7 +36,7 @@ template<class T>
 using own = typename owner<T>::type;
 
 template<class T>
-auto make_own(T x) { return own<T>(std::move(x)); }
+auto make_own(T x) -> own<T> { return own<T>(std::move(x)); }
 
 
 // Vectors

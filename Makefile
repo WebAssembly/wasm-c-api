@@ -55,7 +55,7 @@ ${EXAMPLE_OUT}/${EXAMPLE_NAME}.c.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCL
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}.cc.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
-	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}-%: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.%.o ${WASM_O}
 	clang++ ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
@@ -82,7 +82,7 @@ wasm: ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
 ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc
 	mkdir -p ${WASM_OUT}
-	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 
 # V8
