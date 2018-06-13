@@ -19,3 +19,32 @@ Work in progress. No docs yet.
 * C API is build on top of C++ API.
 
 * See `Makefile` for build recipe.
+
+* TODO:
+
+  * Replace use of JS API with V8 internal
+
+  * Implement missing functionality through V8 internals
+
+    * global::get, global::set
+    * table::get, table::set, table::size, table::grow
+    * memory::data, memory::data_size, memory::size, memory::grow
+    * module::serialize, module::deserialize
+    * multiple return values
+
+  * Simplify reference wrappers to be plain persistent handles
+
+    * Move host information to V8 object (func callback & env)
+    * Compute reflection on demand
+
+  * Enforce const correctness
+
+  * Find a way to make C callbacks without extra wrapper?
+
+  * Possible renamings?
+
+    * `externkind`, `externtype` to `externalkind`, `externaltype`?
+    * `memtype` to `memorytype`?
+    * CamlCase class names in C++ API?
+
+  * Add iterators to `vec` class?

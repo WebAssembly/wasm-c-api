@@ -124,7 +124,7 @@ public:
     context()->Exit();
     isolate_->Exit();
     isolate_->Dispose();
-    // delete create_params_.array_buffer_allocator;
+    delete create_params_.array_buffer_allocator;
   }
 
   v8::Isolate* isolate() const {
@@ -146,13 +146,6 @@ public:
   v8::Local<v8::Function> v8_function(v8_function_t i) const {
     return functions_[i].Get(isolate_);
   }
-
-/* TODO
-  void cache_set(v8::Local<v8::Object> obj, void* val) {
-    v8::Local<v8::Value> cache_args[] = {???};
-    store->v8_function(V8_F_WEAKSET)->Call(context, cache_, 1, args);
-  }
-*/
 };
 
 template<> struct implement<store> { using type = store_impl; };
@@ -618,7 +611,6 @@ void limits_to_v8(store_impl* store, limits limits, v8::Local<v8::Object> desc) 
 }
 
 v8::Local<v8::Object> globaltype_to_v8(store_impl* store, own<globaltype*>& type) {
-  // TODO: define templates
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
@@ -1250,7 +1242,7 @@ auto global::make(own<store*>& store_abs, own<globaltype*>& type, val& val) -> o
 
   // TODO(wasm+): remove
   if (store->v8_function(V8_F_GLOBAL).IsEmpty()) {
-    UNIMPLEMENTED("func::make");
+    UNIMPLEMENTED("global::make");
   }
 
   v8::Local<v8::Value> args[] = {

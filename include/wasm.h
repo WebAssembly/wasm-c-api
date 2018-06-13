@@ -70,6 +70,10 @@ typedef double float64_t;
     return v; \
   } \
   \
+  wasm_##name##_vec_t wasm_##name##_vec_empty() { \
+    return wasm_##name##_vec(0, NULL); \
+  } \
+  \
   own wasm_##name##_vec_t wasm_##name##_vec_new_empty(); \
   own wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t); \
   own wasm_##name##_vec_t wasm_##name##_vec_new(size_t, own wasm_##name##_t ptr_or_none const[]); \
