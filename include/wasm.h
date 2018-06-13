@@ -70,7 +70,7 @@ typedef double float64_t;
     return v; \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_empty() { \
+  static inline wasm_##name##_vec_t wasm_##name##_vec_empty() { \
     return wasm_##name##_vec(0, NULL); \
   } \
   \

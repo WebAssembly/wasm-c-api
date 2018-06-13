@@ -51,7 +51,7 @@ struct vec_traits {
   static void move(size_t size, T* data, T init[]) {
     for (size_t i = 0; i < size; ++i) data[i].reset(init[i]);
   }
-  static void clone(size_t size, T data[], T init[]) {
+  static void clone(size_t size, T data[], const T init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i];
   }
 
@@ -71,7 +71,7 @@ struct vec_traits<T*> {
   static void move(size_t size, T* data[], own<T*> init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i].release();
   }
-  static void clone(size_t size, T* data[], T* init[]) {
+  static void clone(size_t size, T* data[], const T* const init[]) {
     for (size_t i = 0; i < size; ++i) {
       if (init[i]) data[i] = init[i]->clone().release();
     }
@@ -161,7 +161,7 @@ public:
     return typename vec_traits<T>::proxy(data_[i]);
   }
 
-  auto clone() -> vec {
+  auto clone() const -> vec {
     auto v = vec(size_);
     if (v) vec_traits<T>::clone(size_, v.data_.get(), data_.get());
     return v;
@@ -295,10 +295,16 @@ public:
   auto clone() const-> own<externtype*>;
 
   auto kind() const -> externkind;
+
   auto func() -> functype*;
   auto global() -> globaltype*;
   auto table() -> tabletype*;
   auto memory() -> memtype*;
+
+  auto func() const -> const functype*;
+  auto global() const -> const globaltype*;
+  auto table() const -> const tabletype*;
+  auto memory() const -> const memtype*;
 };
 
 
@@ -546,10 +552,16 @@ public:
   auto clone() const -> own<external*>;
 
   auto kind() const -> externkind;
-  auto func() -> func*;
-  auto global() -> global*;
-  auto table() -> table*;
-  auto memory() -> memory*;
+
+  auto func() -> wasm::func*;
+  auto global() -> wasm::global*;
+  auto table() -> wasm::table*;
+  auto memory() -> wasm::memory*;
+
+  auto func() const -> const wasm::func*;
+  auto global() const -> const wasm::global*;
+  auto table() const -> const wasm::table*;
+  auto memory() const -> const wasm::memory*;
 };
 
 

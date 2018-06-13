@@ -35,6 +35,11 @@ auto seal(typename implement <C>::type* x) -> C* {
   return reinterpret_cast<C*>(x);
 }
 
+template<class C>
+auto seal(const typename implement <C>::type* x) -> const C* {
+  return reinterpret_cast<const C*>(x);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
@@ -373,6 +378,10 @@ auto externtype::func() -> functype* {
   return kind() == EXTERN_FUNC ? seal<functype>(static_cast<functype_impl*>(impl(this))) : nullptr;
 }
 
+auto externtype::func() const -> const functype* {
+  return kind() == EXTERN_FUNC ? seal<functype>(static_cast<const functype_impl*>(impl(this))) : nullptr;
+}
+
 
 // Global Types
 
@@ -410,6 +419,10 @@ auto globaltype::mut() const -> wasm::mut {
 
 auto externtype::global() -> globaltype* {
   return kind() == EXTERN_GLOBAL ? seal<globaltype>(static_cast<globaltype_impl*>(impl(this))) : nullptr;
+}
+
+auto externtype::global() const -> const globaltype* {
+  return kind() == EXTERN_GLOBAL ? seal<globaltype>(static_cast<const globaltype_impl*>(impl(this))) : nullptr;
 }
 
 
@@ -451,6 +464,10 @@ auto externtype::table() -> tabletype* {
   return kind() == EXTERN_TABLE ? seal<tabletype>(static_cast<tabletype_impl*>(impl(this))) : nullptr;
 }
 
+auto externtype::table() const -> const tabletype* {
+  return kind() == EXTERN_TABLE ? seal<tabletype>(static_cast<const tabletype_impl*>(impl(this))) : nullptr;
+}
+
 
 // Memory Types
 
@@ -481,6 +498,10 @@ auto memtype::limits() const -> wasm::limits {
 
 auto externtype::memory() -> memtype* {
   return kind() == EXTERN_MEMORY ? seal<memtype>(static_cast<memtype_impl*>(impl(this))) : nullptr;
+}
+
+auto externtype::memory() const -> const memtype* {
+  return kind() == EXTERN_MEMORY ? seal<memtype>(static_cast<const memtype_impl*>(impl(this))) : nullptr;
 }
 
 
@@ -1046,6 +1067,22 @@ auto external::table() -> wasm::table* {
 
 auto external::memory() -> wasm::memory* {
   return kind() == EXTERN_MEMORY ? static_cast<wasm::memory*>(this) : nullptr;
+}
+
+auto external::func() const -> const wasm::func* {
+  return kind() == EXTERN_FUNC ? static_cast<const wasm::func*>(this) : nullptr;
+}
+
+auto external::global() const -> const wasm::global* {
+  return kind() == EXTERN_GLOBAL ? static_cast<const wasm::global*>(this) : nullptr;
+}
+
+auto external::table() const -> const wasm::table* {
+  return kind() == EXTERN_TABLE ? static_cast<const wasm::table*>(this) : nullptr;
+}
+
+auto external::memory() const -> const wasm::memory* {
+  return kind() == EXTERN_MEMORY ? static_cast<const wasm::memory*>(this) : nullptr;
 }
 
 auto extern_to_v8(const own<external*>& ex) -> v8::Local<v8::Object> {
