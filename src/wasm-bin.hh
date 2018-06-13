@@ -7,7 +7,7 @@
 namespace wasm {
 namespace bin {
 
-auto imports_exports(vec<byte_t>& binary) ->
+auto imports_exports(const vec<byte_t>& binary) ->
   std::tuple<vec<importtype*>, vec<exporttype*>>;
 
 }  // namespace bin

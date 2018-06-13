@@ -709,7 +709,7 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 
 // Values
 
-auto val_to_v8(store_impl* store, val& v) -> v8::Local<v8::Value> {
+auto val_to_v8(store_impl* store, const val& v) -> v8::Local<v8::Value> {
   auto isolate = store->isolate();
   switch (v.kind()) {
     case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
@@ -887,13 +887,13 @@ auto module::clone() const -> own<module*> {
   return impl(this)->clone();
 }
 
-auto module::validate(own<store*>& store_abs, size_t size, const byte_t binary[]) -> bool {
+auto module::validate(own<store*>& store_abs, const vec<byte_t>& binary) -> bool {
   auto store = impl(store_abs.get());
   v8::Isolate* isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
   auto array_buffer =
-    v8::ArrayBuffer::New(isolate, const_cast<byte_t*>(binary), size);
+    v8::ArrayBuffer::New(isolate, const_cast<byte_t*>(binary.get()), binary.size());
 
   v8::Local<v8::Value> args[] = {array_buffer};
   auto result = store->v8_function(V8_F_VALIDATE)->Call(
@@ -903,14 +903,14 @@ auto module::validate(own<store*>& store_abs, size_t size, const byte_t binary[]
   return result.ToLocalChecked()->IsTrue();
 }
 
-auto module::make(own<store*>& store_abs, size_t size, const byte_t binary[]) -> own<module*> {
+auto module::make(own<store*>& store_abs, const vec<byte_t>& binary) -> own<module*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
   auto array_buffer =
-    v8::ArrayBuffer::New(isolate, const_cast<byte_t*>(binary), size);
+    v8::ArrayBuffer::New(isolate, const_cast<byte_t*>(binary.get()), binary.size());
 
   v8::Local<v8::Value> args[] = {array_buffer};
   auto maybe_obj =
@@ -919,9 +919,7 @@ auto module::make(own<store*>& store_abs, size_t size, const byte_t binary[]) ->
   auto obj = maybe_obj.ToLocalChecked();
 
   // TODO(wasm+): use JS API once available?
-  auto bin = vec<byte_t>::make_uninitialized(size);
-  memcpy(bin.get(), binary, size);
-  auto imports_exports = wasm::bin::imports_exports(bin);
+  auto imports_exports = wasm::bin::imports_exports(binary);
   // TODO store->cache_set(module_obj, module);
   auto& imports = std::get<0>(imports_exports);
   auto& exports = std::get<1>(imports_exports);
@@ -1269,7 +1267,7 @@ auto global::clone() const -> own<global*> {
   return impl(this)->clone();
 }
 
-auto global::make(own<store*>& store_abs, const own<globaltype*>& type, val& val) -> own<global*> {
+auto global::make(own<store*>& store_abs, const own<globaltype*>& type, const val& val) -> own<global*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1321,7 +1319,7 @@ auto global::get() const -> own<val> {
   return v8_to_val(store, val, this->type()->content().get());
 }
 
-void global::set(val& val) {
+void global::set(const val& val) {
   auto global = impl(this);
   auto store = global->store();
   auto isolate = store->isolate();
@@ -1360,7 +1358,7 @@ auto table::clone() const -> own<table*> {
   return impl(this)->clone();
 }
 
-auto table::make(own<store*>& store_abs, const own<tabletype*>& type, own<ref*>& ref) -> own<table*> {
+auto table::make(own<store*>& store_abs, const own<tabletype*>& type, const own<ref*>& ref) -> own<table*> {
   auto store = impl(store_abs.get());
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1391,7 +1389,7 @@ auto table::get(size_t index) const -> own<ref*> {
   UNIMPLEMENTED("table::get");
 }
 
-void table::set(size_t index, own<ref*>& r) {
+void table::set(size_t index, const own<ref*>& r) {
   UNIMPLEMENTED("table::set");
 }
 

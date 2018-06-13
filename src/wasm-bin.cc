@@ -169,7 +169,7 @@ enum sec_t : byte_t {
   SEC_EXPORT = 7
 };
 
-auto section(vec<byte_t>& binary, bin::sec_t sec) -> const byte_t* {
+auto section(const vec<byte_t>& binary, bin::sec_t sec) -> const byte_t* {
   const byte_t* end = binary.get() + binary.size();
   const byte_t* pos = binary.get() + 8;  // skip header
   while (pos < end && *pos != sec) {
@@ -186,7 +186,7 @@ auto section(vec<byte_t>& binary, bin::sec_t sec) -> const byte_t* {
 
 // Type section
 
-auto types(vec<byte_t>& binary) -> vec<wasm::functype*> {
+auto types(const vec<byte_t>& binary) -> vec<wasm::functype*> {
   auto pos = bin::section(binary, SEC_TYPE);
   if (pos == nullptr) return vec<wasm::functype*>::make();
   size_t size = bin::u32(pos);
@@ -201,7 +201,7 @@ auto types(vec<byte_t>& binary) -> vec<wasm::functype*> {
 
 // Import section
 
-auto imports(vec<byte_t>& binary, vec<wasm::functype*>& types)
+auto imports(const vec<byte_t>& binary, const vec<wasm::functype*>& types)
 -> vec<importtype*> {
   auto pos = bin::section(binary, SEC_IMPORT);
   if (pos == nullptr) return vec<importtype*>::make();
@@ -223,7 +223,7 @@ auto imports(vec<byte_t>& binary, vec<wasm::functype*>& types)
   return v;
 }
 
-auto count(vec<importtype*>& imports, externkind kind) -> uint32_t {
+auto count(const vec<importtype*>& imports, externkind kind) -> uint32_t {
   uint32_t n = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     if (imports[i]->type()->kind() == kind) ++n;
@@ -235,7 +235,8 @@ auto count(vec<importtype*>& imports, externkind kind) -> uint32_t {
 // Function section
 
 auto funcs(
-  vec<byte_t>& binary, vec<importtype*>& imports, vec<wasm::functype*>& types
+  const vec<byte_t>& binary, const vec<importtype*>& imports,
+  const vec<wasm::functype*>& types
 ) -> vec<wasm::functype*> {
   auto pos = bin::section(binary, SEC_FUNC);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
@@ -258,7 +259,7 @@ auto funcs(
 
 // Global section
 
-auto globals(vec<byte_t>& binary, vec<importtype*>& imports)
+auto globals(const vec<byte_t>& binary, const vec<importtype*>& imports)
 -> vec<wasm::globaltype*> {
   auto pos = bin::section(binary, SEC_GLOBAL);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
@@ -281,7 +282,7 @@ auto globals(vec<byte_t>& binary, vec<importtype*>& imports)
 
 // Table section
 
-auto tables(vec<byte_t>& binary, vec<importtype*>& imports)
+auto tables(const vec<byte_t>& binary, const vec<importtype*>& imports)
 -> vec<wasm::tabletype*> {
   auto pos = bin::section(binary, SEC_TABLE);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
@@ -304,7 +305,7 @@ auto tables(vec<byte_t>& binary, vec<importtype*>& imports)
 
 // Memory section
 
-auto memories(vec<byte_t>& binary, vec<importtype*>& imports)
+auto memories(const vec<byte_t>& binary, const vec<importtype*>& imports)
 -> vec<wasm::memtype*> {
   auto pos = bin::section(binary, SEC_MEMORY);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
@@ -327,9 +328,9 @@ auto memories(vec<byte_t>& binary, vec<importtype*>& imports)
 
 // Export section
 
-auto exports(vec<byte_t>& binary,
-  vec<wasm::functype*>& funcs, vec<wasm::globaltype*>& globals,
-  vec<wasm::tabletype*>& tables, vec<wasm::memtype*>& memories
+auto exports(const vec<byte_t>& binary,
+  const vec<wasm::functype*>& funcs, const vec<wasm::globaltype*>& globals,
+  const vec<wasm::tabletype*>& tables, const vec<wasm::memtype*>& memories
 ) -> vec<exporttype*> {
   auto exports = vec<exporttype*>::make();
   auto pos = bin::section(binary, SEC_EXPORT);
@@ -354,7 +355,7 @@ auto exports(vec<byte_t>& binary,
   return exports;
 }
 
-auto imports_exports(vec<byte_t>& binary)
+auto imports_exports(const vec<byte_t>& binary)
 -> std::tuple<vec<importtype*>, vec<exporttype*>> {
   auto types = bin::types(binary);
   auto imports = bin::imports(binary, types);

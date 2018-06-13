@@ -455,7 +455,8 @@ public:
   }
 
   ~val() {
-   reset(); }
+    reset();
+  }
 
   void reset() {
     if (is_ref(kind_) && impl_.ref) {
@@ -481,7 +482,14 @@ public:
   auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
   auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
   auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
-  auto ref() const -> wasm::ref* { assert(is_ref(kind_) || 1); return impl_.ref; }
+  auto ref() const -> wasm::ref* { assert(is_ref(kind_)); return impl_.ref; }
+
+  auto release_ref() -> own<wasm::ref*> {
+    assert(is_ref(kind_));
+    auto ref = impl_.ref;
+    ref = nullptr;
+    return own<wasm::ref*>(ref);
+  }
 
   auto clone() const -> val {
     if (is_ref(kind_) && impl_.ref != nullptr) {
@@ -490,13 +498,6 @@ public:
     } else {
       return val(kind_, impl_);
     }
-  }
-
-  auto release_ref() -> own<wasm::ref*> {
-    if (!is_ref(kind_)) return own<wasm::ref*>();
-    auto ref = impl_.ref;
-    ref = nullptr;
-    return own<wasm::ref*>(ref);
   }
 };
 
@@ -508,16 +509,9 @@ public:
   module() = delete;
   ~module();
 
-  static auto validate(own<store*>&, size_t, const byte_t[]) -> bool;
-  static auto make(own<store*>&, size_t, const byte_t[]) -> own<module*>;
+  static auto validate(own<store*>& store, const vec<byte_t>& binary) -> bool;
+  static auto make(own<store*>& store, const vec<byte_t>& binary) -> own<module*>;
   auto clone() const -> own<module*>;
-
-  static auto validate(own<store*>& store, vec<byte_t>& binary) -> bool {
-    return validate(store, binary.size(), binary.get());
-  }
-  static auto make(own<store*>& store, vec<byte_t>& binary) -> own<module*> {
-    return make(store, binary.size(), binary.get());
-  }
 
   auto imports() const -> vec<importtype*>;
   auto exports() const -> vec<exporttype*>;
@@ -598,12 +592,12 @@ public:
   global() = delete;
   ~global();
 
-  static auto make(own<store*>&, const own<globaltype*>&, val&) -> own<global*>;
+  static auto make(own<store*>&, const own<globaltype*>&, const val&) -> own<global*>;
   auto clone() const -> own<global*>;
 
   auto type() const -> own<globaltype*>;
   auto get() const -> val;
-  void set(val&);
+  void set(const val&);
 };
 
 
@@ -616,12 +610,12 @@ public:
 
   using size_t = uint32_t;
 
-  static auto make(own<store*>&, const own<tabletype*>&, own<ref*>&) -> own<table*>;
+  static auto make(own<store*>&, const own<tabletype*>&, const own<ref*>&) -> own<table*>;
   auto clone() const -> own<table*>;
 
   auto type() const -> own<tabletype*>;
   auto get(size_t index) const -> own<ref*>;
-  void set(size_t index, own<ref*>&);
+  void set(size_t index, const own<ref*>&);
   auto size() const -> size_t;
   auto grow(size_t delta) -> size_t;
 };
