@@ -20,7 +20,7 @@ Work in progress. No docs yet.
 
 * See `Makefile` for build recipe.
 
-* TODO:
+* TODO in V8 implementation:
 
   * Replace use of JS API with V8 internal
 
@@ -37,7 +37,9 @@ Work in progress. No docs yet.
     * Move host information to V8 object (func callback & env)
     * Compute reflection on demand
 
-  * Find a way to make C callbacks without extra wrapper?
+* Possible API tweaks:
+
+  * Find a way to perform C callbacks through C++ without extra wrapper?
 
   * Possible renamings?
 
