@@ -50,8 +50,8 @@ own wasm_val_vec_t print_wasm(wasm_val_vec_t args) {
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_init(argc, argv);
-  wasm_store_t* store = wasm_store_new();
+  wasm_engine_t* engine = wasm_engine_new(argc, argv);
+  wasm_store_t* store = wasm_store_new(engine);
 
   // Load binary.
   printf("Loading binary...\n");
@@ -90,10 +90,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t imports[] = {
-    wasm_extern_func(print_func1), wasm_extern_func(print_func2)
+  const wasm_external_t* imports[] = {
+    wasm_func_as_external(print_func1), wasm_func_as_external(print_func2)
   };
-  own wasm_instance_t* instance = wasm_instance_new(store, module, wasm_extern_vec(2, imports));
+  own wasm_instance_t* instance = wasm_instance_new(store, module, wasm_external_vec_const(2, imports));
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -101,32 +101,37 @@ int main(int argc, const char* argv[]) {
 
   // Extract export.
   printf("Extracting exports...\n");
-  own wasm_extern_t exp = wasm_instance_export(instance, 0);
-  if (exp.kind != WASM_EXTERN_FUNC || exp.func == NULL) {
-    printf("> Error accessing export!");
+  own wasm_external_vec_t exports = wasm_instance_exports(instance);
+  if (exports.size == 0) {
+    printf("> Error accessing exports!\n");
     return 1;
   }
-  own wasm_func_t* run_func = exp.func;
+  const wasm_func_t* run_func = wasm_external_as_func(exports.data[0]);
+  if (run_func == NULL) {
+    printf("> Error accessing export!\n");
+    return 1;
+  }
 
   wasm_module_delete(module);
   wasm_instance_delete(instance);
 
   // Call.
   printf("Calling exports...\n");
-  wasm_val_t args[] = {wasm_i32_val(3), wasm_i32_val(4)};
+  wasm_val_t args[] = { wasm_i32_val(3), wasm_i32_val(4) };
   own wasm_val_vec_t results = wasm_func_call(run_func, wasm_val_vec(2, args));
+
+  wasm_external_vec_delete(exports);
 
   // Print result.
   printf("Printing result...\n");
   printf("> %u\n", results.data[0].i32);
 
-  wasm_func_delete(run_func);
   wasm_val_vec_delete(results);
 
   // Shut down.
   printf("Shutting down...\n");
   wasm_store_delete(store);
-  wasm_deinit();
+  wasm_engine_delete(engine);
 
   // All done.
   printf("Done.\n");

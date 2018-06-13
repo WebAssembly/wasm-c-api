@@ -1,18 +1,16 @@
-#ifndef __WASM_BIN_H
-#define __WASM_BIN_H
+#ifndef __WASM_BIN_HH
+#define __WASM_BIN_HH
 
-#include "wasm.h"
+#include "wasm.hh"
 #include <tuple>
-
-#define own
 
 namespace wasm {
 namespace bin {
 
-std::tuple<own wasm_importtype_vec_t, own wasm_exporttype_vec_t>
-imports_exports(wasm_byte_vec_t binary);
+auto imports_exports(vec<byte_t>& binary) ->
+  std::tuple<vec<importtype*>, vec<exporttype*>>;
 
 }  // namespace bin
 }  // namespace wasm
 
-#endif  // #ifdef __WASM_BIN_H
+#endif  // #ifdef __WASM_BIN_HH

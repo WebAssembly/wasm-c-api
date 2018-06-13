@@ -1,3 +1,7 @@
+CFLAGS = -ggdb
+CXXFLAGS = ${CFLAGS} -fsanitize=address
+LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
+
 OUT_DIR = out
 WASM_DIR = .
 EXAMPLE_DIR = example
@@ -15,8 +19,8 @@ WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
-WASM_OUT = ${OUT_DIR}/${WASM_SRC}
-WASM_LIBS = wasm-v8 wasm-bin wasm-v8-lowlevel
+WASM_OUT = ${OUT_DIR}/${WASM_DIR}
+WASM_LIBS = wasm-c wasm-v8 wasm-bin
 WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
@@ -31,20 +35,30 @@ V8_ICU_LIBS = uc i18n
 V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
-CFLAGS =
-CXXFLAGS = ${CFLAGS}
-
 # Example
 
-.PHONY: example
-example: ${EXAMPLE_OUT}/${EXAMPLE_NAME} ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
-	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}
+.PHONY: examples c cc
+examples: c cc
+	@echo ==== Done ====
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h ${EXAMPLE_OUT}
-	clang ${CFLAGS} -c -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+c: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-c ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
+	@echo ==== C ====; \
+	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}-c
 
-${EXAMPLE_OUT}/${EXAMPLE_NAME}: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.o ${WASM_O}
-	clang++ ${CXXFLAGS} $< -o $@ \
+cc: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-cc ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
+	@echo ==== C++ ====; \
+	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}-cc
+
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.c.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h
+	mkdir -p ${EXAMPLE_OUT}
+	clang -c ${CFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+
+${EXAMPLE_OUT}/${EXAMPLE_NAME}.cc.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.cc ${WASM_INCLUDE}/wasm.hh
+	mkdir -p ${EXAMPLE_OUT}
+	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+
+${EXAMPLE_OUT}/${EXAMPLE_NAME}-%: ${EXAMPLE_OUT}/${EXAMPLE_NAME}.%.o ${WASM_O}
+	clang++ ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
@@ -60,23 +74,15 @@ ${EXAMPLE_OUT}/%.wasm: ${EXAMPLE_DIR}/%.wasm
 %.wasm: %.wat
 	${WASM_INTERPRETER} -d $< -o $@
 
-${EXAMPLE_OUT}: ${OUT_DIR}
-	mkdir -p $@
-
 
 # Wasm C API
 
 .PHONY: wasm
-wasm: ${WASM_LIBS:%=%.o}
+wasm: ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
-${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_OUT}
-	clang++ ${CXXFLAGS} -c -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@ -std=c++0x
-
-${WASM_OUT}: ${OUT_DIR}
-	mkdir -p $@
-
-${OUT_DIR}:
-	mkdir -p $@
+${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc
+	mkdir -p ${WASM_OUT}
+	clang++ -c -std=c++14 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 
 # V8
