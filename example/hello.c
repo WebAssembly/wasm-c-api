@@ -90,10 +90,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_external_t* imports[] = {
+  const wasm_external_t* imports[] = {
     wasm_func_as_external(print_func1), wasm_func_as_external(print_func2)
   };
-  own wasm_instance_t* instance = wasm_instance_new(store, module, wasm_external_vec(2, imports));
+  own wasm_instance_t* instance = wasm_instance_new(store, module, wasm_external_vec_const(2, imports));
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

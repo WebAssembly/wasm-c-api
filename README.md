@@ -37,8 +37,6 @@ Work in progress. No docs yet.
     * Move host information to V8 object (func callback & env)
     * Compute reflection on demand
 
-  * Enforce const correctness
-
   * Find a way to make C callbacks without extra wrapper?
 
   * Possible renamings?

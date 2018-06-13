@@ -69,6 +69,10 @@ typedef double float64_t;
     wasm_##name##_vec_t v = {size, xs}; \
     return v; \
   } \
+  static inline wasm_##name##_vec_t wasm_##name##_vec_const(size_t size, const wasm_##name##_t ptr_or_none xs[]) { \
+    wasm_##name##_vec_t v = {size, (wasm_##name##_t ptr_or_none*)xs}; \
+    return v; \
+  } \
   \
   static inline wasm_##name##_vec_t wasm_##name##_vec_empty() { \
     return wasm_##name##_vec(0, NULL); \
