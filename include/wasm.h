@@ -192,8 +192,8 @@ WASM_DECLARE_TYPE(functype)
 
 own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results);
 
-wasm_valtype_vec_t wasm_functype_params(wasm_functype_t*);
-wasm_valtype_vec_t wasm_functype_results(wasm_functype_t*);
+const wasm_valtype_vec_t wasm_functype_params(const wasm_functype_t*);
+const wasm_valtype_vec_t wasm_functype_results(const wasm_functype_t*);
 
 
 // Global Types
@@ -202,8 +202,8 @@ WASM_DECLARE_TYPE(globaltype)
 
 own wasm_globaltype_t* wasm_globaltype_new(own wasm_valtype_t*, wasm_mut_t);
 
-wasm_valtype_t* wasm_globaltype_content(wasm_globaltype_t*);
-wasm_mut_t wasm_globaltype_mut(wasm_globaltype_t*);
+const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t*);
+wasm_mut_t wasm_globaltype_mut(const wasm_globaltype_t*);
 
 
 // Table Types
@@ -212,8 +212,8 @@ WASM_DECLARE_TYPE(tabletype)
 
 own wasm_tabletype_t* wasm_tabletype_new(own wasm_valtype_t*, wasm_limits_t);
 
-wasm_valtype_t* wasm_tabletype_element(wasm_tabletype_t*);
-wasm_limits_t wasm_tabletype_limits(wasm_tabletype_t*);
+const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t*);
+wasm_limits_t wasm_tabletype_limits(const wasm_tabletype_t*);
 
 
 // Memory Types
@@ -222,7 +222,7 @@ WASM_DECLARE_TYPE(memtype)
 
 own wasm_memtype_t* wasm_memtype_new(wasm_limits_t);
 
-wasm_limits_t wasm_memtype_limits(wasm_memtype_t*);
+wasm_limits_t wasm_memtype_limits(const wasm_memtype_t*);
 
 
 // Extern Types
@@ -252,9 +252,9 @@ WASM_DECLARE_TYPE(importtype)
 
 own wasm_importtype_t* wasm_importtype_new(own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t*);
 
-wasm_name_t wasm_importtype_module(wasm_importtype_t*);
-wasm_name_t wasm_importtype_name(wasm_importtype_t*);
-wasm_externtype_t* wasm_importtype_type(wasm_importtype_t*);
+const wasm_name_t wasm_importtype_module(const wasm_importtype_t*);
+const wasm_name_t wasm_importtype_name(const wasm_importtype_t*);
+const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t*);
 
 
 // Export Types
@@ -263,8 +263,8 @@ WASM_DECLARE_TYPE(exporttype)
 
 own wasm_exporttype_t* wasm_exporttype_new(own wasm_name_t, own wasm_externtype_t*);
 
-wasm_name_t wasm_exporttype_name(wasm_exporttype_t*);
-wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t*);
+const wasm_name_t wasm_exporttype_name(const wasm_exporttype_t*);
+const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t*);
 
 
 ///////////////////////////////////////////////////////////////////////////////

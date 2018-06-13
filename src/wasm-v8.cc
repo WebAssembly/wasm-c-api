@@ -365,11 +365,11 @@ auto functype::clone() const -> own<functype*> {
     const_cast<functype*>(this)->results().clone());
 }
 
-auto functype::params() -> vec<valtype*>& {
+auto functype::params() const -> const vec<valtype*>& {
   return impl(this)->params;
 }
 
-auto functype::results() -> vec<valtype*>& {
+auto functype::results() const -> const vec<valtype*>& {
   return impl(this)->results;
 }
 
@@ -408,7 +408,7 @@ auto globaltype::clone() const -> own<globaltype*> {
   return make(const_cast<globaltype*>(this)->content()->clone(), mut());
 }
 
-auto globaltype::content() -> own<valtype*>& {
+auto globaltype::content() const -> const own<valtype*>& {
   return impl(this)->content;
 }
 
@@ -429,11 +429,11 @@ auto externtype::global() const -> const globaltype* {
 // Table Types
 
 struct tabletype_impl : externtype_impl {
-  own<valtype*> elem;
+  own<valtype*> element;
   wasm::limits limits;
 
-  tabletype_impl(own<valtype*>& elem, wasm::limits limits) :
-    externtype_impl(EXTERN_TABLE), elem(std::move(elem)), limits(limits) {}
+  tabletype_impl(own<valtype*>& element, wasm::limits limits) :
+    externtype_impl(EXTERN_TABLE), element(std::move(element)), limits(limits) {}
 };
 
 template<> struct implement<tabletype> { using type = tabletype_impl; };
@@ -441,9 +441,9 @@ template<> struct implement<tabletype> { using type = tabletype_impl; };
 
 tabletype::~tabletype() {}
 
-auto tabletype::make(own<valtype*>&& elem, wasm::limits limits) -> own<tabletype*> {
-  return elem
-    ? own<tabletype*>(seal<tabletype>(new(std::nothrow) tabletype_impl(elem, limits)))
+auto tabletype::make(own<valtype*>&& element, wasm::limits limits) -> own<tabletype*> {
+  return element
+    ? own<tabletype*>(seal<tabletype>(new(std::nothrow) tabletype_impl(element, limits)))
     : own<tabletype*>();
 }
 
@@ -451,8 +451,8 @@ auto tabletype::clone() const -> own<tabletype*> {
   return make(const_cast<tabletype*>(this)->element()->clone(), limits());
 }
 
-auto tabletype::element() -> own<valtype*>& {
-  return impl(this)->elem;
+auto tabletype::element() const -> const own<valtype*>& {
+  return impl(this)->element;
 }
 
 auto tabletype::limits() const -> wasm::limits {
@@ -540,15 +540,15 @@ auto importtype::clone() const -> own<importtype*> {
     const_cast<importtype*>(this)->type()->clone());
 }
 
-auto importtype::module() -> wasm::name& {
+auto importtype::module() const -> const wasm::name& {
   return impl(this)->module;
 }
 
-auto importtype::name() -> wasm::name& {
+auto importtype::name() const -> const wasm::name& {
   return impl(this)->name;
 }
 
-auto importtype::type() -> own<externtype*>& {
+auto importtype::type() const -> const own<externtype*>& {
   return impl(this)->type;
 }
 
@@ -586,11 +586,11 @@ auto exporttype::clone() const -> own<exporttype*> {
     const_cast<exporttype*>(this)->type()->clone());
 }
 
-auto exporttype::name() -> wasm::name& {
+auto exporttype::name() const -> const wasm::name& {
   return impl(this)->name;
 }
 
-auto exporttype::type() -> own<externtype*>& {
+auto exporttype::type() const -> const own<externtype*>& {
   return impl(this)->type;
 }
 
@@ -600,7 +600,7 @@ auto exporttype::type() -> own<externtype*>& {
 
 // Types
 
-v8::Local<v8::Value> valtype_to_v8(store_impl* store, own<valtype*>& type) {
+v8::Local<v8::Value> valtype_to_v8(store_impl* store, const own<valtype*>& type) {
   v8_string_t string;
   switch (type->kind()) {
     case I32: string = V8_S_I32; break;
@@ -631,7 +631,7 @@ void limits_to_v8(store_impl* store, limits limits, v8::Local<v8::Object> desc) 
   }
 }
 
-v8::Local<v8::Object> globaltype_to_v8(store_impl* store, own<globaltype*>& type) {
+v8::Local<v8::Object> globaltype_to_v8(store_impl* store, const own<globaltype*>& type) {
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
@@ -642,7 +642,7 @@ v8::Local<v8::Object> globaltype_to_v8(store_impl* store, own<globaltype*>& type
   return desc;
 }
 
-v8::Local<v8::Object> tabletype_to_v8(store_impl* store, own<tabletype*>& type) {
+v8::Local<v8::Object> tabletype_to_v8(store_impl* store, const own<tabletype*>& type) {
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
@@ -652,7 +652,7 @@ v8::Local<v8::Object> tabletype_to_v8(store_impl* store, own<tabletype*>& type) 
   return desc;
 }
 
-v8::Local<v8::Object> memtype_to_v8(store_impl* store, own<memtype*>& type) {
+v8::Local<v8::Object> memtype_to_v8(store_impl* store, const own<memtype*>& type) {
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
@@ -728,7 +728,7 @@ auto val_to_v8(store_impl* store, val& v) -> v8::Local<v8::Value> {
   }
 }
 
-auto v8_to_val(store_impl* store, v8::Local<v8::Value> value, const own<valtype*>& t) -> own<val> {
+auto v8_to_val(store_impl* store, v8::Local<v8::Value> value, const valtype* t) -> own<val> {
   auto context = store->context();
   switch (t->kind()) {
     case I32: return val(value->Int32Value(context).ToChecked());
@@ -1203,7 +1203,7 @@ auto func::call(const vec<val>& args) const -> vec<val> {
     return vec<val>::make();
   } else if (type_results.size() == 1) {
     assert(!result->IsUndefined());
-    return vec<val>::make(v8_to_val(store, result, type_results[0].move()));
+    return vec<val>::make(v8_to_val(store, result, type_results[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }
@@ -1226,7 +1226,7 @@ void func_data::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
 
   auto args = vec<val>::make_uninitialized(type_params.size());
   for (size_t i = 0; i < type_params.size(); ++i) {
-    args[i] = v8_to_val(store, info[i], type_params[i].move());
+    args[i] = v8_to_val(store, info[i], type_params[i]);
   }
 
   auto results = vec<val>::invalid();
@@ -1318,7 +1318,7 @@ auto global::get() const -> own<val> {
   if (maybe_val.IsEmpty()) return val();
   auto val = maybe_val.ToLocalChecked();
 
-  return v8_to_val(store, val, this->type()->content());
+  return v8_to_val(store, val, this->type()->content().get());
 }
 
 void global::set(val& val) {

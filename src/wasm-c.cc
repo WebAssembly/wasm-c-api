@@ -41,10 +41,19 @@ struct borrowed_vec {
   extern "C++" inline auto hide(wasm::name* x) -> wasm_##name##_t* { \
     return static_cast<wasm_##name##_t*>(x); \
   } \
+  extern "C++" inline auto hide(const wasm::name* x) -> const wasm_##name##_t* { \
+    return static_cast<const wasm_##name##_t*>(x); \
+  } \
   extern "C++" inline auto reveal(wasm_##name##_t* x) -> wasm::name* { \
     return x; \
   } \
+  extern "C++" inline auto reveal(const wasm_##name##_t* x) -> const wasm::name* { \
+    return x; \
+  } \
   extern "C++" inline auto get(own<wasm::name*>& x) -> wasm_##name##_t* { \
+    return hide(x.get()); \
+  } \
+  extern "C++" inline auto get(const own<wasm::name*>& x) -> const wasm_##name##_t* { \
     return hide(x.get()); \
   } \
   extern "C++" inline auto release(own<wasm::name*>&& x) -> wasm_##name##_t* { \
@@ -270,11 +279,11 @@ wasm_functype_t* wasm_functype_new(wasm_valtype_vec_t params, wasm_valtype_vec_t
   return release(functype::make(adopt(params), adopt(results)));
 }
 
-wasm_valtype_vec_t wasm_functype_params(wasm_functype_t* ft) {
+const wasm_valtype_vec_t wasm_functype_params(const wasm_functype_t* ft) {
   return get(ft->params());
 }
 
-wasm_valtype_vec_t wasm_functype_results(wasm_functype_t* ft) {
+const wasm_valtype_vec_t wasm_functype_results(const wasm_functype_t* ft) {
   return get(ft->results());
 }
 
@@ -287,11 +296,11 @@ wasm_globaltype_t* wasm_globaltype_new(wasm_valtype_t* content, wasm_mut_t mut) 
   return release(globaltype::make(adopt(content), reveal(mut)));
 }
 
-wasm_valtype_t* wasm_globaltype_content(wasm_globaltype_t* gt) {
+const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t* gt) {
   return get(gt->content());
 }
 
-wasm_mut_t wasm_globaltype_mut(wasm_globaltype_t* gt) {
+wasm_mut_t wasm_globaltype_mut(const wasm_globaltype_t* gt) {
   return hide(gt->mut());
 }
 
@@ -304,11 +313,11 @@ wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* elem, wasm_limits_t limits)
   return release(tabletype::make(adopt(elem), reveal(limits)));
 }
 
-wasm_valtype_t* wasm_tabletype_elem(wasm_tabletype_t* tt) {
+const wasm_valtype_t* wasm_tabletype_elem(const wasm_tabletype_t* tt) {
   return get(tt->element());
 }
 
-wasm_limits_t wasm_tabletype_limits(wasm_tabletype_t* tt) {
+wasm_limits_t wasm_tabletype_limits(const wasm_tabletype_t* tt) {
   return hide(tt->limits());
 }
 
@@ -321,7 +330,7 @@ wasm_memtype_t* wasm_memtype_new(wasm_limits_t limits) {
   return release(memtype::make(reveal(limits)));
 }
 
-wasm_limits_t wasm_memtype_limits(wasm_memtype_t* mt) {
+wasm_limits_t wasm_memtype_limits(const wasm_memtype_t* mt) {
   return hide(mt->limits());
 }
 
@@ -369,15 +378,15 @@ wasm_importtype_t* wasm_importtype_new(wasm_name_t module, wasm_name_t name, was
   return release(importtype::make(adopt(module), adopt(name), adopt(type)));
 }
 
-wasm_name_t wasm_importtype_module(wasm_importtype_t* it) {
+const wasm_name_t wasm_importtype_module(const wasm_importtype_t* it) {
   return get(it->module());
 }
 
-wasm_name_t wasm_importtype_name(wasm_importtype_t* it) {
+const wasm_name_t wasm_importtype_name(const wasm_importtype_t* it) {
   return get(it->name());
 }
 
-wasm_externtype_t* wasm_importtype_type(wasm_importtype_t* it) {
+const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t* it) {
   return get(it->type());
 }
 
@@ -390,11 +399,11 @@ wasm_exporttype_t* wasm_exporttype_new(wasm_name_t name, wasm_externtype_t* type
   return release(exporttype::make(adopt(name), adopt(type)));
 }
 
-wasm_name_t wasm_exporttype_name(wasm_exporttype_t* et) {
+const wasm_name_t wasm_exporttype_name(const wasm_exporttype_t* et) {
   return get(et->name());
 }
 
-wasm_externtype_t* wasm_exporttype_type(wasm_exporttype_t* et) {
+const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
   return get(et->type());
 }
 

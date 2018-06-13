@@ -81,6 +81,8 @@ struct vec_traits<T*> {
     T*& elem_;
   public:
     proxy(T*& elem) : elem_(elem) {}
+    operator T*() { return elem_; }
+    operator const T*() const { return elem_; }
     auto operator=(own<T*>&& elem) -> proxy& {
       reset(std::move(elem));
       return *this;
@@ -324,8 +326,8 @@ public:
 
   auto clone() const -> own<functype*>;
 
-  auto params() -> vec<valtype*>&;
-  auto results() -> vec<valtype*>&;
+  auto params() const -> const vec<valtype*>&;
+  auto results() const -> const vec<valtype*>&;
 };
 
 
@@ -339,7 +341,7 @@ public:
   static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
   auto clone() const -> own<globaltype*>;
 
-  auto content() -> own<valtype*>&;
+  auto content() const -> const own<valtype*>&;
   auto mut() const -> mut;
 };
 
@@ -354,7 +356,7 @@ public:
   static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
   auto clone() const -> own<tabletype*>;
 
-  auto element() -> own<valtype*>&;
+  auto element() const -> const own<valtype*>&;
   auto limits() const -> limits;
 };
 
@@ -386,9 +388,9 @@ public:
   static auto make(name&& module, name&& name, own<externtype*>&&) -> own<importtype*>;
   auto clone() const -> own<importtype*>;
 
-  auto module() -> name&;
-  auto name() -> name&;
-  auto type() -> own<externtype*>&;
+  auto module() const -> const name&;
+  auto name() const -> const name&;
+  auto type() const -> const own<externtype*>&;
 };
 
 
@@ -403,8 +405,8 @@ public:
   static auto make(name&& name, own<externtype*>&&) -> own<exporttype*>;
   auto clone() const -> own<exporttype*>;
 
-  auto name() -> name&;
-  auto type() -> own<externtype*>&;
+  auto name() const -> const name&;
+  auto type() const -> const own<externtype*>&;
 };
 
 
