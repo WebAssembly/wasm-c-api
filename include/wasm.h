@@ -23,7 +23,8 @@ inline void assertions() {
   static_assert(sizeof(float) == sizeof(uint32_t), "incompatible float type");
   static_assert(sizeof(double) == sizeof(uint64_t), "incompatible double type");
   static_assert(sizeof(intptr_t) == sizeof(uint32_t) ||
-                sizeof(intptr_t) == sizeof(uint64_t), "incompatible pointer type");
+                sizeof(intptr_t) == sizeof(uint64_t),
+                "incompatible pointer type");
 }
 
 typedef char byte_t;
@@ -69,11 +70,15 @@ typedef double float64_t;
     wasm_##name##_t ptr_or_none* data; \
   } wasm_##name##_vec_t; \
   \
-  static inline wasm_##name##_vec_t wasm_##name##_vec(size_t size, wasm_##name##_t ptr_or_none xs[]) { \
+  static inline wasm_##name##_vec_t wasm_##name##_vec( \
+    size_t size, wasm_##name##_t ptr_or_none xs[] \
+  ) { \
     wasm_##name##_vec_t v = {size, xs}; \
     return v; \
   } \
-  static inline wasm_##name##_vec_t wasm_##name##_vec_const(size_t size, const wasm_##name##_t ptr_or_none xs[]) { \
+  static inline wasm_##name##_vec_t wasm_##name##_vec_const( \
+    size_t size, const wasm_##name##_t ptr_or_none xs[] \
+  ) { \
     wasm_##name##_vec_t v = {size, (wasm_##name##_t ptr_or_none*)xs}; \
     return v; \
   } \
@@ -84,7 +89,8 @@ typedef double float64_t;
   \
   own wasm_##name##_vec_t wasm_##name##_vec_new_empty(); \
   own wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t); \
-  own wasm_##name##_vec_t wasm_##name##_vec_new(size_t, own wasm_##name##_t ptr_or_none const[]); \
+  own wasm_##name##_vec_t wasm_##name##_vec_new( \
+    size_t, own wasm_##name##_t ptr_or_none const[]); \
   own wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t); \
   void wasm_##name##_vec_delete(own wasm_##name##_vec_t);
 
@@ -125,7 +131,8 @@ own wasm_config_t* wasm_config_new();
 WASM_DECLARE_OWN(engine)
 
 own wasm_engine_t* wasm_engine_new(int argc, const char* const argv[]);
-own wasm_engine_t* wasm_engine_new_with_config(int argc, const char* const argv[], own wasm_config_t*);
+own wasm_engine_t* wasm_engine_new_with_config(
+  int argc, const char* const argv[], own wasm_config_t*);
 
 
 // Store
@@ -205,7 +212,8 @@ static inline bool wasm_valtype_is_ref(wasm_valtype_t* t) {
 
 WASM_DECLARE_TYPE(functype)
 
-own wasm_functype_t* wasm_functype_new(own wasm_valtype_vec_t params, own wasm_valtype_vec_t results);
+own wasm_functype_t* wasm_functype_new(
+  own wasm_valtype_vec_t params, own wasm_valtype_vec_t results);
 
 const wasm_valtype_vec_t wasm_functype_params(const wasm_functype_t*);
 const wasm_valtype_vec_t wasm_functype_results(const wasm_functype_t*);
@@ -215,7 +223,8 @@ const wasm_valtype_vec_t wasm_functype_results(const wasm_functype_t*);
 
 WASM_DECLARE_TYPE(globaltype)
 
-own wasm_globaltype_t* wasm_globaltype_new(own wasm_valtype_t*, wasm_mutability_t);
+own wasm_globaltype_t* wasm_globaltype_new(
+  own wasm_valtype_t*, wasm_mutability_t);
 
 const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t*);
 wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t*);
@@ -268,7 +277,8 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype(const wasm_externtype_t*)
 
 WASM_DECLARE_TYPE(importtype)
 
-own wasm_importtype_t* wasm_importtype_new(own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t*);
+own wasm_importtype_t* wasm_importtype_new(
+  own wasm_name_t module, own wasm_name_t name, own wasm_externtype_t*);
 
 const wasm_name_t wasm_importtype_module(const wasm_importtype_t*);
 const wasm_name_t wasm_importtype_name(const wasm_importtype_t*);
@@ -279,7 +289,8 @@ const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t*);
 
 WASM_DECLARE_TYPE(exporttype)
 
-own wasm_exporttype_t* wasm_exporttype_new(own wasm_name_t, own wasm_externtype_t*);
+own wasm_exporttype_t* wasm_exporttype_new(
+  own wasm_name_t, own wasm_externtype_t*);
 
 const wasm_name_t wasm_exporttype_name(const wasm_exporttype_t*);
 const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t*);
@@ -318,7 +329,8 @@ WASM_DECLARE_VEC(val, )
   \
   void* wasm_##name##_get_host_info(const wasm_##name##_t*); \
   void wasm_##name##_set_host_info(wasm_##name##_t*, void*); \
-  void wasm_##name##_set_host_info_with_finalizer(wasm_##name##_t*, void*, void (*)(void*));
+  void wasm_##name##_set_host_info_with_finalizer( \
+    wasm_##name##_t*, void*, void (*)(void*));
 
 #define WASM_DECLARE_REF(name) \
   WASM_DECLARE_REF_BASE(name) \
@@ -357,10 +369,14 @@ own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
 WASM_DECLARE_REF(func)
 
 typedef own wasm_val_vec_t (*wasm_func_callback_t)(const wasm_val_vec_t);
-typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, const wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(
+  void*, const wasm_val_vec_t);
 
-own wasm_func_t* wasm_func_new(wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
-own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t, wasm_ref_t* env, void (*finalizer)(void*));
+own wasm_func_t* wasm_func_new(
+  wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
+own wasm_func_t* wasm_func_new_with_env(
+  wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t,
+  wasm_ref_t* env, void (*finalizer)(void*));
 
 own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 
@@ -371,7 +387,8 @@ own wasm_val_vec_t wasm_func_call(const wasm_func_t*, const wasm_val_vec_t);
 
 WASM_DECLARE_REF(global)
 
-own wasm_global_t* wasm_global_new(wasm_store_t*, const wasm_globaltype_t*, wasm_val_t);
+own wasm_global_t* wasm_global_new(
+  wasm_store_t*, const wasm_globaltype_t*, wasm_val_t);
 
 own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
@@ -385,7 +402,8 @@ WASM_DECLARE_REF(table)
 
 typedef uint32_t wasm_table_size_t;
 
-own wasm_table_t* wasm_table_new(wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t*);
+own wasm_table_t* wasm_table_new(
+  wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t*);
 
 own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
@@ -437,7 +455,8 @@ const wasm_memory_t* wasm_extern_as_memory(const wasm_extern_t*);
 
 WASM_DECLARE_REF(instance)
 
-own wasm_instance_t* wasm_instance_new(wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t imports);
+own wasm_instance_t* wasm_instance_new(
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t imports);
 
 own wasm_extern_vec_t wasm_instance_exports(const wasm_instance_t*);
 
@@ -471,68 +490,105 @@ static inline own wasm_valtype_t* wasm_valtype_new_funcref() {
 // Function Types construction short-hands
 
 static inline own wasm_functype_t* wasm_functype_new_0_0() {
-  return wasm_functype_new(wasm_valtype_vec_new_empty(), wasm_valtype_vec_new_empty());
+  return wasm_functype_new(
+    wasm_valtype_vec_new_empty(), wasm_valtype_vec_new_empty());
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_0(own wasm_valtype_t* p) {
+static inline own wasm_functype_t* wasm_functype_new_1_0(
+  own wasm_valtype_t* p
+) {
   wasm_valtype_t* ps[1] = {p};
-  return wasm_functype_new(wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new_empty());
+  return wasm_functype_new(
+    wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new_empty());
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_0(own wasm_valtype_t* p1, own wasm_valtype_t* p2) {
+static inline own wasm_functype_t* wasm_functype_new_2_0(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2
+) {
   wasm_valtype_t* ps[2] = {p1, p2};
-  return wasm_functype_new(wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new_empty());
+  return wasm_functype_new(
+    wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new_empty());
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_0(own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3) {
+static inline own wasm_functype_t* wasm_functype_new_3_0(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3
+) {
   wasm_valtype_t* ps[3] = {p1, p2, p3};
-  return wasm_functype_new(wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new_empty());
+  return wasm_functype_new(
+    wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new_empty());
 }
 
-static inline own wasm_functype_t* wasm_functype_new_0_1(own wasm_valtype_t* r) {
+static inline own wasm_functype_t* wasm_functype_new_0_1(
+  own wasm_valtype_t* r
+) {
   wasm_valtype_t* rs[1] = {r};
-  return wasm_functype_new(wasm_valtype_vec_new_empty(), wasm_valtype_vec_new(1, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new_empty(), wasm_valtype_vec_new(1, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_1(own wasm_valtype_t* p, own wasm_valtype_t* r) {
+static inline own wasm_functype_t* wasm_functype_new_1_1(
+  own wasm_valtype_t* p, own wasm_valtype_t* r
+) {
   wasm_valtype_t* ps[1] = {p};
   wasm_valtype_t* rs[1] = {r};
-  return wasm_functype_new(wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new(1, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new(1, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_1(own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* r) {
+static inline own wasm_functype_t* wasm_functype_new_2_1(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* r
+) {
   wasm_valtype_t* ps[2] = {p1, p2};
   wasm_valtype_t* rs[1] = {r};
-  return wasm_functype_new(wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new(1, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new(1, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_1(own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3, own wasm_valtype_t* r) {
+static inline own wasm_functype_t* wasm_functype_new_3_1(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3,
+  own wasm_valtype_t* r
+) {
   wasm_valtype_t* ps[3] = {p1, p2, p3};
   wasm_valtype_t* rs[1] = {r};
-  return wasm_functype_new(wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new(1, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new(1, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_0_2(own wasm_valtype_t* r1, own wasm_valtype_t* r2) {
+static inline own wasm_functype_t* wasm_functype_new_0_2(
+  own wasm_valtype_t* r1, own wasm_valtype_t* r2
+) {
   wasm_valtype_t* rs[2] = {r1, r2};
-  return wasm_functype_new(wasm_valtype_vec_new_empty(), wasm_valtype_vec_new(2, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new_empty(), wasm_valtype_vec_new(2, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_1_2(own wasm_valtype_t* p, own wasm_valtype_t* r1, own wasm_valtype_t* r2) {
+static inline own wasm_functype_t* wasm_functype_new_1_2(
+  own wasm_valtype_t* p, own wasm_valtype_t* r1, own wasm_valtype_t* r2
+) {
   wasm_valtype_t* ps[1] = {p};
   wasm_valtype_t* rs[2] = {r1, r2};
-  return wasm_functype_new(wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new(2, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(1, ps), wasm_valtype_vec_new(2, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_2_2(own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* r1, own wasm_valtype_t* r2) {
+static inline own wasm_functype_t* wasm_functype_new_2_2(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2,
+  own wasm_valtype_t* r1, own wasm_valtype_t* r2
+) {
   wasm_valtype_t* ps[2] = {p1, p2};
   wasm_valtype_t* rs[2] = {r1, r2};
-  return wasm_functype_new(wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new(2, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(2, ps), wasm_valtype_vec_new(2, rs));
 }
 
-static inline own wasm_functype_t* wasm_functype_new_3_2(own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3, own wasm_valtype_t* r1, own wasm_valtype_t* r2) {
+static inline own wasm_functype_t* wasm_functype_new_3_2(
+  own wasm_valtype_t* p1, own wasm_valtype_t* p2, own wasm_valtype_t* p3,
+  own wasm_valtype_t* r1, own wasm_valtype_t* r2
+) {
   wasm_valtype_t* ps[3] = {p1, p2, p3};
   wasm_valtype_t* rs[2] = {r1, r2};
-  return wasm_functype_new(wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new(2, rs));
+  return wasm_functype_new(
+    wasm_valtype_vec_new(3, ps), wasm_valtype_vec_new(2, rs));
 }
 
 

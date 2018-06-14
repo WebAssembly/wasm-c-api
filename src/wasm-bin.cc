@@ -219,7 +219,8 @@ auto imports(
       case 0x03: type = bin::globaltype(pos); break;
       default: assert(false);
     }
-    v[i] = ImportType::make(std::move(module), std::move(name), std::move(type));
+    v[i] = ImportType::make(
+      std::move(module), std::move(name), std::move(type));
   }
   return v;
 }
@@ -241,7 +242,8 @@ auto funcs(
 ) -> vec<FuncType*> {
   auto pos = bin::section(binary, SEC_FUNC);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<FuncType*>::make_uninitialized(size + count(imports, EXTERN_FUNC));
+  auto v = vec<FuncType*>::make_uninitialized(
+    size + count(imports, EXTERN_FUNC));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
@@ -265,7 +267,8 @@ auto globals(
 ) -> vec<GlobalType*> {
   auto pos = bin::section(binary, SEC_GLOBAL);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<GlobalType*>::make_uninitialized(size + count(imports, EXTERN_GLOBAL));
+  auto v = vec<GlobalType*>::make_uninitialized(
+    size + count(imports, EXTERN_GLOBAL));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
@@ -289,7 +292,8 @@ auto tables(
 ) -> vec<TableType*> {
   auto pos = bin::section(binary, SEC_TABLE);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<TableType*>::make_uninitialized(size + count(imports, EXTERN_TABLE));
+  auto v = vec<TableType*>::make_uninitialized(
+    size + count(imports, EXTERN_TABLE));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
@@ -313,7 +317,8 @@ auto memories(
 ) -> vec<MemoryType*> {
   auto pos = bin::section(binary, SEC_MEMORY);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
-  auto v = vec<MemoryType*>::make_uninitialized(size + count(imports, EXTERN_MEMORY));
+  auto v = vec<MemoryType*>::make_uninitialized(
+    size + count(imports, EXTERN_MEMORY));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();

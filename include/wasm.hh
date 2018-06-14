@@ -219,7 +219,9 @@ public:
   ~Engine();
   void operator delete(void*);
 
-  static auto make(int argc, const char* const argv[], own<Config*>&& = Config::make()) -> own<Engine*>;
+  static auto make(
+    int argc, const char* const argv[], own<Config*>&& = Config::make()
+  ) -> own<Engine*>;
 };
 
 
@@ -382,7 +384,8 @@ public:
   ~ImportType();
   void operator delete(void*);
 
-  static auto make(Name&& module, Name&& name, own<ExternType*>&&) -> own<ImportType*>;
+  static auto make(Name&& module, Name&& name, own<ExternType*>&&) ->
+    own<ImportType*>;
   auto copy() const -> own<ImportType*>;
 
   auto module() const -> const Name&;
@@ -569,7 +572,8 @@ public:
   using callback_with_env = auto (*)(void*, const vec<Val>&) -> vec<Val>;
 
   static auto make(own<Store*>&, const own<FuncType*>&, callback) -> own<Func*>;
-  static auto make(own<Store*>&, const own<FuncType*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<Func*>;
+  static auto make(own<Store*>&, const own<FuncType*>&,
+    callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<Func*>;
   auto copy() const -> own<Func*>;
 
   auto type() const -> own<FuncType*>;
@@ -589,7 +593,8 @@ public:
   Global() = delete;
   ~Global();
 
-  static auto make(own<Store*>&, const own<GlobalType*>&, const Val&) -> own<Global*>;
+  static auto make(own<Store*>&, const own<GlobalType*>&, const Val&) ->
+    own<Global*>;
   auto copy() const -> own<Global*>;
 
   auto type() const -> own<GlobalType*>;
@@ -607,7 +612,8 @@ public:
 
   using size_t = uint32_t;
 
-  static auto make(own<Store*>&, const own<TableType*>&, const own<Ref*>&) -> own<Table*>;
+  static auto make(own<Store*>&, const own<TableType*>&, const own<Ref*>&) ->
+    own<Table*>;
   auto copy() const -> own<Table*>;
 
   auto type() const -> own<TableType*>;
@@ -647,7 +653,8 @@ public:
   Instance() = delete;
   ~Instance();
 
-  static auto make(own<Store*>&, const own<Module*>&, const vec<Extern*>&) -> own<Instance*>;
+  static auto make(own<Store*>&, const own<Module*>&, const vec<Extern*>&) ->
+    own<Instance*>;
   auto copy() const -> own<Instance*>;
 
   auto exports() const -> vec<Extern*>;
