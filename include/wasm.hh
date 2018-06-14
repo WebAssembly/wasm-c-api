@@ -30,7 +30,6 @@ namespace wasm {
 
 template<class T> struct owner { using type = T; };
 template<class T> struct owner<T*> { using type = std::unique_ptr<T>; };
-template<class T> struct owner<T[]> { using type = std::unique_ptr<T[]>; };
 
 template<class T>
 using own = typename owner<T>::type;
@@ -48,7 +47,7 @@ struct vec_traits {
   static void move(size_t size, T* data, T init[]) {
     for (size_t i = 0; i < size; ++i) data[i].reset(init[i]);
   }
-  static void clone(size_t size, T data[], const T init[]) {
+  static void copy(size_t size, T data[], const T init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i];
   }
 
@@ -68,9 +67,9 @@ struct vec_traits<T*> {
   static void move(size_t size, T* data[], own<T*> init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i].release();
   }
-  static void clone(size_t size, T* data[], const T* const init[]) {
+  static void copy(size_t size, T* data[], const T* const init[]) {
     for (size_t i = 0; i < size; ++i) {
-      if (init[i]) data[i] = init[i]->clone().release();
+      if (init[i]) data[i] = init[i]->copy().release();
     }
   }
 
@@ -160,9 +159,9 @@ public:
     return typename vec_traits<T>::proxy(data_[i]);
   }
 
-  auto clone() const -> vec {
+  auto copy() const -> vec {
     auto v = vec(size_);
-    if (v) vec_traits<T>::clone(size_, v.data_.get(), data_.get());
+    if (v) vec_traits<T>::copy(size_, v.data_.get(), data_.get());
     return v;
   }
 
@@ -199,39 +198,39 @@ public:
 
 // Configuration
 
-class config {
+class Config {
 public:
-  config() = delete;
-  ~config();
+  Config() = delete;
+  ~Config();
   void operator delete(void*);
 
-  static auto make() -> own<config*>;
+  static auto make() -> own<Config*>;
 
-  // Embedders may provide custom methods for manipulating configs.
+  // Embedders may provide custom methods for manipulating Configs.
 };
 
 
 // Engine
 
-class engine {
+class Engine {
 public:
-  engine() = delete;
-  ~engine();
+  Engine() = delete;
+  ~Engine();
   void operator delete(void*);
 
-  static auto make(int argc, const char* const argv[], own<config*>&& = config::make()) -> own<engine*>;
+  static auto make(int argc, const char* const argv[], own<Config*>&& = Config::make()) -> own<Engine*>;
 };
 
 
 // Store
 
-class store {
+class Store {
 public:
-  store() = delete;
-  ~store();
+  Store() = delete;
+  ~Store();
   void operator delete(void*);
 
-  static auto make(own<engine*>&) -> own<store*>;
+  static auto make(own<Engine*>&) -> own<Store*>;
 };
 
 
@@ -240,35 +239,35 @@ public:
 
 // Tyoe atributes
 
-enum mut { CONST, VAR };
+enum Mutability { CONST, VAR };
 
-struct limits {
+struct Limits {
   uint32_t min;
   uint32_t max;
 
-  limits(uint32_t min, uint32_t max = std::numeric_limits<uint32_t>::max()) :
+  Limits(uint32_t min, uint32_t max = std::numeric_limits<uint32_t>::max()) :
     min(min), max(max) {}
 };
 
 
 // Value Types
 
-enum valkind { I32, I64, F32, F64, ANYREF, FUNCREF };
+enum ValKind { I32, I64, F32, F64, ANYREF, FUNCREF };
 
-inline bool is_num(valkind k) { return k < ANYREF; }
-inline bool is_ref(valkind k) { return k >= ANYREF; }
+inline bool is_num(ValKind k) { return k < ANYREF; }
+inline bool is_ref(ValKind k) { return k >= ANYREF; }
 
 
-class valtype {
+class ValType {
 public:
-  valtype() = delete;
-  ~valtype();
+  ValType() = delete;
+  ~ValType();
   void operator delete(void*);
 
-  static auto make(valkind) -> own<valtype*>;
-  auto clone() const -> own<valtype*>;
+  static auto make(ValKind) -> own<ValType*>;
+  auto copy() const -> own<ValType*>;
 
-  auto kind() const -> valkind;
+  auto kind() const -> ValKind;
   auto is_num() const -> bool { return wasm::is_num(kind()); }
   auto is_ref() const -> bool { return wasm::is_ref(kind()); }
 };
@@ -276,34 +275,34 @@ public:
 
 // External Types
 
-enum externkind {
+enum ExternKind {
   EXTERN_FUNC, EXTERN_GLOBAL, EXTERN_TABLE, EXTERN_MEMORY
 };
 
-class functype;
-class globaltype;
-class tabletype;
-class memtype;
+class FuncType;
+class GlobalType;
+class TableType;
+class MemoryType;
 
-class externtype {
+class ExternType {
 public:
-  externtype() = delete;
-  ~externtype();
+  ExternType() = delete;
+  ~ExternType();
   void operator delete(void*);
 
-  auto clone() const-> own<externtype*>;
+  auto copy() const-> own<ExternType*>;
 
-  auto kind() const -> externkind;
+  auto kind() const -> ExternKind;
 
-  auto func() -> functype*;
-  auto global() -> globaltype*;
-  auto table() -> tabletype*;
-  auto memory() -> memtype*;
+  auto func() -> FuncType*;
+  auto global() -> GlobalType*;
+  auto table() -> TableType*;
+  auto memory() -> MemoryType*;
 
-  auto func() const -> const functype*;
-  auto global() const -> const globaltype*;
-  auto table() const -> const tabletype*;
-  auto memory() const -> const memtype*;
+  auto func() const -> const FuncType*;
+  auto global() const -> const GlobalType*;
+  auto table() const -> const TableType*;
+  auto memory() const -> const MemoryType*;
 };
 
 
@@ -311,99 +310,99 @@ public:
 
 enum class arrow { ARROW };
 
-class functype : public externtype {
+class FuncType : public ExternType {
 public:
-  functype() = delete;
-  ~functype();
+  FuncType() = delete;
+  ~FuncType();
 
   static auto make(
-    vec<valtype*>&& params = vec<valtype*>::make(),
-    vec<valtype*>&& results = vec<valtype*>::make()
-  ) -> own<functype*>;
+    vec<ValType*>&& params = vec<ValType*>::make(),
+    vec<ValType*>&& results = vec<ValType*>::make()
+  ) -> own<FuncType*>;
 
-  auto clone() const -> own<functype*>;
+  auto copy() const -> own<FuncType*>;
 
-  auto params() const -> const vec<valtype*>&;
-  auto results() const -> const vec<valtype*>&;
+  auto params() const -> const vec<ValType*>&;
+  auto results() const -> const vec<ValType*>&;
 };
 
 
 // Global Types
 
-class globaltype : public externtype {
+class GlobalType : public ExternType {
 public:
-  globaltype() = delete;
-  ~globaltype();
+  GlobalType() = delete;
+  ~GlobalType();
 
-  static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
-  auto clone() const -> own<globaltype*>;
+  static auto make(own<ValType*>&&, Mutability) -> own<GlobalType*>;
+  auto copy() const -> own<GlobalType*>;
 
-  auto content() const -> const own<valtype*>&;
-  auto mut() const -> mut;
+  auto content() const -> const own<ValType*>&;
+  auto mutability() const -> Mutability;
 };
 
 
 // Table Types
 
-class tabletype : public externtype {
+class TableType : public ExternType {
 public:
-  tabletype() = delete;
-  ~tabletype();
+  TableType() = delete;
+  ~TableType();
 
-  static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
-  auto clone() const -> own<tabletype*>;
+  static auto make(own<ValType*>&&, Limits) -> own<TableType*>;
+  auto copy() const -> own<TableType*>;
 
-  auto element() const -> const own<valtype*>&;
-  auto limits() const -> limits;
+  auto element() const -> const own<ValType*>&;
+  auto limits() const -> Limits;
 };
 
 
 // Memory Types
 
-class memtype : public externtype {
+class MemoryType : public ExternType {
 public:
-  memtype() = delete;
-  ~memtype();
+  MemoryType() = delete;
+  ~MemoryType();
 
-  static auto make(limits) -> own<memtype*>;
-  auto clone() const -> own<memtype*>;
+  static auto make(Limits) -> own<MemoryType*>;
+  auto copy() const -> own<MemoryType*>;
 
-  auto limits() const -> limits;
+  auto limits() const -> Limits;
 };
 
 
 // Import Types
 
-using name = vec<byte_t>;
+using Name = vec<byte_t>;
 
-class importtype {
+class ImportType {
 public:
-  importtype() = delete;
-  ~importtype();
+  ImportType() = delete;
+  ~ImportType();
   void operator delete(void*);
 
-  static auto make(name&& module, name&& name, own<externtype*>&&) -> own<importtype*>;
-  auto clone() const -> own<importtype*>;
+  static auto make(Name&& module, Name&& name, own<ExternType*>&&) -> own<ImportType*>;
+  auto copy() const -> own<ImportType*>;
 
-  auto module() const -> const name&;
-  auto name() const -> const name&;
-  auto type() const -> const own<externtype*>&;
+  auto module() const -> const Name&;
+  auto name() const -> const Name&;
+  auto type() const -> const own<ExternType*>&;
 };
 
 
 // Export Types
 
-class exporttype {
+class ExportType {
 public:
-  exporttype() = delete;
-  ~exporttype();
+  ExportType() = delete;
+  ~ExportType();
   void operator delete(void*);
 
-  static auto make(name&& name, own<externtype*>&&) -> own<exporttype*>;
-  auto clone() const -> own<exporttype*>;
+  static auto make(Name&&, own<ExternType*>&&) -> own<ExportType*>;
+  auto copy() const -> own<ExportType*>;
 
-  auto name() const -> const name&;
-  auto type() const -> const own<externtype*>&;
+  auto name() const -> const Name&;
+  auto type() const -> const own<ExternType*>&;
 };
 
 
@@ -412,13 +411,13 @@ public:
 
 // References
 
-class ref {
+class Ref {
 public:
-  ref() = delete;
-  ~ref();
+  Ref() = delete;
+  ~Ref();
   void operator delete(void*);
 
-  auto clone() const -> own<ref*>;
+  auto copy() const -> own<Ref*>;
 
   auto get_host_info() const -> void*;
   void set_host_info(void* info, void (*finalizer)(void*) = nullptr);
@@ -427,31 +426,31 @@ public:
 
 // Values
 
-class val {
-  valkind kind_;
+class Val {
+  ValKind kind_;
   union impl {
     int32_t i32;
     int64_t i64;
     float32_t f32;
     float64_t f64;
-    wasm::ref* ref;
+    Ref* ref;
   } impl_;
 
-  val(valkind kind, impl impl) : kind_(kind), impl_(impl) {}
+  Val(ValKind kind, impl impl) : kind_(kind), impl_(impl) {}
 
 public:
-  val() : kind_(ANYREF) { impl_.ref = nullptr; }
-  val(int32_t i) : kind_(I32) { impl_.i32 = i; }
-  val(int64_t i) : kind_(I64) { impl_.i64 = i; }
-  val(float32_t z) : kind_(F32) { impl_.f32 = z; }
-  val(float64_t z) : kind_(F64) { impl_.f64 = z; }
-  val(own<wasm::ref*>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
+  Val() : kind_(ANYREF) { impl_.ref = nullptr; }
+  Val(int32_t i) : kind_(I32) { impl_.i32 = i; }
+  Val(int64_t i) : kind_(I64) { impl_.i64 = i; }
+  Val(float32_t z) : kind_(F32) { impl_.f32 = z; }
+  Val(float64_t z) : kind_(F64) { impl_.f64 = z; }
+  Val(own<Ref*>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
 
-  val(val&& that) : kind_(that.kind_), impl_(that.impl_) {
+  Val(Val&& that) : kind_(that.kind_), impl_(that.impl_) {
     if (is_ref(kind_)) that.impl_.ref = nullptr;
   }
 
-  ~val() {
+  ~Val() {
     reset();
   }
 
@@ -462,38 +461,38 @@ public:
     }
   }
 
-  void reset(val& that) {
+  void reset(Val& that) {
     reset();
     kind_ = that.kind_;
     impl_ = that.impl_;
     if (is_ref(kind_)) that.impl_.ref = nullptr;
   }
 
-  auto operator=(val&& that) -> val& {
+  auto operator=(Val&& that) -> Val& {
     reset(that);
     return *this;
   } 
 
-  auto kind() const -> valkind { return kind_; }
+  auto kind() const -> ValKind { return kind_; }
   auto i32() const -> int32_t { assert(kind_ == I32); return impl_.i32; }
   auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
   auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
   auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
-  auto ref() const -> wasm::ref* { assert(is_ref(kind_)); return impl_.ref; }
+  auto ref() const -> Ref* { assert(is_ref(kind_)); return impl_.ref; }
 
-  auto release_ref() -> own<wasm::ref*> {
+  auto release_ref() -> own<Ref*> {
     assert(is_ref(kind_));
     auto ref = impl_.ref;
     ref = nullptr;
-    return own<wasm::ref*>(ref);
+    return own<Ref*>(ref);
   }
 
-  auto clone() const -> val {
+  auto copy() const -> Val {
     if (is_ref(kind_) && impl_.ref != nullptr) {
-      impl impl = {.ref = impl_.ref->clone().release()};
-      return val(kind_, impl);
+      impl impl = {.ref = impl_.ref->copy().release()};
+      return Val(kind_, impl);
     } else {
-      return val(kind_, impl_);
+      return Val(kind_, impl_);
     }
   }
 };
@@ -501,118 +500,118 @@ public:
 
 // Modules
 
-class module : public ref {
+class Module : public Ref {
 public:
-  module() = delete;
-  ~module();
+  Module() = delete;
+  ~Module();
 
-  static auto validate(own<store*>& store, const vec<byte_t>& binary) -> bool;
-  static auto make(own<store*>& store, const vec<byte_t>& binary) -> own<module*>;
-  auto clone() const -> own<module*>;
+  static auto validate(own<Store*>&, const vec<byte_t>& binary) -> bool;
+  static auto make(own<Store*>&, const vec<byte_t>& binary) -> own<Module*>;
+  auto copy() const -> own<Module*>;
 
-  auto imports() const -> vec<importtype*>;
-  auto exports() const -> vec<exporttype*>;
+  auto imports() const -> vec<ImportType*>;
+  auto exports() const -> vec<ExportType*>;
 
   auto serialize() const -> vec<byte_t>;
-  static auto deserialize(vec<byte_t>&) -> own<module*>;
+  static auto deserialize(vec<byte_t>&) -> own<Module*>;
 };
 
 
-// Host Objects
+// Foreign Objects
 
-class hostobj : public ref {
+class Foreign : public Ref {
 public:
-  hostobj() = delete;
-  ~hostobj();
+  Foreign() = delete;
+  ~Foreign();
 
-  static auto make(own<store*>&) -> own<hostobj*>;
-  auto clone() const -> own<hostobj*>;
+  static auto make(own<Store*>&) -> own<Foreign*>;
+  auto copy() const -> own<Foreign*>;
 };
 
 
 // Externals
 
-class func;
-class global;
-class table;
-class memory;
+class Func;
+class Global;
+class Table;
+class Memory;
 
-class external : public ref {
+class Extern : public Ref {
 public:
-  external() = delete;
-  ~external();
+  Extern() = delete;
+  ~Extern();
 
-  auto clone() const -> own<external*>;
+  auto copy() const -> own<Extern*>;
 
-  auto kind() const -> externkind;
+  auto kind() const -> ExternKind;
 
-  auto func() -> wasm::func*;
-  auto global() -> wasm::global*;
-  auto table() -> wasm::table*;
-  auto memory() -> wasm::memory*;
+  auto func() -> Func*;
+  auto global() -> Global*;
+  auto table() -> Table*;
+  auto memory() -> Memory*;
 
-  auto func() const -> const wasm::func*;
-  auto global() const -> const wasm::global*;
-  auto table() const -> const wasm::table*;
-  auto memory() const -> const wasm::memory*;
+  auto func() const -> const Func*;
+  auto global() const -> const Global*;
+  auto table() const -> const Table*;
+  auto memory() const -> const Memory*;
 };
 
 
 // Function Instances
 
-class func : public external {
+class Func : public Extern {
 public:
-  func() = delete;
-  ~func();
+  Func() = delete;
+  ~Func();
 
-  using callback = auto (*)(const vec<val>&) -> vec<val>;
-  using callback_with_env = auto (*)(void*, const vec<val>&) -> vec<val>;
+  using callback = auto (*)(const vec<Val>&) -> vec<Val>;
+  using callback_with_env = auto (*)(void*, const vec<Val>&) -> vec<Val>;
 
-  static auto make(own<store*>&, const own<functype*>&, callback) -> own<func*>;
-  static auto make(own<store*>&, const own<functype*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<func*>;
-  auto clone() const -> own<func*>;
+  static auto make(own<Store*>&, const own<FuncType*>&, callback) -> own<Func*>;
+  static auto make(own<Store*>&, const own<FuncType*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<Func*>;
+  auto copy() const -> own<Func*>;
 
-  auto type() const -> own<functype*>;
-  auto call(const vec<val>&) const -> vec<val>;
+  auto type() const -> own<FuncType*>;
+  auto call(const vec<Val>&) const -> vec<Val>;
 
   template<class... Args>
-  auto call(const Args&... vals) const -> vec<val> {
-    return call(vec<val>::make(vals.clone()...));
+  auto call(const Args&... vals) const -> vec<Val> {
+    return call(vec<Val>::make(vals.copy()...));
   }
 };
 
 
 // Global Instances
 
-class global : public external {
+class Global : public Extern {
 public:
-  global() = delete;
-  ~global();
+  Global() = delete;
+  ~Global();
 
-  static auto make(own<store*>&, const own<globaltype*>&, const val&) -> own<global*>;
-  auto clone() const -> own<global*>;
+  static auto make(own<Store*>&, const own<GlobalType*>&, const Val&) -> own<Global*>;
+  auto copy() const -> own<Global*>;
 
-  auto type() const -> own<globaltype*>;
-  auto get() const -> val;
-  void set(const val&);
+  auto type() const -> own<GlobalType*>;
+  auto get() const -> Val;
+  void set(const Val&);
 };
 
 
 // Table Instances
 
-class table : public external {
+class Table : public Extern {
 public:
-  table() = delete;
-  ~table();
+  Table() = delete;
+  ~Table();
 
   using size_t = uint32_t;
 
-  static auto make(own<store*>&, const own<tabletype*>&, const own<ref*>&) -> own<table*>;
-  auto clone() const -> own<table*>;
+  static auto make(own<Store*>&, const own<TableType*>&, const own<Ref*>&) -> own<Table*>;
+  auto copy() const -> own<Table*>;
 
-  auto type() const -> own<tabletype*>;
-  auto get(size_t index) const -> own<ref*>;
-  void set(size_t index, const own<ref*>&);
+  auto type() const -> own<TableType*>;
+  auto get(size_t index) const -> own<Ref*>;
+  void set(size_t index, const own<Ref*>&);
   auto size() const -> size_t;
   auto grow(size_t delta) -> size_t;
 };
@@ -620,19 +619,19 @@ public:
 
 // Memory Instances
 
-class memory : public external {
+class Memory : public Extern {
 public:
-  memory() = delete;
-  ~memory();
+  Memory() = delete;
+  ~Memory();
 
-  static auto make(own<store*>&, const own<memtype*>&) -> own<memory*>;
-  auto clone() const -> own<memory*>;
+  static auto make(own<Store*>&, const own<MemoryType*>&) -> own<Memory*>;
+  auto copy() const -> own<Memory*>;
 
   using pages_t = uint32_t;
 
   static const size_t page_size = 0x10000;
 
-  auto type() const -> own<memtype*>;
+  auto type() const -> own<MemoryType*>;
   auto data() const -> byte_t*;
   auto data_size() const -> size_t;
   auto size() const -> pages_t;
@@ -642,15 +641,15 @@ public:
 
 // Module Instances
 
-class instance : public ref {
+class Instance : public Ref {
 public:
-  instance() = delete;
-  ~instance();
+  Instance() = delete;
+  ~Instance();
 
-  static auto make(own<store*>&, const own<module*>&, const vec<external*>&) -> own<instance*>;
-  auto clone() const -> own<instance*>;
+  static auto make(own<Store*>&, const own<Module*>&, const vec<Extern*>&) -> own<Instance*>;
+  auto copy() const -> own<Instance*>;
 
-  auto exports() const -> vec<external*>;
+  auto exports() const -> vec<Extern*>;
 };
 
 
