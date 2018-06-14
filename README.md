@@ -39,6 +39,8 @@ Work in progress. No docs yet.
 
 * Possible API tweaks:
 
+  * Handle constness of vectors properly in C API
+
   * Find a way to perform C callbacks through C++ without extra wrapper?
 
   * Add iterators to `vec` class?

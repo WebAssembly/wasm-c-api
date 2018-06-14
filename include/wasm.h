@@ -49,6 +49,10 @@ typedef double float64_t;
 //
 // Deleting a reference does not necessarily delete the underlying object,
 // it merely indicates that this owner no longer uses it.
+//
+// For vectors, `const wasm_xxx_vec_t` is used informally to indicate that
+// neither the vector nor its elements should be modified.
+// TODO: introduce proper `wasm_xxx_const_vec_t`?
 
 
 #define WASM_DECLARE_OWN(name) \
@@ -328,7 +332,7 @@ own wasm_importtype_vec_t wasm_module_imports(const wasm_module_t*);
 own wasm_exporttype_vec_t wasm_module_exports(const wasm_module_t*);
 
 own wasm_byte_vec_t wasm_module_serialize(const wasm_module_t*);
-own wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t);
+own wasm_module_t* wasm_module_deserialize(const wasm_byte_vec_t);
 
 
 // Foreign Objects
@@ -342,15 +346,15 @@ own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
 
 WASM_DECLARE_REF(func)
 
-typedef own wasm_val_vec_t (*wasm_func_callback_t)(wasm_val_vec_t);
-typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_t)(const wasm_val_vec_t);
+typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(void*, const wasm_val_vec_t);
 
 own wasm_func_t* wasm_func_new(wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
 own wasm_func_t* wasm_func_new_with_env(wasm_store_t*, const wasm_functype_t* type, wasm_func_callback_with_env_t, wasm_ref_t* env, void (*finalizer)(void*));
 
 own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 
-own wasm_val_vec_t wasm_func_call(const wasm_func_t*, wasm_val_vec_t);
+own wasm_val_vec_t wasm_func_call(const wasm_func_t*, const wasm_val_vec_t);
 
 
 // Global Instances
