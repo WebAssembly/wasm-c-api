@@ -140,7 +140,10 @@ own wasm_store_t* wasm_store_new(wasm_engine_t*);
 
 // Tyoe atributes
 
-typedef enum wasm_mutability_t { WASM_CONST, WASM_VAR } wasm_mutability_t;
+typedef enum wasm_mutability_t {
+  WASM_CONST,
+  WASM_VAR
+} wasm_mutability_t;
 
 typedef struct wasm_limits_t {
   uint32_t min;
@@ -171,8 +174,12 @@ static inline wasm_limits_t wasm_limits_no_max(uint32_t min) {
 WASM_DECLARE_TYPE(valtype)
 
 typedef enum wasm_valkind_t {
-  WASM_I32_VAL, WASM_I64_VAL, WASM_F32_VAL, WASM_F64_VAL,
-  WASM_ANYREF_VAL, WASM_FUNCREF_VAL
+  WASM_I32_VAL,
+  WASM_I64_VAL,
+  WASM_F32_VAL,
+  WASM_F64_VAL,
+  WASM_ANYREF_VAL,
+  WASM_FUNCREF_VAL
 } wasm_valkind_t;
 
 own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
