@@ -39,15 +39,16 @@ V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 
 .PHONY: all c cc
 all: c cc
-	@echo ==== Done ====
 
 c: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-c ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
 	@echo ==== C ====; \
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}-c
+	@echo ==== Done ====
 
 cc: ${EXAMPLE_OUT}/${EXAMPLE_NAME}-cc ${V8_BIN:%=${EXAMPLE_OUT}/%.bin} ${EXAMPLE_WAT:%=${EXAMPLE_OUT}/%.wasm}
 	@echo ==== C++ ====; \
 	cd ${EXAMPLE_OUT}; ./${EXAMPLE_NAME}-cc
+	@echo ==== Done ====
 
 ${EXAMPLE_OUT}/${EXAMPLE_NAME}.c.o: ${EXAMPLE_DIR}/${EXAMPLE_NAME}.c ${WASM_INCLUDE}/wasm.h
 	mkdir -p ${EXAMPLE_OUT}

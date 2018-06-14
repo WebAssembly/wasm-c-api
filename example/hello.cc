@@ -7,7 +7,7 @@
 #include "wasm.hh"
 
 // Print a Wasm value
-void val_print(const wasm::val& val) {
+void val_print(const wasm::Val& val) {
   switch (val.kind()) {
     case wasm::I32: {
       std::cout << val.i32();
@@ -33,7 +33,7 @@ void val_print(const wasm::val& val) {
 }
 
 // A function to be called from Wasm code.
-auto print_wasm(const wasm::vec<wasm::val>& args) -> wasm::vec<wasm::val> {
+auto print_wasm(const wasm::vec<wasm::Val>& args) -> wasm::vec<wasm::Val> {
   std::cout << "Calling back..." << std::endl << ">";
   for (size_t i = 0; i < args.size(); ++i) {
     std::cout << " ";
@@ -42,15 +42,15 @@ auto print_wasm(const wasm::vec<wasm::val>& args) -> wasm::vec<wasm::val> {
   std::cout << std::endl;
 
   int32_t n = args.size();
-  return wasm::vec<wasm::val>::make(wasm::val(n));
+  return wasm::vec<wasm::Val>::make(wasm::Val(n));
 }
 
 
 void run(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
-  auto engine = wasm::engine::make(argc, argv);
-  auto store = wasm::store::make(engine);
+  auto engine = wasm::Engine::make(argc, argv);
+  auto store = wasm::Store::make(engine);
 
   // Load binary.
   std::cout << "Loading binary..." << std::endl;
@@ -68,7 +68,7 @@ void run(int argc, const char* argv[]) {
 
   // Compile.
   std::cout << "Compiling module..." << std::endl;
-  auto module = wasm::module::make(store, binary);
+  auto module = wasm::Module::make(store, binary);
   if (!module) {
     std::cout << "> Error compiling module!" << std::endl;
     return;
@@ -76,22 +76,22 @@ void run(int argc, const char* argv[]) {
 
   // Create external print functions.
   std::cout << "Creating callbacks..." << std::endl;
-  auto print_type1 = wasm::functype::make(
-    wasm::vec<wasm::valtype*>::make(wasm::valtype::make(wasm::I32)),
-    wasm::vec<wasm::valtype*>::make(wasm::valtype::make(wasm::I32))
+  auto print_type1 = wasm::FuncType::make(
+    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32)),
+    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func1 = wasm::func::make(store, print_type1, print_wasm);
+  auto print_func1 = wasm::Func::make(store, print_type1, print_wasm);
 
-  auto print_type2 = wasm::functype::make(
-    wasm::vec<wasm::valtype*>::make(wasm::valtype::make(wasm::I32), wasm::valtype::make(wasm::I32)),
-    wasm::vec<wasm::valtype*>::make(wasm::valtype::make(wasm::I32))
+  auto print_type2 = wasm::FuncType::make(
+    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32), wasm::ValType::make(wasm::I32)),
+    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func2 = wasm::func::make(store, print_type2, print_wasm);
+  auto print_func2 = wasm::Func::make(store, print_type2, print_wasm);
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::external*>::make(print_func1, print_func2);
-  auto instance = wasm::instance::make(store, module, imports);
+  auto imports = wasm::vec<wasm::Extern*>::make(print_func1, print_func2);
+  auto instance = wasm::Instance::make(store, module, imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;
@@ -108,7 +108,7 @@ void run(int argc, const char* argv[]) {
 
   // Call.
   std::cout << "Calling exports..." << std::endl;
-  auto results = run_func->call(wasm::val(3), wasm::val(4));
+  auto results = run_func->call(wasm::Val(3), wasm::Val(4));
 
   // Print result.
   std::cout << "Printing result..." << std::endl;

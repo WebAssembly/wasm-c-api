@@ -41,10 +41,4 @@ Work in progress. No docs yet.
 
   * Find a way to perform C callbacks through C++ without extra wrapper?
 
-  * Possible renamings?
-
-    * `externkind`, `externtype` to `externalkind`, `externaltype`?
-    * `memtype` to `memorytype`?
-    * CamlCase class names in C++ API?
-
   * Add iterators to `vec` class?
