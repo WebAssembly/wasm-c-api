@@ -293,7 +293,7 @@ auto valtype::make(valkind k) -> own<valtype*> {
   return own<valtype*>(seal<valtype>(valtypes[k]));
 }
 
-auto valtype::clone() const -> own<valtype*> {
+auto valtype::copy() const -> own<valtype*> {
   return make(kind());
 }
 
@@ -322,12 +322,12 @@ void externtype::operator delete(void *p) {
   ::operator delete(p);
 }
 
-auto externtype::clone() const -> own<externtype*> {
+auto externtype::copy() const -> own<externtype*> {
   switch (kind()) {
-    case EXTERN_FUNC: return func()->clone();
-    case EXTERN_GLOBAL: return global()->clone();
-    case EXTERN_TABLE: return table()->clone();
-    case EXTERN_MEMORY: return memory()->clone();
+    case EXTERN_FUNC: return func()->copy();
+    case EXTERN_GLOBAL: return global()->copy();
+    case EXTERN_TABLE: return table()->copy();
+    case EXTERN_MEMORY: return memory()->copy();
   }
 }
 
@@ -358,8 +358,8 @@ auto functype::make(vec<valtype*>&& params, vec<valtype*>&& results)
     : own<functype*>();
 }
 
-auto functype::clone() const -> own<functype*> {
-  return make(params().clone(), results().clone());
+auto functype::copy() const -> own<functype*> {
+  return make(params().copy(), results().copy());
 }
 
 auto functype::params() const -> const vec<valtype*>& {
@@ -401,8 +401,8 @@ auto globaltype::make(own<valtype*>&& content, wasm::mut mut) -> own<globaltype*
     : own<globaltype*>();
 }
 
-auto globaltype::clone() const -> own<globaltype*> {
-  return make(content()->clone(), mut());
+auto globaltype::copy() const -> own<globaltype*> {
+  return make(content()->copy(), mut());
 }
 
 auto globaltype::content() const -> const own<valtype*>& {
@@ -444,8 +444,8 @@ auto tabletype::make(own<valtype*>&& element, wasm::limits limits) -> own<tablet
     : own<tabletype*>();
 }
 
-auto tabletype::clone() const -> own<tabletype*> {
-  return make(element()->clone(), limits());
+auto tabletype::copy() const -> own<tabletype*> {
+  return make(element()->copy(), limits());
 }
 
 auto tabletype::element() const -> const own<valtype*>& {
@@ -484,7 +484,7 @@ auto memtype::make(wasm::limits limits) -> own<memtype*> {
   return own<memtype*>(seal<memtype>(new(std::nothrow) memtype_impl(limits)));
 }
 
-auto memtype::clone() const -> own<memtype*> {
+auto memtype::copy() const -> own<memtype*> {
   return memtype::make(limits());
 }
 
@@ -530,8 +530,8 @@ auto importtype::make(wasm::name&& module, wasm::name&& name, own<externtype*>&&
     : own<importtype*>();
 }
 
-auto importtype::clone() const -> own<importtype*> {
-  return make(module().clone(), name().clone(), type()->clone());
+auto importtype::copy() const -> own<importtype*> {
+  return make(module().copy(), name().copy(), type()->copy());
 }
 
 auto importtype::module() const -> const wasm::name& {
@@ -574,8 +574,8 @@ auto exporttype::make(own<wasm::name>&& name, own<externtype*>&& type) -> own<ex
     : own<exporttype*>();
 }
 
-auto exporttype::clone() const -> own<exporttype*> {
-  return make(name().clone(), type()->clone());
+auto exporttype::copy() const -> own<exporttype*> {
+  return make(name().copy(), type()->copy());
 }
 
 auto exporttype::name() const -> const wasm::name& {
@@ -805,7 +805,7 @@ struct ref_impl {
     if (data) data->drop();
   }
 
-  auto clone() const -> own<Ref*> {
+  auto copy() const -> own<Ref*> {
     if (data) data->take();
     return own<Ref*>(seal<Ref>(new(std::nothrow) ref_impl(data)));
   }
@@ -842,8 +842,8 @@ void ref::operator delete(void *p) {
   ::operator delete(p);
 }
 
-auto ref::clone() const -> own<ref*> {
-  return impl(this)->clone();
+auto ref::copy() const -> own<ref*> {
+  return impl(this)->copy();
 }
 
 auto ref::get_host_info() const -> void* {
@@ -875,8 +875,8 @@ template<> struct implement<module> { using type = module_impl; };
 
 module::~module() {}
 
-auto module::clone() const -> own<module*> {
-  return impl(this)->clone();
+auto module::copy() const -> own<module*> {
+  return impl(this)->copy();
 }
 
 auto module::validate(own<store*>& store_abs, const vec<byte_t>& binary) -> bool {
@@ -921,7 +921,7 @@ auto module::make(own<store*>& store_abs, const vec<byte_t>& binary) -> own<modu
 }
 
 auto module::imports() const -> vec<importtype*> {
-  return impl(this)->data->imports.clone();
+  return impl(this)->data->imports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -956,7 +956,7 @@ auto module::imports() const -> vec<importtype*> {
 }
 
 auto module::exports() const -> vec<exporttype*> {
-  return impl(this)->data->exports.clone();
+  return impl(this)->data->exports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -1005,8 +1005,8 @@ template<> struct implement<hostobj> { using type = hostobj_impl; };
 
 hostobj::~hostobj() {}
 
-auto hostobj::clone() const -> own<hostobj*> {
-  return impl(this)->clone();
+auto hostobj::copy() const -> own<hostobj*> {
+  return impl(this)->copy();
 }
 
 auto hostobj::make(own<store*>& store_abs) -> own<hostobj*> {
@@ -1035,8 +1035,8 @@ template<> struct implement<external> { using type = external_impl; };
 
 external::~external() {}
 
-auto external::clone() const -> own<external*> {
-  return impl(this)->clone();
+auto external::copy() const -> own<external*> {
+  return impl(this)->copy();
 }
 
 auto external::kind() const -> externkind {
@@ -1108,8 +1108,8 @@ template<> struct implement<func> { using type = func_impl; };
 
 func::~func() {}
 
-auto func::clone() const -> own<func*> {
-  return impl(this)->clone();
+auto func::copy() const -> own<func*> {
+  return impl(this)->copy();
 }
 
 namespace {
@@ -1130,9 +1130,9 @@ auto make_func(own<store*>& store_abs, const own<functype*>& type) -> own<func*>
   if (maybe_func_obj.IsEmpty()) return own<func*>();
   auto func_obj = maybe_func_obj.ToLocalChecked();
 
-  auto type_clone = type->clone();
-  if (!type_clone) return own<func*>();
-  auto data = make_own(new(std::nothrow) func_data(store, func_obj, type_clone));
+  auto type_copy = type->copy();
+  if (!type_copy) return own<func*>();
+  auto data = make_own(new(std::nothrow) func_data(store, func_obj, type_copy));
   if (data) v8_data->SetAlignedPointerInInternalField(0, data.get());
   return func_impl::make(data);
 }
@@ -1160,7 +1160,7 @@ auto func::make(
 }
 
 auto func::type() const -> own<functype*> {
-  return impl(this)->data->type->clone();
+  return impl(this)->data->type->copy();
 }
 
 auto func::call(const vec<val>& args) const -> vec<val> {
@@ -1255,8 +1255,8 @@ template<> struct implement<global> { using type = global_impl; };
 
 global::~global() {}
 
-auto global::clone() const -> own<global*> {
-  return impl(this)->clone();
+auto global::copy() const -> own<global*> {
+  return impl(this)->copy();
 }
 
 auto global::make(own<store*>& store_abs, const own<globaltype*>& type, const val& val) -> own<global*> {
@@ -1281,14 +1281,14 @@ auto global::make(own<store*>& store_abs, const own<globaltype*>& type, const va
   if (maybe_obj.IsEmpty()) return own<global*>();
   auto obj = maybe_obj.ToLocalChecked();
 
-  auto type_clone = type->clone();
-  if (!type_clone) return own<global*>();
-  auto data = make_own(new(std::nothrow) global_data(store, obj, type_clone));
+  auto type_copy = type->copy();
+  if (!type_copy) return own<global*>();
+  auto data = make_own(new(std::nothrow) global_data(store, obj, type_copy));
   return global_impl::make(data);
 }
 
 auto global::type() const -> own<globaltype*> {
-  return impl(this)->data->type->clone();
+  return impl(this)->data->type->copy();
 }
 
 auto global::get() const -> own<val> {
@@ -1346,8 +1346,8 @@ template<> struct implement<table> { using type = table_impl; };
 
 table::~table() {}
 
-auto table::clone() const -> own<table*> {
-  return impl(this)->clone();
+auto table::copy() const -> own<table*> {
+  return impl(this)->copy();
 }
 
 auto table::make(own<store*>& store_abs, const own<tabletype*>& type, const own<ref*>& ref) -> own<table*> {
@@ -1366,15 +1366,15 @@ auto table::make(own<store*>& store_abs, const own<tabletype*>& type, const own<
   if (maybe_obj.IsEmpty()) return own<table*>();
   auto obj = maybe_obj.ToLocalChecked();
 
-  auto type_clone = type->clone();
-  if (!type_clone) return own<table*>();
-  auto data = make_own(new(std::nothrow) table_data(store, obj, type_clone));
+  auto type_copy = type->copy();
+  if (!type_copy) return own<table*>();
+  auto data = make_own(new(std::nothrow) table_data(store, obj, type_copy));
   return table_impl::make(data);
 }
 
 auto table::type() const -> own<tabletype*> {
   // TODO: query and update min
-  return impl(this)->data->type->clone();
+  return impl(this)->data->type->copy();
 }
 
 auto table::get(size_t index) const -> own<ref*> {
@@ -1409,8 +1409,8 @@ template<> struct implement<memory> { using type = memory_impl; };
 
 memory::~memory() {}
 
-auto memory::clone() const -> own<memory*> {
-  return impl(this)->clone();
+auto memory::copy() const -> own<memory*> {
+  return impl(this)->copy();
 }
 
 auto memory::make(own<store*>& store_abs, const own<memtype*>& type) -> own<memory*> {
@@ -1425,15 +1425,15 @@ auto memory::make(own<store*>& store_abs, const own<memtype*>& type) -> own<memo
   if (maybe_obj.IsEmpty()) return own<memory*>();
   auto obj = maybe_obj.ToLocalChecked();
 
-  auto type_clone = type->clone();
-  if (!type_clone) return own<memory*>();
-  auto data = make_own(new(std::nothrow) memory_data(store, obj, type_clone));
+  auto type_copy = type->copy();
+  if (!type_copy) return own<memory*>();
+  auto data = make_own(new(std::nothrow) memory_data(store, obj, type_copy));
   return memory_impl::make(data);
 }
 
 auto memory::type() const -> own<memtype*> {
   // TODO: query and update min
-  return impl(this)->data->type->clone();
+  return impl(this)->data->type->copy();
 }
 
 auto memory::data() const -> byte_t* {
@@ -1468,8 +1468,8 @@ template<> struct implement<instance> { using type = instance_impl; };
 
 instance::~instance() {}
 
-auto instance::clone() const -> own<instance*> {
-  return impl(this)->clone();
+auto instance::copy() const -> own<instance*> {
+  return impl(this)->copy();
 }
 
 auto instance::make(own<store*>& store_abs, const own<module*>& module_abs, const vec<external*>& imports) -> own<instance*> {
@@ -1529,25 +1529,25 @@ auto instance::make(own<store*>& store_abs, const own<module*>& module_abs, cons
     switch (type->kind()) {
       case EXTERN_FUNC: {
         auto func_obj = v8::Local<v8::Function>::Cast(obj);
-        auto functype = type->func()->clone();
+        auto functype = type->func()->copy();
         if (!functype) return own<instance*>();
         auto data = make_own(new(std::nothrow) func_data(store, func_obj, functype));
         exports[i].reset(func_impl::make(data));
       } break;
       case EXTERN_GLOBAL: {
-        auto globaltype = type->global()->clone();
+        auto globaltype = type->global()->copy();
         if (!globaltype) return own<instance*>();
         auto data = make_own(new(std::nothrow) global_data(store, obj, globaltype));
         exports[i].reset(global_impl::make(data));
       } break;
       case EXTERN_TABLE: {
-        auto tabletype = type->table()->clone();
+        auto tabletype = type->table()->copy();
         if (!tabletype) return own<instance*>();
         auto data = make_own(new(std::nothrow) table_data(store, obj, tabletype));
         exports[i].reset(table_impl::make(data));
       } break;
       case EXTERN_MEMORY: {
-        auto memtype = type->memory()->clone();
+        auto memtype = type->memory()->copy();
         if (!memtype) return own<instance*>();
         auto data = make_own(new(std::nothrow) memory_data(store, obj, memtype));
         exports[i].reset(memory_impl::make(data));
@@ -1560,7 +1560,7 @@ auto instance::make(own<store*>& store_abs, const own<module*>& module_abs, cons
 }
 
 auto instance::exports() const -> vec<external*> {
-  return impl(this)->data->exports.clone();
+  return impl(this)->data->exports.copy();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

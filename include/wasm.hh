@@ -30,7 +30,6 @@ namespace wasm {
 
 template<class T> struct owner { using type = T; };
 template<class T> struct owner<T*> { using type = std::unique_ptr<T>; };
-template<class T> struct owner<T[]> { using type = std::unique_ptr<T[]>; };
 
 template<class T>
 using own = typename owner<T>::type;
@@ -48,7 +47,7 @@ struct vec_traits {
   static void move(size_t size, T* data, T init[]) {
     for (size_t i = 0; i < size; ++i) data[i].reset(init[i]);
   }
-  static void clone(size_t size, T data[], const T init[]) {
+  static void copy(size_t size, T data[], const T init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i];
   }
 
@@ -68,9 +67,9 @@ struct vec_traits<T*> {
   static void move(size_t size, T* data[], own<T*> init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i].release();
   }
-  static void clone(size_t size, T* data[], const T* const init[]) {
+  static void copy(size_t size, T* data[], const T* const init[]) {
     for (size_t i = 0; i < size; ++i) {
-      if (init[i]) data[i] = init[i]->clone().release();
+      if (init[i]) data[i] = init[i]->copy().release();
     }
   }
 
@@ -160,9 +159,9 @@ public:
     return typename vec_traits<T>::proxy(data_[i]);
   }
 
-  auto clone() const -> vec {
+  auto copy() const -> vec {
     auto v = vec(size_);
-    if (v) vec_traits<T>::clone(size_, v.data_.get(), data_.get());
+    if (v) vec_traits<T>::copy(size_, v.data_.get(), data_.get());
     return v;
   }
 
@@ -266,7 +265,7 @@ public:
   void operator delete(void*);
 
   static auto make(valkind) -> own<valtype*>;
-  auto clone() const -> own<valtype*>;
+  auto copy() const -> own<valtype*>;
 
   auto kind() const -> valkind;
   auto is_num() const -> bool { return wasm::is_num(kind()); }
@@ -291,7 +290,7 @@ public:
   ~externtype();
   void operator delete(void*);
 
-  auto clone() const-> own<externtype*>;
+  auto copy() const-> own<externtype*>;
 
   auto kind() const -> externkind;
 
@@ -321,7 +320,7 @@ public:
     vec<valtype*>&& results = vec<valtype*>::make()
   ) -> own<functype*>;
 
-  auto clone() const -> own<functype*>;
+  auto copy() const -> own<functype*>;
 
   auto params() const -> const vec<valtype*>&;
   auto results() const -> const vec<valtype*>&;
@@ -336,7 +335,7 @@ public:
   ~globaltype();
 
   static auto make(own<valtype*>&&, mut) -> own<globaltype*>;
-  auto clone() const -> own<globaltype*>;
+  auto copy() const -> own<globaltype*>;
 
   auto content() const -> const own<valtype*>&;
   auto mut() const -> mut;
@@ -351,7 +350,7 @@ public:
   ~tabletype();
 
   static auto make(own<valtype*>&&, limits) -> own<tabletype*>;
-  auto clone() const -> own<tabletype*>;
+  auto copy() const -> own<tabletype*>;
 
   auto element() const -> const own<valtype*>&;
   auto limits() const -> limits;
@@ -366,7 +365,7 @@ public:
   ~memtype();
 
   static auto make(limits) -> own<memtype*>;
-  auto clone() const -> own<memtype*>;
+  auto copy() const -> own<memtype*>;
 
   auto limits() const -> limits;
 };
@@ -383,7 +382,7 @@ public:
   void operator delete(void*);
 
   static auto make(name&& module, name&& name, own<externtype*>&&) -> own<importtype*>;
-  auto clone() const -> own<importtype*>;
+  auto copy() const -> own<importtype*>;
 
   auto module() const -> const name&;
   auto name() const -> const name&;
@@ -400,7 +399,7 @@ public:
   void operator delete(void*);
 
   static auto make(name&& name, own<externtype*>&&) -> own<exporttype*>;
-  auto clone() const -> own<exporttype*>;
+  auto copy() const -> own<exporttype*>;
 
   auto name() const -> const name&;
   auto type() const -> const own<externtype*>&;
@@ -418,7 +417,7 @@ public:
   ~ref();
   void operator delete(void*);
 
-  auto clone() const -> own<ref*>;
+  auto copy() const -> own<ref*>;
 
   auto get_host_info() const -> void*;
   void set_host_info(void* info, void (*finalizer)(void*) = nullptr);
@@ -488,9 +487,9 @@ public:
     return own<wasm::ref*>(ref);
   }
 
-  auto clone() const -> val {
+  auto copy() const -> val {
     if (is_ref(kind_) && impl_.ref != nullptr) {
-      impl impl = {.ref = impl_.ref->clone().release()};
+      impl impl = {.ref = impl_.ref->copy().release()};
       return val(kind_, impl);
     } else {
       return val(kind_, impl_);
@@ -508,7 +507,7 @@ public:
 
   static auto validate(own<store*>& store, const vec<byte_t>& binary) -> bool;
   static auto make(own<store*>& store, const vec<byte_t>& binary) -> own<module*>;
-  auto clone() const -> own<module*>;
+  auto copy() const -> own<module*>;
 
   auto imports() const -> vec<importtype*>;
   auto exports() const -> vec<exporttype*>;
@@ -526,7 +525,7 @@ public:
   ~hostobj();
 
   static auto make(own<store*>&) -> own<hostobj*>;
-  auto clone() const -> own<hostobj*>;
+  auto copy() const -> own<hostobj*>;
 };
 
 
@@ -542,7 +541,7 @@ public:
   external() = delete;
   ~external();
 
-  auto clone() const -> own<external*>;
+  auto copy() const -> own<external*>;
 
   auto kind() const -> externkind;
 
@@ -570,14 +569,14 @@ public:
 
   static auto make(own<store*>&, const own<functype*>&, callback) -> own<func*>;
   static auto make(own<store*>&, const own<functype*>&, callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<func*>;
-  auto clone() const -> own<func*>;
+  auto copy() const -> own<func*>;
 
   auto type() const -> own<functype*>;
   auto call(const vec<val>&) const -> vec<val>;
 
   template<class... Args>
   auto call(const Args&... vals) const -> vec<val> {
-    return call(vec<val>::make(vals.clone()...));
+    return call(vec<val>::make(vals.copy()...));
   }
 };
 
@@ -590,7 +589,7 @@ public:
   ~global();
 
   static auto make(own<store*>&, const own<globaltype*>&, const val&) -> own<global*>;
-  auto clone() const -> own<global*>;
+  auto copy() const -> own<global*>;
 
   auto type() const -> own<globaltype*>;
   auto get() const -> val;
@@ -608,7 +607,7 @@ public:
   using size_t = uint32_t;
 
   static auto make(own<store*>&, const own<tabletype*>&, const own<ref*>&) -> own<table*>;
-  auto clone() const -> own<table*>;
+  auto copy() const -> own<table*>;
 
   auto type() const -> own<tabletype*>;
   auto get(size_t index) const -> own<ref*>;
@@ -626,7 +625,7 @@ public:
   ~memory();
 
   static auto make(own<store*>&, const own<memtype*>&) -> own<memory*>;
-  auto clone() const -> own<memory*>;
+  auto copy() const -> own<memory*>;
 
   using pages_t = uint32_t;
 
@@ -648,7 +647,7 @@ public:
   ~instance();
 
   static auto make(own<store*>&, const own<module*>&, const vec<external*>&) -> own<instance*>;
-  auto clone() const -> own<instance*>;
+  auto copy() const -> own<instance*>;
 
   auto exports() const -> vec<external*>;
 };

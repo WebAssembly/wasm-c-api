@@ -81,7 +81,7 @@ typedef double float64_t;
   own wasm_##name##_vec_t wasm_##name##_vec_new_empty(); \
   own wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t); \
   own wasm_##name##_vec_t wasm_##name##_vec_new(size_t, own wasm_##name##_t ptr_or_none const[]); \
-  own wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t); \
+  own wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t); \
   void wasm_##name##_vec_delete(own wasm_##name##_vec_t);
 
 
@@ -96,7 +96,7 @@ typedef wasm_byte_vec_t wasm_name_t;
 #define wasm_name_new wasm_byte_vec_new
 #define wasm_name_new_empty wasm_byte_vec_new_empty
 #define wasm_name_new_new_uninitialized wasm_byte_vec_new_uninitialized
-#define wasm_name_clone wasm_byte_vec_clone
+#define wasm_name_copy wasm_byte_vec_copy
 #define wasm_name_delete wasm_byte_vec_delete
 
 static inline own wasm_name_t wasm_name_new_from_string(const char* s) {
@@ -159,7 +159,7 @@ static inline wasm_limits_t wasm_limits_no_max(uint32_t min) {
   WASM_DECLARE_OWN(name) \
   WASM_DECLARE_VEC(name, *) \
   \
-  own wasm_##name##_t* wasm_##name##_clone(wasm_##name##_t*);
+  own wasm_##name##_t* wasm_##name##_copy(wasm_##name##_t*);
 
 
 // Value Types
@@ -290,29 +290,30 @@ typedef struct wasm_val_t {
 } wasm_val_t;
 
 void wasm_val_delete(own wasm_val_t v);
-own wasm_val_t wasm_val_clone(wasm_val_t);
+own wasm_val_t wasm_val_copy(wasm_val_t);
 
 WASM_DECLARE_VEC(val, )
 
 
 // References
 
-WASM_DECLARE_OWN(ref)
-
-own wasm_ref_t* wasm_ref_clone(wasm_ref_t*);
-
-
-#define WASM_DECLARE_REF(name) \
+#define WASM_DECLARE_REF_BASE(name) \
   WASM_DECLARE_OWN(name) \
   \
-  own wasm_##name##_t* wasm_##name##_clone(const wasm_##name##_t*); \
-  \
-  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t*); \
-  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t*); \
+  own wasm_##name##_t* wasm_##name##_copy(const wasm_##name##_t*); \
   \
   void* wasm_##name##_get_host_info(const wasm_##name##_t*); \
   void wasm_##name##_set_host_info(wasm_##name##_t*, void*); \
   void wasm_##name##_set_host_info_with_finalizer(wasm_##name##_t*, void*, void (*)(void*));
+
+#define WASM_DECLARE_REF(name) \
+  WASM_DECLARE_REF_BASE(name) \
+  \
+  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t*); \
+  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t*);
+
+
+WASM_DECLARE_REF_BASE(ref)
 
 
 // Modules

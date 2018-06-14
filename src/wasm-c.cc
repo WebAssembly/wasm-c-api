@@ -124,7 +124,7 @@ struct borrowed_vec {
     return release(std::move(v2)); \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t v) { \
+  wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t v) { \
     return wasm_##name##_vec_new(v.size, v.data); \
   } \
   \
@@ -144,10 +144,10 @@ struct borrowed_vec {
     return release(std::move(v2)); \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_clone(wasm_##name##_vec_t v) { \
+  wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t v) { \
     auto v2 = wasm::vec<name ptr_or_none>::make_uninitialized(v.size); \
     for (size_t i = 0; i < v2.size(); ++i) { \
-      v2[i] = adopt(wasm_##name##_clone(v.data[i])); \
+      v2[i] = adopt(wasm_##name##_copy(v.data[i])); \
     } \
     return release(std::move(v2)); \
   } \
@@ -258,8 +258,8 @@ extern "C++" inline auto reveal(wasm_externkind_t kind) -> wasm::externkind {
   WASM_DEFINE_OWN(name) \
   WASM_DEFINE_VEC(name, *) \
   \
-  wasm_##name##_t* wasm_##name##_clone(wasm_##name##_t* t) { \
-    return release(t->clone()); \
+  wasm_##name##_t* wasm_##name##_copy(wasm_##name##_t* t) { \
+    return release(t->copy()); \
   }
 
 
@@ -418,25 +418,11 @@ const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
 
 // References
 
-WASM_DEFINE_OWN(ref)
-
-wasm_ref_t* wasm_ref_clone(wasm_ref_t* r) {
-  return release(r->clone());
-}
-
-
-#define WASM_DEFINE_REF(name) \
+#define WASM_DEFINE_REF_BASE(name) \
   WASM_DEFINE_OWN(name) \
   \
-  wasm_##name##_t* wasm_##name##_clone(const wasm_##name##_t* t) { \
-    return release(t->clone()); \
-  } \
-  \
-  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t* r) { \
-    return hide(static_cast<const ref*>(reveal(r))); \
-  } \
-  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t* r) { \
-    return hide(static_cast<const name*>(reveal(r))); \
+  wasm_##name##_t* wasm_##name##_copy(const wasm_##name##_t* t) { \
+    return release(t->copy()); \
   } \
   \
   void* wasm_##name##_get_host_info(const wasm_##name##_t* r) { \
@@ -450,6 +436,19 @@ wasm_ref_t* wasm_ref_clone(wasm_ref_t* r) {
   ) { \
     r->set_host_info(info, finalizer); \
   }
+
+#define WASM_DEFINE_REF(name) \
+  WASM_DEFINE_REF_BASE(name) \
+  \
+  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t* r) { \
+    return hide(static_cast<const ref*>(reveal(r))); \
+  } \
+  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t* r) { \
+    return hide(static_cast<const name*>(reveal(r))); \
+  }
+
+
+WASM_DEFINE_REF_BASE(ref)
 
 
 // Values
@@ -530,10 +529,10 @@ void wasm_val_delete(wasm_val_t v) {
   if (is_ref(reveal(v.kind))) adopt(v.ref);
 }
 
-wasm_val_t wasm_val_clone(wasm_val_t v) {
+wasm_val_t wasm_val_copy(wasm_val_t v) {
   wasm_val_t v2 = v;
   if (is_ref(reveal(v.kind))) {
-    v2.ref = release(v.ref->clone());
+    v2.ref = release(v.ref->copy());
   }
   return v2;
 }

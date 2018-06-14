@@ -212,7 +212,7 @@ auto imports(const vec<byte_t>& binary, const vec<wasm::functype*>& types)
     auto name = bin::name(pos);
     own<externtype*> type;
     switch (*pos++) {
-      case 0x00: type = types[bin::u32(pos)]->clone(); break;
+      case 0x00: type = types[bin::u32(pos)]->copy(); break;
       case 0x01: type = bin::tabletype(pos); break;
       case 0x02: type = bin::memtype(pos); break;
       case 0x03: type = bin::globaltype(pos); break;
@@ -245,12 +245,12 @@ auto funcs(
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
     if (et->kind() == EXTERN_FUNC) {
-      v[j++] = et->func()->clone();
+      v[j++] = et->func()->copy();
     }
   }
   if (pos != nullptr) {
     for (; j < v.size(); ++j) {
-      v[j] = types[bin::u32(pos)]->clone();
+      v[j] = types[bin::u32(pos)]->copy();
     }
   }
   return v;
@@ -268,7 +268,7 @@ auto globals(const vec<byte_t>& binary, const vec<importtype*>& imports)
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
     if (et->kind() == EXTERN_GLOBAL) {
-      v[j++] = et->global()->clone();
+      v[j++] = et->global()->copy();
     }
   }
   if (pos != nullptr) {
@@ -291,7 +291,7 @@ auto tables(const vec<byte_t>& binary, const vec<importtype*>& imports)
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
     if (et->kind() == EXTERN_TABLE) {
-      v[j++] = et->table()->clone();
+      v[j++] = et->table()->copy();
     }
   }
   if (pos != nullptr) {
@@ -314,7 +314,7 @@ auto memories(const vec<byte_t>& binary, const vec<importtype*>& imports)
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto& et = imports[i]->type();
     if (et->kind() == EXTERN_MEMORY) {
-      v[j++] = et->memory()->clone();
+      v[j++] = et->memory()->copy();
     }
   }
   if (pos != nullptr) {
@@ -343,10 +343,10 @@ auto exports(const vec<byte_t>& binary,
       auto index = bin::u32(pos);
       own<externtype*> type;
       switch (tag) {
-        case 0x00: type = funcs[index]->clone(); break;
-        case 0x01: type = tables[index]->clone(); break;
-        case 0x02: type = memories[index]->clone(); break;
-        case 0x03: type = globals[index]->clone(); break;
+        case 0x00: type = funcs[index]->copy(); break;
+        case 0x01: type = tables[index]->copy(); break;
+        case 0x02: type = memories[index]->copy(); break;
+        case 0x03: type = globals[index]->copy(); break;
         default: assert(false);
       }
       exports[i] = exporttype::make(std::move(name), std::move(type));
