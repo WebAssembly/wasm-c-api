@@ -323,12 +323,11 @@ void externtype::operator delete(void *p) {
 }
 
 auto externtype::clone() const -> own<externtype*> {
-  auto self = const_cast<externtype*>(this);
   switch (kind()) {
-    case EXTERN_FUNC: return self->func()->clone();
-    case EXTERN_GLOBAL: return self->global()->clone();
-    case EXTERN_TABLE: return self->table()->clone();
-    case EXTERN_MEMORY: return self->memory()->clone();
+    case EXTERN_FUNC: return func()->clone();
+    case EXTERN_GLOBAL: return global()->clone();
+    case EXTERN_TABLE: return table()->clone();
+    case EXTERN_MEMORY: return memory()->clone();
   }
 }
 
@@ -360,9 +359,7 @@ auto functype::make(vec<valtype*>&& params, vec<valtype*>&& results)
 }
 
 auto functype::clone() const -> own<functype*> {
-  return make(
-    const_cast<functype*>(this)->params().clone(),
-    const_cast<functype*>(this)->results().clone());
+  return make(params().clone(), results().clone());
 }
 
 auto functype::params() const -> const vec<valtype*>& {
@@ -405,7 +402,7 @@ auto globaltype::make(own<valtype*>&& content, wasm::mut mut) -> own<globaltype*
 }
 
 auto globaltype::clone() const -> own<globaltype*> {
-  return make(const_cast<globaltype*>(this)->content()->clone(), mut());
+  return make(content()->clone(), mut());
 }
 
 auto globaltype::content() const -> const own<valtype*>& {
@@ -448,7 +445,7 @@ auto tabletype::make(own<valtype*>&& element, wasm::limits limits) -> own<tablet
 }
 
 auto tabletype::clone() const -> own<tabletype*> {
-  return make(const_cast<tabletype*>(this)->element()->clone(), limits());
+  return make(element()->clone(), limits());
 }
 
 auto tabletype::element() const -> const own<valtype*>& {
@@ -534,10 +531,7 @@ auto importtype::make(wasm::name&& module, wasm::name&& name, own<externtype*>&&
 }
 
 auto importtype::clone() const -> own<importtype*> {
-  return make(
-    const_cast<importtype*>(this)->module().clone(),
-    const_cast<importtype*>(this)->name().clone(),
-    const_cast<importtype*>(this)->type()->clone());
+  return make(module().clone(), name().clone(), type()->clone());
 }
 
 auto importtype::module() const -> const wasm::name& {
@@ -581,9 +575,7 @@ auto exporttype::make(own<wasm::name>&& name, own<externtype*>&& type) -> own<ex
 }
 
 auto exporttype::clone() const -> own<exporttype*> {
-  return make(
-    const_cast<exporttype*>(this)->name().clone(),
-    const_cast<exporttype*>(this)->type()->clone());
+  return make(name().clone(), type()->clone());
 }
 
 auto exporttype::name() const -> const wasm::name& {
