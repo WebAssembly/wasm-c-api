@@ -3,6 +3,7 @@
 #ifndef __WASM_HH
 #define __WASM_HH
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
