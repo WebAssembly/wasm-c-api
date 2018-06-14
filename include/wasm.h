@@ -245,7 +245,10 @@ wasm_limits_t wasm_memorytype_limits(const wasm_memorytype_t*);
 WASM_DECLARE_TYPE(externtype)
 
 typedef enum wasm_externkind_t {
-  WASM_EXTERN_FUNC, WASM_EXTERN_GLOBAL, WASM_EXTERN_TABLE, WASM_EXTERN_MEMORY
+  WASM_EXTERN_FUNC,
+  WASM_EXTERN_GLOBAL,
+  WASM_EXTERN_TABLE,
+  WASM_EXTERN_MEMORY
 } wasm_externkind_t;
 
 const wasm_externtype_t* wasm_functype_as_externtype(const wasm_functype_t*);
