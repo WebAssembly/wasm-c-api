@@ -22,20 +22,26 @@ Work in progress. No docs yet.
 
 * TODO in V8 implementation:
 
+  * Handle traps during Func::call
+
   * Replace use of JS API with V8 internal
 
   * Implement missing functionality through V8 internals
 
-    * global::get, global::set
-    * table::get, table::set, table::size, table::grow
-    * memory::data, memory::data_size, memory::size, memory::grow
-    * module::serialize, module::deserialize
+    * Global::get, Global::set
+    * Table::get, Table::set, Table::size, Table::grow
+    * Memory::data, Memory::data_size, Memory::size, Memory::grow
+    * Module::serialize, Module::deserialize
     * multiple return values
 
   * Simplify reference wrappers to be plain persistent handles
 
     * Move host information to V8 object (func callback & env)
     * Compute reflection on demand
+
+  * Use reference counting and caching for types
+
+  * Add a memory debug mode?
 
 * Possible API tweaks:
 
