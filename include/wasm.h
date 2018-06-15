@@ -145,7 +145,7 @@ own wasm_store_t* wasm_store_new(wasm_engine_t*);
 ///////////////////////////////////////////////////////////////////////////////
 // Type Representations
 
-// Tyoe atributes
+// Type attributes
 
 typedef enum wasm_mutability_t {
   WASM_CONST,
