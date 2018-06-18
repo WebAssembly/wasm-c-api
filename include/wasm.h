@@ -320,6 +320,54 @@ own wasm_val_t wasm_val_copy(wasm_val_t);
 WASM_DECLARE_VEC(val, )
 
 
+// Results
+
+typedef wasm_byte_vec_t wasm_message_t;
+
+typedef enum wasm_result_kind_t {
+  WASM_RETURN,
+  WASM_TRAP
+} wasm_result_kind_t;
+
+typedef struct wasm_result_t {
+  wasm_result_kind_t kind;
+  union {
+    own wasm_val_vec_t vals;
+    own wasm_message_t trap;
+  };
+} wasm_result_t;
+
+
+static inline own wasm_result_t wasm_result_new_empty() {
+  wasm_result_t result = { WASM_RETURN };
+  result.vals = wasm_val_vec_new_empty();
+  return result;
+}
+
+static inline own wasm_result_t wasm_result_new_vals(
+  size_t size,
+  own wasm_val_t const vals[]
+) {
+  wasm_result_t result = { WASM_RETURN };
+  result.vals = wasm_val_vec_new(size, vals);
+  return result;
+}
+
+static inline own wasm_result_t wasm_result_new_trap(const char* msg) {
+  wasm_result_t result = { WASM_TRAP };
+  result.trap = wasm_byte_vec_new_uninitialized(strlen(msg) + 1);
+  strcpy(result.trap.data, msg);
+  return result;
+}
+
+static inline void wasm_result_delete(own wasm_result_t result) {
+  switch (result.kind) {
+    case WASM_RETURN: return wasm_val_vec_delete(result.vals);
+    case WASM_TRAP: return wasm_byte_vec_delete(result.trap);
+  }
+}
+
+
 // References
 
 #define WASM_DECLARE_REF_BASE(name) \
@@ -368,8 +416,8 @@ own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
 
 WASM_DECLARE_REF(func)
 
-typedef own wasm_val_vec_t (*wasm_func_callback_t)(const wasm_val_vec_t);
-typedef own wasm_val_vec_t (*wasm_func_callback_with_env_t)(
+typedef own wasm_result_t (*wasm_func_callback_t)(const wasm_val_vec_t);
+typedef own wasm_result_t (*wasm_func_callback_with_env_t)(
   void*, const wasm_val_vec_t);
 
 own wasm_func_t* wasm_func_new(
@@ -380,7 +428,7 @@ own wasm_func_t* wasm_func_new_with_env(
 
 own wasm_functype_t* wasm_func_type(const wasm_func_t*);
 
-own wasm_val_vec_t wasm_func_call(const wasm_func_t*, const wasm_val_vec_t);
+own wasm_result_t wasm_func_call(const wasm_func_t*, const wasm_val_vec_t);
 
 
 // Global Instances

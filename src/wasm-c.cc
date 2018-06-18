@@ -598,6 +598,29 @@ wasm_val_t wasm_val_copy(wasm_val_t v) {
 }
 
 
+// Results
+
+extern "C++" {
+
+wasm_result_t release(Result result) {
+  wasm_result_t r = { static_cast<wasm_result_kind_t>(result.kind()) };
+  switch (result.kind()) {
+    case Result::RETURN: r.vals = release(std::move(result.vals())); break;
+    case Result::TRAP: r.trap = release(std::move(result.trap())); break;
+  }
+  return r;
+}
+
+Result adopt(wasm_result_t result) {
+  switch (result.kind) {
+    case WASM_RETURN: return Result(adopt(result.vals));
+    case WASM_TRAP: return Result(adopt(result.trap));
+  }
+}
+
+}  // extern "C++"
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Objects
 
@@ -653,7 +676,7 @@ WASM_DEFINE_REF(func, Func)
 
 extern "C++" {
 
-vec<Val> wasm_callback(void* env, const vec<Val>& args) {
+Result wasm_callback(void* env, const vec<Val>& args) {
   auto f = reinterpret_cast<wasm_func_callback_t>(env);
   return adopt(f(get(args)));
 }
@@ -661,7 +684,7 @@ vec<Val> wasm_callback(void* env, const vec<Val>& args) {
 using wasm_callback_env =
   std::tuple<wasm_func_callback_with_env_t, void*, void (*)(void*)>;
 
-vec<Val> wasm_callback_with_env(void* env, const vec<Val>& args) {
+Result wasm_callback_with_env(void* env, const vec<Val>& args) {
   auto t = *static_cast<wasm_callback_env*>(env);
   return adopt(std::get<0>(t)(std::get<1>(t), get(args)));
 }
@@ -699,7 +722,7 @@ wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
   return release(func->type());
 }
 
-wasm_val_vec_t wasm_func_call(const wasm_func_t* func, wasm_val_vec_t args) {
+wasm_result_t wasm_func_call(const wasm_func_t* func, wasm_val_vec_t args) {
   auto func_ = borrow(func);
   auto args_ = borrow(args);
   return release(func_.it->call(args_.it));
