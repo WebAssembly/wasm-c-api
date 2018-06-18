@@ -87,7 +87,7 @@ int main(int argc, const char* argv[]) {
     }
 
     printf("Printing message...\n");
-    printf("> %s\n", result.trap.data);
+    printf("> %s\n", result.of.trap.data);
     wasm_result_delete(result);
   }
 

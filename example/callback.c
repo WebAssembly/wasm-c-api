@@ -11,23 +11,23 @@
 void wasm_val_print(wasm_val_t val) {
   switch (val.kind) {
     case WASM_I32_VAL: {
-      printf("%" PRIu32, val.i32);
+      printf("%" PRIu32, val.of.i32);
     } break;
     case WASM_I64_VAL: {
-      printf("%" PRIu64, val.i64);
+      printf("%" PRIu64, val.of.i64);
     } break;
     case WASM_F32_VAL: {
-      printf("%f", val.f32);
+      printf("%f", val.of.f32);
     } break;
     case WASM_F64_VAL: {
-      printf("%g", val.f64);
+      printf("%g", val.of.f64);
     } break;
     case WASM_ANYREF_VAL:
     case WASM_FUNCREF_VAL: {
-      if (val.ref == NULL) {
+      if (val.of.ref == NULL) {
         printf("null");
       } else {
-        printf("ref(%p)", val.ref);
+        printf("ref(%p)", val.of.ref);
       }
     } break;
   }
@@ -128,7 +128,7 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %u\n", result.vals.data[0].i32);
+  printf("> %u\n", result.of.vals.data[0].of.i32);
 
   wasm_result_delete(result);
 

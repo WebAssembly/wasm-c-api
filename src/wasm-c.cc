@@ -516,18 +516,18 @@ WASM_DEFINE_REF_BASE(ref, Ref)
 extern "C++" {
 
 inline auto is_empty(wasm_val_t v) -> bool {
- return !is_ref(reveal(v.kind)) || !v.ref;
+ return !is_ref(reveal(v.kind)) || !v.of.ref;
 }
 
 inline auto hide(Val v) -> wasm_val_t {
   wasm_val_t v2 = { hide(v.kind()) };
   switch (v.kind()) {
-    case I32: v2.i32 = v.i32(); break;
-    case I64: v2.i64 = v.i64(); break;
-    case F32: v2.f32 = v.f32(); break;
-    case F64: v2.f64 = v.f64(); break;
+    case I32: v2.of.i32 = v.i32(); break;
+    case I64: v2.of.i64 = v.i64(); break;
+    case F32: v2.of.f32 = v.f32(); break;
+    case F64: v2.of.f64 = v.f64(); break;
     case ANYREF:
-    case FUNCREF: v2.ref = hide(v.ref()); break;
+    case FUNCREF: v2.of.ref = hide(v.ref()); break;
     default: assert(false);
   }
   return v2;
@@ -536,12 +536,12 @@ inline auto hide(Val v) -> wasm_val_t {
 inline auto release(Val v) -> wasm_val_t {
   wasm_val_t v2 = { hide(v.kind()) };
   switch (v.kind()) {
-    case I32: v2.i32 = v.i32(); break;
-    case I64: v2.i64 = v.i64(); break;
-    case F32: v2.f32 = v.f32(); break;
-    case F64: v2.f64 = v.f64(); break;
+    case I32: v2.of.i32 = v.i32(); break;
+    case I64: v2.of.i64 = v.i64(); break;
+    case F32: v2.of.f32 = v.f32(); break;
+    case F64: v2.of.f64 = v.f64(); break;
     case ANYREF:
-    case FUNCREF: v2.ref = release(v.release_ref()); break;
+    case FUNCREF: v2.of.ref = release(v.release_ref()); break;
     default: assert(false);
   }
   return v2;
@@ -549,12 +549,12 @@ inline auto release(Val v) -> wasm_val_t {
 
 inline auto adopt(wasm_val_t v) -> Val {
   switch (reveal(v.kind)) {
-    case I32: return Val(v.i32);
-    case I64: return Val(v.i64);
-    case F32: return Val(v.f32);
-    case F64: return Val(v.f64);
+    case I32: return Val(v.of.i32);
+    case I64: return Val(v.of.i64);
+    case F32: return Val(v.of.f32);
+    case F64: return Val(v.of.f64);
     case ANYREF:
-    case FUNCREF: return Val(adopt(v.ref));
+    case FUNCREF: return Val(adopt(v.of.ref));
     default: assert(false);
   }
 }
@@ -569,12 +569,12 @@ struct borrowed_val {
 inline auto borrow(wasm_val_t v) -> borrowed_val {
   Val v2;
   switch (reveal(v.kind)) {
-    case I32: v2 = Val(v.i32); break;
-    case I64: v2 = Val(v.i64); break;
-    case F32: v2 = Val(v.f32); break;
-    case F64: v2 = Val(v.f64); break;
+    case I32: v2 = Val(v.of.i32); break;
+    case I64: v2 = Val(v.of.i64); break;
+    case F32: v2 = Val(v.of.f32); break;
+    case F64: v2 = Val(v.of.f64); break;
     case ANYREF:
-    case FUNCREF: v2 = Val(adopt(v.ref)); break;
+    case FUNCREF: v2 = Val(adopt(v.of.ref)); break;
     default: assert(false);
   }
   return borrowed_val(std::move(v2));
@@ -586,13 +586,13 @@ WASM_DEFINE_VEC(val, Val, )
 
 
 void wasm_val_delete(wasm_val_t v) {
-  if (is_ref(reveal(v.kind))) adopt(v.ref);
+  if (is_ref(reveal(v.kind))) adopt(v.of.ref);
 }
 
 wasm_val_t wasm_val_copy(wasm_val_t v) {
   wasm_val_t v2 = v;
   if (is_ref(reveal(v.kind))) {
-    v2.ref = release(v.ref->copy());
+    v2.of.ref = release(v.of.ref->copy());
   }
   return v2;
 }
@@ -605,16 +605,16 @@ extern "C++" {
 wasm_result_t release(Result result) {
   wasm_result_t r = { static_cast<wasm_result_kind_t>(result.kind()) };
   switch (result.kind()) {
-    case Result::RETURN: r.vals = release(std::move(result.vals())); break;
-    case Result::TRAP: r.trap = release(std::move(result.trap())); break;
+    case Result::RETURN: r.of.vals = release(std::move(result.vals())); break;
+    case Result::TRAP: r.of.trap = release(std::move(result.trap())); break;
   }
   return r;
 }
 
 Result adopt(wasm_result_t result) {
   switch (result.kind) {
-    case WASM_RETURN: return Result(adopt(result.vals));
-    case WASM_TRAP: return Result(adopt(result.trap));
+    case WASM_RETURN: return Result(adopt(result.of.vals));
+    case WASM_TRAP: return Result(adopt(result.of.trap));
   }
 }
 

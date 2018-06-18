@@ -311,7 +311,7 @@ typedef struct wasm_val_t {
     float32_t f32;
     float64_t f64;
     struct wasm_ref_t* ref;
-  };
+  } of;
 } wasm_val_t;
 
 void wasm_val_delete(own wasm_val_t v);
@@ -334,13 +334,13 @@ typedef struct wasm_result_t {
   union {
     own wasm_val_vec_t vals;
     own wasm_message_t trap;
-  };
+  } of;
 } wasm_result_t;
 
 
 static inline own wasm_result_t wasm_result_new_empty() {
   wasm_result_t result = { WASM_RETURN };
-  result.vals = wasm_val_vec_new_empty();
+  result.of.vals = wasm_val_vec_new_empty();
   return result;
 }
 
@@ -349,21 +349,21 @@ static inline own wasm_result_t wasm_result_new_vals(
   own wasm_val_t const vals[]
 ) {
   wasm_result_t result = { WASM_RETURN };
-  result.vals = wasm_val_vec_new(size, vals);
+  result.of.vals = wasm_val_vec_new(size, vals);
   return result;
 }
 
 static inline own wasm_result_t wasm_result_new_trap(const char* msg) {
   wasm_result_t result = { WASM_TRAP };
-  result.trap = wasm_byte_vec_new_uninitialized(strlen(msg) + 1);
-  strcpy(result.trap.data, msg);
+  result.of.trap = wasm_byte_vec_new_uninitialized(strlen(msg) + 1);
+  strcpy(result.of.trap.data, msg);
   return result;
 }
 
 static inline void wasm_result_delete(own wasm_result_t result) {
   switch (result.kind) {
-    case WASM_RETURN: return wasm_val_vec_delete(result.vals);
-    case WASM_TRAP: return wasm_byte_vec_delete(result.trap);
+    case WASM_RETURN: return wasm_val_vec_delete(result.of.vals);
+    case WASM_TRAP: return wasm_byte_vec_delete(result.of.trap);
   }
 }
 
@@ -644,31 +644,31 @@ static inline own wasm_functype_t* wasm_functype_new_3_2(
 
 static inline own wasm_val_t wasm_i32_val(uint32_t i32) {
   wasm_val_t v = {WASM_I32_VAL};
-  v.i32 = i32;
+  v.of.i32 = i32;
   return v;
 }
 
 static inline own wasm_val_t wasm_i64_val(uint64_t i64) {
   wasm_val_t v = {WASM_I64_VAL};
-  v.i64 = i64;
+  v.of.i64 = i64;
   return v;
 }
 
 static inline own wasm_val_t wasm_f32_val(float32_t f32) {
   wasm_val_t v = {WASM_F32_VAL};
-  v.f32 = f32;
+  v.of.f32 = f32;
   return v;
 }
 
 static inline own wasm_val_t wasm_f64_val(float64_t f64) {
   wasm_val_t v = {WASM_F64_VAL};
-  v.f64 = f64;
+  v.of.f64 = f64;
   return v;
 }
 
 static inline own wasm_val_t wasm_ref_val(wasm_ref_t* ref) {
   wasm_val_t v = {WASM_ANYREF_VAL};
-  v.ref = ref;
+  v.of.ref = ref;
   return v;
 }
 
@@ -686,9 +686,9 @@ static inline own wasm_val_t wasm_ptr_val(void* p) {
 
 static inline void* wasm_val_ptr(wasm_val_t v) {
 #if UINTPTR_MAX == UINT32_MAX
-  return (void*)(uintptr_t)v.i32;
+  return (void*)(uintptr_t)v.of.i32;
 #elif UINTPTR_MAX == UINT64_MAX
-  return (void*)(uintptr_t)v.i64;
+  return (void*)(uintptr_t)v.of.i64;
 #endif
 }
 
