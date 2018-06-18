@@ -13,5 +13,10 @@ function(example name source)
   target_link_libraries (${name} ${V8_LIBS} wasm_v8 pthread)
 endfunction(example)
 
+example(callback callback.c)
 example(hello hello.c)
+example(trap trap.c)
+
+example(callback_cpp callback.cc)
 example(hello_cpp hello.cc)
+example(trap_cpp trap.cc)
