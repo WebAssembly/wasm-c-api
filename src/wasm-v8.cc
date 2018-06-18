@@ -1225,7 +1225,7 @@ auto Func::type() const -> own<FuncType*> {
   return impl(this)->data->type->copy();
 }
 
-auto Func::call(const vec<Val>& args) const -> vec<Val> {
+auto Func::call(const vec<Val>& args) const -> Result {
   auto func = impl(this);
   auto store = func->store();
   auto isolate = store->isolate();
@@ -1245,18 +1245,23 @@ auto Func::call(const vec<Val>& args) const -> vec<Val> {
     v8_args[i] = val_to_v8(store, args[i]);
   }
 
+  v8::TryCatch handler(isolate);
   auto v8_function = v8::Local<v8::Function>::Cast(func->v8_object());
   auto maybe_result = v8_function->Call(
     context, v8::Undefined(isolate), args.size(), v8_args.get());
-  if (maybe_result.IsEmpty()) return vec<Val>::invalid();
-  auto result = maybe_result.ToLocalChecked();
 
+  if (handler.HasCaught()) {
+    v8::String::Utf8Value message(isolate, handler.Exception());
+    return Result(vec<byte_t>::make(std::string(*message)));
+  }
+
+  auto result = maybe_result.ToLocalChecked();
   if (type_results.size() == 0) {
     assert(result->IsUndefined());
-    return vec<Val>::make();
+    return Result();
   } else if (type_results.size() == 1) {
     assert(!result->IsUndefined());
-    return vec<Val>::make(v8_to_val(store, result, type_results[0]));
+    return Result(v8_to_val(store, result, type_results[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }
@@ -1282,21 +1287,29 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     args[i] = v8_to_val(store, info[i], type_params[i]);
   }
 
-  auto results = vec<Val>::invalid();
-  if (self->kind == CALLBACK_WITH_ENV) {
-    results = self->callback_with_env(self->env, args);
-  } else {
-    results = self->callback(args);
+  auto result = self->kind == CALLBACK_WITH_ENV
+    ? self->callback_with_env(self->env, args)
+    : self->callback(args);
+
+  if (result.kind() == Result::TRAP) {
+    v8::Local<v8::Value> exn = v8::Undefined(isolate);
+    if (result.trap()) {
+      auto maybe = v8::String::NewFromUtf8(
+        isolate, result.trap().get(), v8::NewStringType::kNormal);
+      if (!maybe.IsEmpty()) exn = maybe.ToLocalChecked();
+    }
+    isolate->ThrowException(exn);
+    return;
   }
 
-  assert(type_results.size() == results.size());
+  assert(type_results.size() == result.vals().size());
 
   auto ret = info.GetReturnValue();
   if (type_results.size() == 0) {
     ret.SetUndefined();
   } else if (type_results.size() == 1) {
-    assert(results[0].kind() == type_results[0]->kind());
-    ret.Set(val_to_v8(store, results[0]));
+    assert(result[0].kind() == type_results[0]->kind());
+    ret.Set(val_to_v8(store, result[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }

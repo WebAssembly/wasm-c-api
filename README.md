@@ -22,8 +22,6 @@ Work in progress. No docs yet.
 
 * TODO in V8 implementation:
 
-  * Handle traps during Func::call
-
   * Replace use of JS API with V8 internal
 
   * Implement missing functionality through V8 internals

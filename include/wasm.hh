@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <limits>
+#include <string>
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -46,7 +47,7 @@ struct vec_traits {
   static void construct(size_t size, T data[]) {}
   static void destruct(size_t size, T data[]) {}
   static void move(size_t size, T* data, T init[]) {
-    for (size_t i = 0; i < size; ++i) data[i].reset(init[i]);
+    for (size_t i = 0; i < size; ++i) data[i] = std::move(init[i]);
   }
   static void copy(size_t size, T data[], const T init[]) {
     for (size_t i = 0; i < size; ++i) data[i] = init[i];
@@ -175,6 +176,12 @@ public:
   static auto make(size_t size, own<T> init[]) -> vec {
     auto v = vec(size);
     if (v) vec_traits<T>::move(size, v.data_.get(), init);
+    return v;
+  }
+
+  static auto make(std::string s) -> vec<char> {
+    auto v = vec(s.length() + 1);
+    if (v) strcpy(v.get(), s.data());
     return v;
   }
 
@@ -502,6 +509,32 @@ public:
 };
 
 
+// Results
+
+using Message = vec<byte_t>;
+
+class Result {
+  vec<Val> vals_;
+  Message trap_;
+
+public:
+  Result(vec<Val>&& vals) : vals_(std::move(vals)), trap_(Message::invalid()) {}
+  Result(Message&& msg) : vals_(vec<Val>::invalid()), trap_(std::move(msg)) {}
+  Result(Result&& that) :
+    vals_(std::move(that.vals_)), trap_(std::move(that.trap_)) {}
+
+  template<class... Ts> explicit
+  Result(Ts&&... vals) : Result(vec<Val>::make<Ts...>(std::move(vals)...)) {}
+
+  enum Kind { RETURN, TRAP };
+  auto kind() const -> Kind { return vals_ ? RETURN : TRAP; }
+  auto vals() -> vec<Val>& { assert(kind() == RETURN); return vals_; }
+  auto trap() -> Message& { assert (kind() == TRAP); return trap_; }
+
+  auto operator[](size_t i) -> Val& { assert (kind() == RETURN); return vals_[i]; }
+};
+
+
 // Modules
 
 class Module : public Ref {
@@ -568,8 +601,8 @@ public:
   Func() = delete;
   ~Func();
 
-  using callback = auto (*)(const vec<Val>&) -> vec<Val>;
-  using callback_with_env = auto (*)(void*, const vec<Val>&) -> vec<Val>;
+  using callback = auto (*)(const vec<Val>&) -> Result;
+  using callback_with_env = auto (*)(void*, const vec<Val>&) -> Result;
 
   static auto make(own<Store*>&, const own<FuncType*>&, callback) -> own<Func*>;
   static auto make(own<Store*>&, const own<FuncType*>&,
@@ -577,10 +610,10 @@ public:
   auto copy() const -> own<Func*>;
 
   auto type() const -> own<FuncType*>;
-  auto call(const vec<Val>&) const -> vec<Val>;
+  auto call(const vec<Val>&) const -> Result;
 
   template<class... Args>
-  auto call(const Args&... vals) const -> vec<Val> {
+  auto call(const Args&... vals) const -> Result {
     return call(vec<Val>::make(vals.copy()...));
   }
 };
