@@ -50,6 +50,7 @@ struct ConfigImpl {};
 
 template<> struct implement<Config> { using type = ConfigImpl; };
 
+
 Config::~Config() {
   impl(this)->~ConfigImpl();
 }
@@ -66,13 +67,23 @@ auto Config::make() -> own<Config*> {
 // Engine
 
 struct EngineImpl {
+  static bool created;
+
+  EngineImpl() {
+    assert(!created);
+    created = true;
+  }
+
   ~EngineImpl() {
     v8::V8::Dispose();
     v8::V8::ShutdownPlatform();
   }
 };
 
+bool EngineImpl::created = false;
+
 template<> struct implement<Engine> { using type = EngineImpl; };
+
 
 Engine::~Engine() {
   impl(this)->~EngineImpl();
@@ -158,6 +169,7 @@ public:
 };
 
 template<> struct implement<Store> { using type = StoreImpl; };
+
 
 Store::~Store() {
   impl(this)->~StoreImpl();
