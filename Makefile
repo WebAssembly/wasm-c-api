@@ -2,6 +2,7 @@ CFLAGS = -ggdb
 CXXFLAGS = ${CFLAGS} -fsanitize=address
 LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
+BASE_DIR = $(realpath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 OUT_DIR = out
 WASM_DIR = .
 EXAMPLE_DIR = example
@@ -25,7 +26,7 @@ WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
 V8_V8 = ${V8_DIR}/v8
 V8_DEPOT_TOOLS = ${V8_DIR}/depot_tools
-V8_PATH = ${V8_DEPOT_TOOLS}:${PATH}
+V8_PATH = ${BASE_DIR}/${V8_DEPOT_TOOLS}:${PATH}
 V8_INCLUDE = ${V8_V8}/include
 V8_SRC = ${V8_V8}/src
 V8_OUT = ${V8_V8}/out.gn/${V8_BUILD}
