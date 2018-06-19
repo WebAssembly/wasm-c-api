@@ -1126,6 +1126,9 @@ auto Extern::copy() const -> own<Extern*> {
 
 auto Extern::kind() const -> ExternKind {
   return impl(this)->data->kind;
+  // TODO: WTF?
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::extern_kind(impl(this)->v8_object());
 }
 
 auto Extern::type() const -> own<ExternType*> {
@@ -1669,18 +1672,22 @@ auto Instance::make(
     auto& type = export_types[i]->type();
     switch (type->kind()) {
       case EXTERN_FUNC: {
+        assert(wasm_v8::extern_kind(obj) == EXTERN_FUNC);
         auto data = make_own(new(std::nothrow) FuncData(store, obj));
         exports[i].reset(FuncImpl::make(data));
       } break;
       case EXTERN_GLOBAL: {
+        // assert(wasm_v8::extern_kind(obj) == EXTERN_GLOBAL);
         auto data = make_own(new(std::nothrow) GlobalData(store, obj));
         exports[i].reset(GlobalImpl::make(data));
       } break;
       case EXTERN_TABLE: {
+        // assert(wasm_v8::extern_kind(obj) == EXTERN_TABLE);
         auto data = make_own(new(std::nothrow) TableData(store, obj));
         exports[i].reset(TableImpl::make(data));
       } break;
       case EXTERN_MEMORY: {
+        // assert(wasm_v8::extern_kind(obj) == EXTERN_MEMORY);
         auto data = make_own(new(std::nothrow) MemoryData(store, obj));
         exports[i].reset(MemoryImpl::make(data));
       } break;

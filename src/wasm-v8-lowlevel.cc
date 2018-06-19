@@ -128,6 +128,19 @@ auto module_binary(v8::Local<v8::Object> module) -> const byte_t* {
 }
 
 
+// Externals
+
+auto extern_kind(v8::Local<v8::Object> external) -> ExternKind {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(external);
+
+  if (v8::internal::WasmExportedFunction::IsWasmExportedFunction(*v8_object)) return EXTERN_FUNC;
+  if (v8_object->IsWasmGlobalObject()) return EXTERN_GLOBAL;
+  if (v8_object->IsWasmTableObject()) return EXTERN_TABLE;
+  if (v8_object->IsWasmMemoryObject()) return EXTERN_MEMORY;
+  assert(false);
+}
+
+
 // Functions
 
 /*
