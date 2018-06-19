@@ -76,6 +76,22 @@ struct borrowed_vec {
 // Vectors
 
 #define WASM_DEFINE_VEC_BASE(name, Name, ptr_or_none) \
+  extern "C++" inline auto hide(vec<Name ptr_or_none>& v) \
+  -> wasm_##name##_vec_t* { \
+    static_assert( \
+      sizeof(wasm_##name##_vec_t) == sizeof(vec<Name>), \
+      "C/C++ incompatibility" \
+    ); \
+    return reinterpret_cast<wasm_##name##_vec_t*>(&v); \
+  } \
+  extern "C++" inline auto hide(const vec<Name ptr_or_none>& v) \
+  -> const wasm_##name##_vec_t* { \
+    static_assert( \
+      sizeof(wasm_##name##_vec_t) == sizeof(vec<Name>), \
+      "C/C++ incompatibility" \
+    ); \
+    return reinterpret_cast<const wasm_##name##_vec_t*>(&v); \
+  } \
   extern "C++" inline auto hide(Name ptr_or_none* v) \
   -> wasm_##name##_t ptr_or_none* { \
     static_assert( \
@@ -110,84 +126,100 @@ struct borrowed_vec {
   } \
   extern "C++" inline auto get(vec<Name ptr_or_none>& v) \
   -> wasm_##name##_vec_t { \
-    return wasm_##name##_vec(v.size(), hide(v.get())); \
+    wasm_##name##_vec_t v2; \
+    wasm_##name##_vec_init(&v2, v.size(), hide(v.get())); \
+    return v2; \
   } \
   extern "C++" inline auto get(const vec<Name ptr_or_none>& v) \
   -> const wasm_##name##_vec_t { \
-    return wasm_##name##_vec( \
+    wasm_##name##_vec_t v2; \
+    wasm_##name##_vec_init(&v2, \
       v.size(), const_cast<wasm_##name##_t ptr_or_none*>(hide(v.get()))); \
+    return v2; \
   } \
   extern "C++" inline auto release(vec<Name ptr_or_none>&& v) \
   -> wasm_##name##_vec_t { \
-    return wasm_##name##_vec(v.size(), hide(v.release())); \
+    wasm_##name##_vec_t v2; \
+    wasm_##name##_vec_init(&v2, v.size(), hide(v.release())); \
+    return v2; \
   } \
-  extern "C++" inline auto adopt(wasm_##name##_vec_t v) \
+  extern "C++" inline auto adopt(wasm_##name##_vec_t* v) \
   -> vec<Name ptr_or_none> { \
-    return vec<Name ptr_or_none>::adopt(v.size, reveal(v.data)); \
+    return vec<Name ptr_or_none>::adopt(v->size, reveal(v->data)); \
   } \
-  extern "C++" inline auto borrow(wasm_##name##_vec_t v) \
+  extern "C++" inline auto borrow(const wasm_##name##_vec_t* v) \
   -> borrowed_vec<Name ptr_or_none> { \
     return borrowed_vec<Name ptr_or_none>( \
-      vec<Name ptr_or_none>::adopt(v.size, reveal(v.data))); \
+      vec<Name ptr_or_none>::adopt(v->size, reveal(v->data))); \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_new_uninitialized(size_t size) { \
-    return release(vec<Name ptr_or_none>::make_uninitialized(size)); \
+  void wasm_##name##_vec_new_uninitialized( \
+    wasm_##name##_vec_t* out, size_t size \
+  ) { \
+    *out = release(vec<Name ptr_or_none>::make_uninitialized(size)); \
   } \
-  wasm_##name##_vec_t wasm_##name##_vec_new_empty() { \
-    return wasm_##name##_vec_new_uninitialized(0); \
+  void wasm_##name##_vec_new_empty(wasm_##name##_vec_t* out) { \
+    wasm_##name##_vec_new_uninitialized(out, 0); \
   }
 
 // Vectors with no ownership management of elements
 #define WASM_DEFINE_VEC_PLAIN(name, Name, ptr_or_none) \
   WASM_DEFINE_VEC_BASE(name, Name, ptr_or_none) \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_new( \
-    size_t size, wasm_##name##_t ptr_or_none const data[] \
+  void wasm_##name##_vec_new( \
+    wasm_##name##_vec_t* out, \
+    size_t size, \
+    wasm_##name##_t ptr_or_none const data[] \
   ) { \
     auto v2 = vec<Name ptr_or_none>::make_uninitialized(size); \
     if (v2.size() != 0) { \
       memcpy(v2.get(), data, size * sizeof(wasm_##name##_t ptr_or_none)); \
     } \
-    return release(std::move(v2)); \
+    *out = release(std::move(v2)); \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t v) { \
-    return wasm_##name##_vec_new(v.size, v.data); \
+  void wasm_##name##_vec_copy( \
+    wasm_##name##_vec_t* out, wasm_##name##_vec_t* v \
+  ) { \
+    wasm_##name##_vec_new(out, v->size, v->data); \
   } \
   \
-  void wasm_##name##_vec_delete(wasm_##name##_vec_t v) { \
-    if (v.data) delete[] v.data; \
+  void wasm_##name##_vec_delete(wasm_##name##_vec_t* v) { \
+    if (v->data) delete[] v->data; \
   }
 
 // Vectors who own their elements
 #define WASM_DEFINE_VEC(name, Name, ptr_or_none) \
   WASM_DEFINE_VEC_BASE(name, Name, ptr_or_none) \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_new( \
-    size_t size, wasm_##name##_t ptr_or_none const data[] \
+  void wasm_##name##_vec_new( \
+    wasm_##name##_vec_t* out, \
+    size_t size, \
+    wasm_##name##_t ptr_or_none const data[] \
   ) { \
     auto v2 = vec<Name ptr_or_none>::make_uninitialized(size); \
     for (size_t i = 0; i < v2.size(); ++i) { \
       v2[i] = adopt(data[i]); \
     } \
-    return release(std::move(v2)); \
+    *out = release(std::move(v2)); \
   } \
   \
-  wasm_##name##_vec_t wasm_##name##_vec_copy(wasm_##name##_vec_t v) { \
-    auto v2 = vec<Name ptr_or_none>::make_uninitialized(v.size); \
+  void wasm_##name##_vec_copy( \
+    wasm_##name##_vec_t* out, wasm_##name##_vec_t* v \
+  ) { \
+    auto v2 = vec<Name ptr_or_none>::make_uninitialized(v->size); \
     for (size_t i = 0; i < v2.size(); ++i) { \
-      v2[i] = adopt(wasm_##name##_copy(v.data[i])); \
+      v2[i] = adopt(wasm_##name##_copy(v->data[i])); \
     } \
-    return release(std::move(v2)); \
+    *out = release(std::move(v2)); \
   } \
   \
-  void wasm_##name##_vec_delete(wasm_##name##_vec_t v) { \
-    if (v.data) { \
-      for (size_t i = 0; i < v.size; ++i) { \
-        if (!is_empty(v.data[i])) wasm_##name##_delete(v.data[i]); \
+  void wasm_##name##_vec_delete(wasm_##name##_vec_t* v) { \
+    if (v->data) { \
+      for (size_t i = 0; i < v->size; ++i) { \
+        if (!is_empty(v->data[i])) wasm_##name##_delete(v->data[i]); \
       } \
-      delete[] reveal(v.data); \
+      delete[] reveal(v->data); \
     } \
   }
 
@@ -254,8 +286,8 @@ extern "C++" inline auto reveal(wasm_mutability_t mutability) -> Mutability {
 }
 
 
-extern "C++" inline auto hide(Limits limits) -> wasm_limits_t {
-  return wasm_limits(limits.min, limits.max);
+extern "C++" inline auto hide(const Limits& limits) -> const wasm_limits_t* {
+  return reinterpret_cast<const wasm_limits_t*>(&limits);
 }
 
 extern "C++" inline auto reveal(wasm_limits_t limits) -> Limits {
@@ -311,17 +343,17 @@ wasm_valkind_t wasm_valtype_kind(wasm_valtype_t* t) {
 WASM_DEFINE_TYPE(functype, FuncType)
 
 wasm_functype_t* wasm_functype_new(
-  wasm_valtype_vec_t params, wasm_valtype_vec_t results
+  wasm_valtype_vec_t* params, wasm_valtype_vec_t* results
 ) {
   return release(FuncType::make(adopt(params), adopt(results)));
 }
 
-const wasm_valtype_vec_t wasm_functype_params(const wasm_functype_t* ft) {
-  return get(ft->params());
+const wasm_valtype_vec_t* wasm_functype_params(const wasm_functype_t* ft) {
+  return hide(ft->params());
 }
 
-const wasm_valtype_vec_t wasm_functype_results(const wasm_functype_t* ft) {
-  return get(ft->results());
+const wasm_valtype_vec_t* wasm_functype_results(const wasm_functype_t* ft) {
+  return hide(ft->results());
 }
 
 
@@ -349,16 +381,16 @@ wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t* gt) {
 WASM_DEFINE_TYPE(tabletype, TableType)
 
 wasm_tabletype_t* wasm_tabletype_new(
-  wasm_valtype_t* element, wasm_limits_t limits
+  wasm_valtype_t* element, const wasm_limits_t* limits
 ) {
-  return release(TableType::make(adopt(element), reveal(limits)));
+  return release(TableType::make(adopt(element), reveal(*limits)));
 }
 
 const wasm_valtype_t* wasm_tabletype_elem(const wasm_tabletype_t* tt) {
   return get(tt->element());
 }
 
-wasm_limits_t wasm_tabletype_limits(const wasm_tabletype_t* tt) {
+const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t* tt) {
   return hide(tt->limits());
 }
 
@@ -367,11 +399,11 @@ wasm_limits_t wasm_tabletype_limits(const wasm_tabletype_t* tt) {
 
 WASM_DEFINE_TYPE(memorytype, MemoryType)
 
-wasm_memorytype_t* wasm_memorytype_new(wasm_limits_t limits) {
-  return release(MemoryType::make(reveal(limits)));
+wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits) {
+  return release(MemoryType::make(reveal(*limits)));
 }
 
-wasm_limits_t wasm_memorytype_limits(const wasm_memorytype_t* mt) {
+const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* mt) {
   return hide(mt->limits());
 }
 
@@ -436,17 +468,17 @@ wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* et) {
 WASM_DEFINE_TYPE(importtype, ImportType)
 
 wasm_importtype_t* wasm_importtype_new(
-  wasm_name_t module, wasm_name_t name, wasm_externtype_t* type
+  wasm_name_t* module, wasm_name_t* name, wasm_externtype_t* type
 ) {
   return release(ImportType::make(adopt(module), adopt(name), adopt(type)));
 }
 
-const wasm_name_t wasm_importtype_module(const wasm_importtype_t* it) {
-  return get(it->module());
+const wasm_name_t* wasm_importtype_module(const wasm_importtype_t* it) {
+  return hide(it->module());
 }
 
-const wasm_name_t wasm_importtype_name(const wasm_importtype_t* it) {
-  return get(it->name());
+const wasm_name_t* wasm_importtype_name(const wasm_importtype_t* it) {
+  return hide(it->name());
 }
 
 const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t* it) {
@@ -459,13 +491,13 @@ const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t* it) {
 WASM_DEFINE_TYPE(exporttype, ExportType)
 
 wasm_exporttype_t* wasm_exporttype_new(
-  wasm_name_t name, wasm_externtype_t* type
+  wasm_name_t* name, wasm_externtype_t* type
 ) {
   return release(ExportType::make(adopt(name), adopt(type)));
 }
 
-const wasm_name_t wasm_exporttype_name(const wasm_exporttype_t* et) {
-  return get(et->name());
+const wasm_name_t* wasm_exporttype_name(const wasm_exporttype_t* et) {
+  return hide(et->name());
 }
 
 const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
@@ -566,15 +598,15 @@ struct borrowed_val {
   ~borrowed_val() { it.release_ref(); }
 };
 
-inline auto borrow(wasm_val_t v) -> borrowed_val {
+inline auto borrow(const wasm_val_t* v) -> borrowed_val {
   Val v2;
-  switch (reveal(v.kind)) {
-    case I32: v2 = Val(v.of.i32); break;
-    case I64: v2 = Val(v.of.i64); break;
-    case F32: v2 = Val(v.of.f32); break;
-    case F64: v2 = Val(v.of.f64); break;
+  switch (reveal(v->kind)) {
+    case I32: v2 = Val(v->of.i32); break;
+    case I64: v2 = Val(v->of.i64); break;
+    case F32: v2 = Val(v->of.f32); break;
+    case F64: v2 = Val(v->of.f64); break;
     case ANYREF:
-    case FUNCREF: v2 = Val(adopt(v.of.ref)); break;
+    case FUNCREF: v2 = Val(adopt(v->of.ref)); break;
     default: assert(false);
   }
   return borrowed_val(std::move(v2));
@@ -582,19 +614,48 @@ inline auto borrow(wasm_val_t v) -> borrowed_val {
 
 }  // extern "C++"
 
-WASM_DEFINE_VEC(val, Val, )
 
+WASM_DEFINE_VEC_BASE(val, Val, )
 
-void wasm_val_delete(wasm_val_t v) {
-  if (is_ref(reveal(v.kind))) adopt(v.of.ref);
+void wasm_val_vec_new(
+  wasm_val_vec_t* out, size_t size, wasm_val_t const data[]
+) {
+  auto v2 = vec<Val>::make_uninitialized(size);
+  for (size_t i = 0; i < v2.size(); ++i) {
+    v2[i] = adopt(data[i]);
+  }
+  *out = release(std::move(v2));
 }
 
-wasm_val_t wasm_val_copy(wasm_val_t v) {
-  wasm_val_t v2 = v;
-  if (is_ref(reveal(v.kind))) {
-    v2.of.ref = release(v.of.ref->copy());
+void wasm_val_vec_copy(wasm_val_vec_t* out, wasm_val_vec_t* v) {
+  auto v2 = vec<Val>::make_uninitialized(v->size);
+  for (size_t i = 0; i < v2.size(); ++i) {
+    wasm_val_t val;
+    wasm_val_copy(&v->data[i], &val);
+    v2[i] = adopt(val);
   }
-  return v2;
+  *out = release(std::move(v2));
+}
+
+void wasm_val_vec_delete(wasm_val_vec_t* v) {
+  if (v->data) {
+    for (size_t i = 0; i < v->size; ++i) {
+      if (!is_empty(v->data[i])) wasm_val_delete(&v->data[i]);
+    }
+    delete[] reveal(v->data);
+  }
+}
+
+
+void wasm_val_delete(wasm_val_t* v) {
+  if (is_ref(reveal(v->kind))) adopt(v->of.ref);
+}
+
+void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
+  *out = *v;
+  if (is_ref(reveal(v->kind))) {
+    out->of.ref = release(v->of.ref->copy());
+  }
 }
 
 
@@ -613,8 +674,8 @@ wasm_result_t release(Result result) {
 
 Result adopt(wasm_result_t result) {
   switch (result.kind) {
-    case WASM_RETURN: return Result(adopt(result.of.vals));
-    case WASM_TRAP: return Result(adopt(result.of.trap));
+    case WASM_RETURN: return Result(adopt(&result.of.vals));
+    case WASM_TRAP: return Result(adopt(&result.of.trap));
   }
 }
 
@@ -629,32 +690,38 @@ Result adopt(wasm_result_t result) {
 
 WASM_DEFINE_REF(module, Module)
 
-bool wasm_module_validate(wasm_store_t* store, wasm_byte_vec_t binary) {
+bool wasm_module_validate(wasm_store_t* store, const wasm_byte_vec_t* binary) {
   auto store_ = borrow(store);
   auto binary_ = borrow(binary);
   return Module::validate(store_.it, binary_.it);
 }
 
-wasm_module_t* wasm_module_new(wasm_store_t* store, wasm_byte_vec_t binary) {
+wasm_module_t* wasm_module_new(
+  wasm_store_t* store, const wasm_byte_vec_t* binary
+) {
   auto store_ = borrow(store);
   auto binary_ = borrow(binary);
   return release(Module::make(store_.it, binary_.it));
 }
 
 
-wasm_importtype_vec_t wasm_module_imports(const wasm_module_t* module) {
-  return release(reveal(module)->imports());
+void wasm_module_imports(
+  const wasm_module_t* module, wasm_importtype_vec_t* out
+) {
+  *out = release(reveal(module)->imports());
 }
 
-wasm_exporttype_vec_t wasm_module_exports(const wasm_module_t* module) {
-  return release(reveal(module)->exports());
+void wasm_module_exports(
+  const wasm_module_t* module, wasm_exporttype_vec_t* out
+) {
+  *out = release(reveal(module)->exports());
 }
 
-wasm_byte_vec_t wasm_module_serialize(const wasm_module_t* module) {
-  return release(reveal(module)->serialize());
+void wasm_module_serialize(const wasm_module_t* module, wasm_byte_vec_t* out) {
+  *out = release(reveal(module)->serialize());
 }
 
-wasm_module_t* wasm_module_deserialize(wasm_byte_vec_t binary) {
+wasm_module_t* wasm_module_deserialize(const wasm_byte_vec_t* binary) {
   auto binary_ = borrow(binary);
   return release(Module::deserialize(binary_.it));
 }
@@ -678,7 +745,9 @@ extern "C++" {
 
 Result wasm_callback(void* env, const vec<Val>& args) {
   auto f = reinterpret_cast<wasm_func_callback_t>(env);
-  return adopt(f(get(args)));
+  wasm_result_t result;
+  f(hide(args), &result);
+  return adopt(result);
 }
 
 using wasm_callback_env =
@@ -686,7 +755,9 @@ using wasm_callback_env =
 
 Result wasm_callback_with_env(void* env, const vec<Val>& args) {
   auto t = *static_cast<wasm_callback_env*>(env);
-  return adopt(std::get<0>(t)(std::get<1>(t), get(args)));
+  wasm_result_t result;
+  std::get<0>(t)(std::get<1>(t), hide(args), &result);
+  return adopt(result);
 }
 
 void wasm_callback_env_finalizer(void* env) {
@@ -722,10 +793,12 @@ wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
   return release(func->type());
 }
 
-wasm_result_t wasm_func_call(const wasm_func_t* func, wasm_val_vec_t args) {
+void wasm_func_call(
+  const wasm_func_t* func, const wasm_val_vec_t* args, wasm_result_t* out
+) {
   auto func_ = borrow(func);
   auto args_ = borrow(args);
-  return release(func_.it->call(args_.it));
+  *out = release(func_.it->call(args_.it));
 }
 
 
@@ -734,7 +807,7 @@ wasm_result_t wasm_func_call(const wasm_func_t* func, wasm_val_vec_t args) {
 WASM_DEFINE_REF(global, Global)
 
 wasm_global_t* wasm_global_new(
-  wasm_store_t* store, const wasm_globaltype_t* type, wasm_val_t val
+  wasm_store_t* store, const wasm_globaltype_t* type, const wasm_val_t* val
 ) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
@@ -746,11 +819,11 @@ wasm_globaltype_t* wasm_global_type(const wasm_global_t* global) {
   return release(global->type());
 }
 
-wasm_val_t wasm_global_get(const wasm_global_t* global) {
-  return release(global->get());
+void wasm_global_get(const wasm_global_t* global, wasm_val_t* out) {
+  *out = release(global->get());
 }
 
-void wasm_global_set(wasm_global_t* global, wasm_val_t val) {
+void wasm_global_set(wasm_global_t* global, const wasm_val_t* val) {
   auto val_ = borrow(val);
   global->set(val_.it);
 }
@@ -871,7 +944,9 @@ const wasm_memory_t* wasm_extern_as_memory(const wasm_extern_t* external) {
 WASM_DEFINE_REF(instance, Instance)
 
 wasm_instance_t* wasm_instance_new(
-  wasm_store_t* store, const wasm_module_t* module, wasm_extern_vec_t imports
+  wasm_store_t* store,
+  const wasm_module_t* module,
+  const wasm_extern_vec_t* imports
 ) {
   auto store_ = borrow(store);
   auto module_ = borrow(module);
@@ -879,8 +954,10 @@ wasm_instance_t* wasm_instance_new(
   return release(Instance::make(store_.it, module_.it, imports_.it));
 }
 
-wasm_extern_vec_t wasm_instance_exports(const wasm_instance_t* instance) {
-  return release(instance->exports());
+void wasm_instance_exports(
+  const wasm_instance_t* instance, wasm_extern_vec_t* out
+) {
+  *out = release(instance->exports());
 }
 
 }  // extern "C"

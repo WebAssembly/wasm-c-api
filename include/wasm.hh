@@ -363,7 +363,7 @@ public:
   auto copy() const -> own<TableType*>;
 
   auto element() const -> const own<ValType*>&;
-  auto limits() const -> Limits;
+  auto limits() const -> const Limits&;
 };
 
 
@@ -377,7 +377,7 @@ public:
   static auto make(Limits) -> own<MemoryType*>;
   auto copy() const -> own<MemoryType*>;
 
-  auto limits() const -> Limits;
+  auto limits() const -> const Limits&;
 };
 
 
