@@ -494,6 +494,7 @@ const wasm_extern_t* wasm_table_as_extern_const(const wasm_table_t*);
 const wasm_extern_t* wasm_memory_as_extern_const(const wasm_memory_t*);
 
 wasm_externkind_t wasm_extern_kind(const wasm_extern_t*);
+own wasm_externtype_t* wasm_extern_type(const wasm_extern_t*);
 
 wasm_func_t* wasm_extern_as_func(wasm_extern_t*);
 wasm_global_t* wasm_extern_as_global(wasm_extern_t*);

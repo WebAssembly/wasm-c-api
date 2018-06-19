@@ -581,6 +581,7 @@ public:
   auto copy() const -> own<Extern*>;
 
   auto kind() const -> ExternKind;
+  auto type() const -> own<ExternType*>;
 
   auto func() -> Func*;
   auto global() -> Global*;

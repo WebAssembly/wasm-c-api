@@ -7,6 +7,8 @@
 namespace wasm {
 namespace bin {
 
+auto wrapper(const own<FuncType*>&) -> vec<byte_t>;
+
 auto imports_exports(const vec<byte_t>& binary) ->
   std::tuple<vec<ImportType*>, vec<ExportType*>>;
 

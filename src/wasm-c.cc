@@ -973,6 +973,9 @@ wasm_table_t* wasm_extern_as_table(wasm_extern_t* external) {
 wasm_memory_t* wasm_extern_as_memory(wasm_extern_t* external) {
   return hide(external->memory());
 }
+wasm_externtype_t* wasm_extern_type(const wasm_extern_t* external) {
+  return release(external->type());
+}
 
 const wasm_func_t* wasm_extern_as_func_const(const wasm_extern_t* external) {
   return hide(external->func());
