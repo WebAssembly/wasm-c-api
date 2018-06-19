@@ -195,4 +195,108 @@ auto func_instance(v8::Local<v8::Function> function) -> v8::Local<v8::Object> {
   return v8::Utils::ToLocal(v8_instance);
 }
 
+
+// Globals
+
+auto global_get(v8::Local<v8::Object> global) -> Val {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  switch (v8_global->type()) {
+    case v8::internal::wasm::kWasmI32: return Val(v8_global->GetI32());
+    case v8::internal::wasm::kWasmI64: return Val(v8_global->GetI64());
+    case v8::internal::wasm::kWasmF32: return Val(v8_global->GetF32());
+    case v8::internal::wasm::kWasmF64: return Val(v8_global->GetF64());
+    default:
+      // TODO(wasm+): support new value types
+      assert(false);
+  }
+}
+
+void global_set(v8::Local<v8::Object> global, const Val& val) {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  switch (val.kind()) {
+    case I32: return v8_global->SetI32(val.i32());
+    case I64: return v8_global->SetI64(val.i64());
+    case F32: return v8_global->SetF32(val.f32());
+    case F64: return v8_global->SetF64(val.f64());
+    default:
+      // TODO(wasm+): support new value types
+      assert(false);
+  }
+}
+
+
+// Tables
+
+auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Function> {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
+  auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
+  if (index > v8_table->current_length()) return v8::Local<v8::Function>();
+  v8::internal::Handle<v8::internal::Object> v8_value(
+    v8_table->functions()->get(static_cast<int>(index)), v8_table->GetIsolate());
+  return v8_value->IsNull(v8_table->GetIsolate())
+    ? v8::MaybeLocal<v8::Function>()
+    : v8::MaybeLocal<v8::Function>(
+        v8::Utils::ToLocal(v8::internal::Handle<v8::internal::JSFunction>::cast(v8_value)));
+}
+
+auto table_set(v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Function> maybe) -> bool {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
+  auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
+  auto v8_function = maybe.IsEmpty()
+    ? v8::internal::Handle<v8::internal::JSFunction>::null()
+    : v8::internal::Handle<v8::internal::JSFunction>::cast(
+        v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(maybe.ToLocalChecked()));
+  if (index > v8_table->current_length()) return false;
+  // TODO: failure?
+  v8::internal::WasmTableObject::Set(v8_table->GetIsolate(), v8_table,
+    static_cast<uint32_t>(index), v8_function);
+  return true;
+}
+
+auto table_size(v8::Local<v8::Object> table) -> size_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
+  auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
+  return v8_table->current_length();
+}
+
+auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
+  auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
+  if (delta > 0xffffffffu) return false;
+  // TODO: failure?
+  v8_table->Grow(v8_table->GetIsolate(), static_cast<uint32_t>(delta));
+  return true;
+}
+
+
+// Memory
+
+auto memory_data(v8::Local<v8::Object> memory) -> byte_t* {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
+  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  return reinterpret_cast<byte_t*>(v8_memory->array_buffer()->allocation_base());
+}
+
+auto memory_data_size(v8::Local<v8::Object> memory)-> size_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
+  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  return v8_memory->array_buffer()->allocation_length();
+}
+
+auto memory_size(v8::Local<v8::Object> memory) -> Memory::pages_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
+  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  return v8_memory->current_pages();
+}
+
+auto memory_grow(v8::Local<v8::Object> memory, Memory::pages_t delta) -> bool {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
+  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  auto old = v8::internal::WasmMemoryObject::Grow(
+    v8_memory->GetIsolate(), v8_memory, delta);
+  return old != -1;
+}
+
 }  // namespace wasm_v8

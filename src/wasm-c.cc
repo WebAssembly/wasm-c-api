@@ -877,20 +877,18 @@ wasm_ref_t* wasm_table_get(const wasm_table_t* table, wasm_table_size_t index) {
   return release(table->get(index));
 }
 
-void wasm_table_set(
+bool wasm_table_set(
   wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* ref
 ) {
   auto ref_ = borrow(ref);
-  table->set(index, ref_.it);
+  return table->set(index, ref_.it);
 }
 
 wasm_table_size_t wasm_table_size(const wasm_table_t* table) {
   return table->size();
 }
 
-wasm_table_size_t wasm_table_grow(
-  wasm_table_t* table, wasm_table_size_t delta
-) {
+bool wasm_table_grow(wasm_table_t* table, wasm_table_size_t delta) {
   return table->grow(delta);
 }
 
@@ -923,9 +921,7 @@ wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* memory) {
   return memory->size();
 }
 
-wasm_memory_pages_t wasm_memory_grow(
-  wasm_memory_t* memory, wasm_memory_pages_t delta
-) {
+bool wasm_memory_grow(wasm_memory_t* memory, wasm_memory_pages_t delta) {
   return memory->grow(delta);
 }
 

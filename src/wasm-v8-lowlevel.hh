@@ -18,8 +18,23 @@ auto memory_type(v8::Local<v8::Object> memory) -> own<MemoryType*>;
 
 auto module_binary_size(v8::Local<v8::Object> module) -> size_t;
 auto module_binary(v8::Local<v8::Object> module) -> const byte_t*;
+
 auto extern_kind(v8::Local<v8::Object> external) -> ExternKind;
+
 auto func_instance(v8::Local<v8::Function>) -> v8::Local<v8::Object>;
+
+auto global_get(v8::Local<v8::Object> global) -> Val;
+void global_set(v8::Local<v8::Object> global, const Val&);
+
+auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Function>;
+auto table_set(v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Function>) -> bool;
+auto table_size(v8::Local<v8::Object> table) -> size_t;
+auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool;
+
+auto memory_data(v8::Local<v8::Object> memory) -> byte_t*;
+auto memory_data_size(v8::Local<v8::Object> memory)-> size_t;
+auto memory_size(v8::Local<v8::Object> memory) -> Memory::pages_t;
+auto memory_grow(v8::Local<v8::Object> memory, Memory::pages_t delta) -> bool;
 
 }  // namespace wasm_v8
 

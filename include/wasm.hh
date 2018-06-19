@@ -652,9 +652,9 @@ public:
 
   auto type() const -> own<TableType*>;
   auto get(size_t index) const -> own<Ref*>;
-  void set(size_t index, const own<Ref*>&);
+  auto set(size_t index, const own<Ref*>&) -> bool;
   auto size() const -> size_t;
-  auto grow(size_t delta) -> size_t;
+  auto grow(size_t delta) -> bool;
 };
 
 
@@ -676,7 +676,7 @@ public:
   auto data() const -> byte_t*;
   auto data_size() const -> size_t;
   auto size() const -> pages_t;
-  auto grow(pages_t delta) -> pages_t;
+  auto grow(pages_t delta) -> bool;
 };
 
 

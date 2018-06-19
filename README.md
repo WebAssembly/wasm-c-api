@@ -22,15 +22,11 @@ Work in progress. No docs yet.
 
 * TODO in V8 implementation:
 
+  * Tests for Global, Table, Memory classes
+
   * Replace use of JS API with V8 internal
 
-  * Implement missing functionality through V8 internals
-
-    * Global::get, Global::set
-    * Table::get, Table::set, Table::size, Table::grow
-    * Memory::data, Memory::data_size, Memory::size, Memory::grow
-    * Module::serialize, Module::deserialize
-    * multiple return values
+  * Implement Module::serialize, Module::deserialize
 
   * Simplify reference wrappers to be plain persistent handles
 

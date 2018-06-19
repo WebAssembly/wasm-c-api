@@ -1430,7 +1430,10 @@ auto Global::type() const -> own<GlobalType*> {
   return wasm_v8::global_type(impl(this)->v8_object());
 }
 
-auto Global::get() const -> own<Val> {
+auto Global::get() const -> Val {
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::global_get(impl(this)->v8_object());
+/*
   auto global = impl(this);
   auto store = global->store();
   auto isolate = store->isolate();
@@ -1448,9 +1451,13 @@ auto Global::get() const -> own<Val> {
   auto value = maybe_value.ToLocalChecked();
 
   return v8_to_val(store, value, this->type()->content().get());
+*/
 }
 
 void Global::set(const Val& val) {
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  wasm_v8::global_set(impl(this)->v8_object(), val);
+/*
   auto global = impl(this);
   auto store = global->store();
   auto isolate = store->isolate();
@@ -1467,6 +1474,7 @@ void Global::set(const Val& val) {
   v8::Local<v8::Value> args[] = { val_to_v8(store, val) };
   void(store->v8_function(V8_F_GLOBAL_SET)->Call(
     context, global->v8_object(), 1, args));
+*/
 }
 
 
@@ -1516,19 +1524,37 @@ auto Table::type() const -> own<TableType*> {
 }
 
 auto Table::get(size_t index) const -> own<Ref*> {
-  UNIMPLEMENTED("Table::get");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  auto maybe = wasm_v8::table_get(impl(this)->v8_object(), index);
+  if (maybe.IsEmpty() || maybe.ToLocalChecked()->IsNull()) return own<Ref*>();
+  // TODO(wasm+): other references
+  auto obj = maybe.ToLocalChecked();
+  assert(obj->IsFunction());
+  auto data = make_own(new(std::nothrow) FuncData(impl(this)->store(), obj));
+  return FuncImpl::make(data);
 }
 
-void Table::set(size_t index, const own<Ref*>& r) {
-  UNIMPLEMENTED("Table::set");
+auto Table::set(size_t index, const own<Ref*>& ref) -> bool {
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  if (ref && !impl(ref.get())->v8_object()->IsFunction()) {
+    UNIMPLEMENTED("non-function table elements");
+    exit(1);
+  }
+  auto obj = ref
+    ? v8::MaybeLocal<v8::Function>(
+        v8::Local<v8::Function>::Cast(impl(ref.get())->v8_object()))
+    : v8::MaybeLocal<v8::Function>();
+  return wasm_v8::table_set(impl(this)->v8_object(), index, obj);
 }
 
 auto Table::size() const -> size_t {
-  UNIMPLEMENTED("Table::size");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::table_size(impl(this)->v8_object());
 }
 
-auto Table::grow(size_t delta) -> size_t {
-  UNIMPLEMENTED("Table::grow");
+auto Table::grow(size_t delta) -> bool {
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::table_grow(impl(this)->v8_object(), delta);
 }
 
 
@@ -1574,19 +1600,23 @@ auto Memory::type() const -> own<MemoryType*> {
 }
 
 auto Memory::data() const -> byte_t* {
-  UNIMPLEMENTED("Memory::data");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::memory_data(impl(this)->v8_object());
 }
 
 auto Memory::data_size() const -> size_t {
-  UNIMPLEMENTED("Memory::data_size");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::memory_data_size(impl(this)->v8_object());
 }
 
 auto Memory::size() const -> pages_t {
-  UNIMPLEMENTED("Memory::size");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::memory_size(impl(this)->v8_object());
 }
 
-auto Memory::grow(pages_t delta) -> pages_t {
-  UNIMPLEMENTED("Memory::grow");
+auto Memory::grow(pages_t delta) -> bool {
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  return wasm_v8::memory_grow(impl(this)->v8_object(), delta);
 }
 
 

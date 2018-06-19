@@ -453,10 +453,10 @@ own wasm_table_t* wasm_table_new(
 own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
 own wasm_ref_t* wasm_table_get(const wasm_table_t*, wasm_table_size_t index);
-void wasm_table_set(wasm_table_t*, wasm_table_size_t index, wasm_ref_t*);
+bool wasm_table_set(wasm_table_t*, wasm_table_size_t index, wasm_ref_t*);
 
 wasm_table_size_t wasm_table_size(const wasm_table_t*);
-wasm_table_size_t wasm_table_grow(wasm_table_t*, wasm_table_size_t delta);
+bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta);
 
 
 // Memory Instances
@@ -475,7 +475,7 @@ byte_t* wasm_memory_data(wasm_memory_t*);
 size_t wasm_memory_data_size(const wasm_memory_t*);
 
 wasm_memory_pages_t wasm_memory_size(const wasm_memory_t*);
-wasm_memory_pages_t wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
+bool wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
 
 
 // Externals
