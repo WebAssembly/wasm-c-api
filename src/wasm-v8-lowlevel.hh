@@ -16,6 +16,8 @@ auto global_type(v8::Local<v8::Object> global) -> own<GlobalType*>;
 auto table_type(v8::Local<v8::Object> table) -> own<TableType*>;
 auto memory_type(v8::Local<v8::Object> memory) -> own<MemoryType*>;
 
+auto module_binary_size(v8::Local<v8::Object> module) -> size_t;
+auto module_binary(v8::Local<v8::Object> module) -> const byte_t*;
 auto func_instance(v8::Local<v8::Function>) -> v8::Local<v8::Object>;
 
 }  // namespace wasm_v8

@@ -936,17 +936,8 @@ void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
 
 // Modules
 
-struct ModuleData : RefData {
-  vec<ImportType*> imports;
-  vec<ExportType*> exports;
-
-  ModuleData(StoreImpl* store, v8::Local<v8::Object> obj,
-    vec<ImportType*>& imports, vec<ExportType*>& exports) :
-    RefData(store, obj),
-    imports(std::move(imports)), exports(std::move(exports)) {}
-};
-
-using ModuleImpl = RefImpl<Module, ModuleData>;
+using ModuleData = RefData;
+using ModuleImpl = RefImpl<Module, RefData>;
 template<> struct implement<Module> { using type = ModuleImpl; };
 
 
@@ -991,19 +982,22 @@ auto Module::make(
   if (maybe_obj.IsEmpty()) return nullptr;
   auto obj = maybe_obj.ToLocalChecked();
 
-  // TODO(wasm+): use JS API once available?
-  auto imports_exports = wasm::bin::imports_exports(binary);
   // TODO store->cache_set(obj, module);
-  auto& imports = std::get<0>(imports_exports);
-  auto& exports = std::get<1>(imports_exports);
-  if (!imports || !exports) return own<Module*>();
-  auto data = make_own(
-    new(std::nothrow) ModuleData(store, obj, imports, exports));
+  auto data = make_own(new(std::nothrow) ModuleData(store, obj));
   return data ? ModuleImpl::make(data) : own<Module*>();
 }
 
 auto Module::imports() const -> vec<ImportType*> {
-  return impl(this)->data->imports.copy();
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  auto module = impl(this)->v8_object();
+  auto binary = vec<byte_t>::adopt(
+    wasm_v8::module_binary_size(module),
+    const_cast<byte_t*>(wasm_v8::module_binary(module))
+  );
+  auto imports = wasm::bin::imports(binary);
+  binary.release();
+  return imports;
+  // return impl(this)->data->imports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -1038,7 +1032,16 @@ auto Module::imports() const -> vec<ImportType*> {
 }
 
 auto Module::exports() const -> vec<ExportType*> {
-  return impl(this)->data->exports.copy();
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  auto module = impl(this)->v8_object();
+  auto binary = vec<byte_t>::adopt(
+    wasm_v8::module_binary_size(module),
+    const_cast<byte_t*>(wasm_v8::module_binary(module))
+  );
+  auto exports = wasm::bin::exports(binary);
+  binary.release();
+  return exports;
+  // return impl(this)->data->exports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();

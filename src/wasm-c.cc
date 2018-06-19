@@ -383,7 +383,7 @@ wasm_tabletype_t* wasm_tabletype_new(
   return release(TableType::make(adopt(element), reveal(*limits)));
 }
 
-const wasm_valtype_t* wasm_tabletype_elem(const wasm_tabletype_t* tt) {
+const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t* tt) {
   return get(tt->element());
 }
 

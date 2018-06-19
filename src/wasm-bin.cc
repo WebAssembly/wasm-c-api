@@ -432,18 +432,18 @@ auto exports(const vec<byte_t>& binary,
   return exports;
 }
 
-auto imports_exports(
-  const vec<byte_t>& binary
-) -> std::tuple<vec<ImportType*>, vec<ExportType*>> {
+auto imports(const vec<byte_t>& binary) -> vec<ImportType*> {
+  return bin::imports(binary, bin::types(binary));
+}
+
+auto exports(const vec<byte_t>& binary) -> vec<ExportType*> {
   auto types = bin::types(binary);
   auto imports = bin::imports(binary, types);
   auto funcs = bin::funcs(binary, imports, types);
   auto globals = bin::globals(binary, imports);
   auto tables = bin::tables(binary, imports);
   auto memories = bin::memories(binary, imports);
-  auto exports = bin::exports(binary, funcs, globals, tables, memories);
-
-  return std::make_tuple(std::move(imports), std::move(exports));
+  return bin::exports(binary, funcs, globals, tables, memories);
 }
 
 }  // namespace bin

@@ -113,6 +113,21 @@ auto memory_type(v8::Local<v8::Object> memory) -> own<MemoryType*> {
 }
 
 
+// Modules
+
+auto module_binary_size(v8::Local<v8::Object> module) -> size_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
+  auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
+  return v8_module->shared()->module_bytes()->length();
+}
+
+auto module_binary(v8::Local<v8::Object> module) -> const byte_t* {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
+  auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
+  return reinterpret_cast<byte_t*>(v8_module->shared()->module_bytes()->GetChars());
+}
+
+
 // Functions
 
 /*

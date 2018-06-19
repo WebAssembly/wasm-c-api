@@ -59,7 +59,7 @@ ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
 	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
-.PRECIOUS: ${EXAMPLE_OUT}/%.o
+.PRECIOUS: ${EXAMPLE_OUT}/%.o ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%-cc
 ${EXAMPLE_OUT}/%: ${EXAMPLE_OUT}/%.o ${WASM_O}
 	clang++ ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
