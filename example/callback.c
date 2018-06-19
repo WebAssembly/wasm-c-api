@@ -34,7 +34,7 @@ void wasm_val_print(wasm_val_t val) {
 }
 
 // A function to be called from Wasm code.
-own wasm_result_t print_wasm(wasm_val_vec_t args) {
+own wasm_result_t print_callback(wasm_val_vec_t args) {
   printf("Calling back...\n>");
   for (size_t i = 0; i < args.size; ++i) {
     printf(" ");
@@ -80,10 +80,10 @@ int main(int argc, const char* argv[]) {
   // Create external print functions.
   printf("Creating callbacks...\n");
   own wasm_functype_t* print_type1 = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func1 = wasm_func_new(store, print_type1, print_wasm);
+  own wasm_func_t* print_func1 = wasm_func_new(store, print_type1, print_callback);
 
   own wasm_functype_t* print_type2 = wasm_functype_new_2_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func2 = wasm_func_new(store, print_type2, print_wasm);
+  own wasm_func_t* print_func2 = wasm_func_new(store, print_type2, print_callback);
 
   wasm_functype_delete(print_type1);
   wasm_functype_delete(print_type2);
