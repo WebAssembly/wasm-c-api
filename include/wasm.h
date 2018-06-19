@@ -36,7 +36,7 @@ typedef double float64_t;
 
 #define own
 
-// The qualified `own` is used to indicate ownership of data in this API.
+// The qualifier `own` is used to indicate ownership of data in this API.
 // It is intended to be interpreted similar to a `const` qualifier:
 //
 // - `own wasm_xxx_*` owns the pointed-to data
