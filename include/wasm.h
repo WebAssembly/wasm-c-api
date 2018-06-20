@@ -193,7 +193,7 @@ typedef enum wasm_valkind_t {
 
 own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
 
-wasm_valkind_t wasm_valtype_kind(wasm_valtype_t*);
+wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t*);
 
 static inline bool wasm_valkind_is_num(wasm_valkind_t k) {
   return k < WASM_ANYREF_VAL;
@@ -202,10 +202,10 @@ static inline bool wasm_valkind_is_ref(wasm_valkind_t k) {
   return k >= WASM_ANYREF_VAL;
 }
 
-static inline bool wasm_valtype_is_num(wasm_valtype_t* t) {
+static inline bool wasm_valtype_is_num(const wasm_valtype_t* t) {
   return wasm_valkind_is_num(wasm_valtype_kind(t));
 }
-static inline bool wasm_valtype_is_ref(wasm_valtype_t* t) {
+static inline bool wasm_valtype_is_ref(const wasm_valtype_t* t) {
   return wasm_valkind_is_ref(wasm_valtype_kind(t));
 }
 

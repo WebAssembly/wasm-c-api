@@ -333,7 +333,7 @@ wasm_valtype_t* wasm_valtype_new(wasm_valkind_t k) {
   return release(ValType::make(reveal(k)));
 }
 
-wasm_valkind_t wasm_valtype_kind(wasm_valtype_t* t) {
+wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* t) {
   return hide(t->kind());
 }
 
