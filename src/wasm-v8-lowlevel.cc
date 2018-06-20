@@ -128,6 +128,16 @@ auto module_binary(v8::Local<v8::Object> module) -> const byte_t* {
 }
 
 
+// Instance
+
+auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);
+  auto v8_instance = v8::internal::Handle<v8::internal::WasmInstanceObject>::cast(v8_object);
+  auto v8_exports = handle(v8_instance->exports_object());
+  return v8::Utils::ToLocal(v8_exports);
+}
+
+
 // Externals
 
 auto extern_kind(v8::Local<v8::Object> external) -> ExternKind {

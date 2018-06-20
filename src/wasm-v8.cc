@@ -119,20 +119,15 @@ auto Engine::make(
 
 enum v8_string_t {
   V8_S_EMPTY,
-  V8_S_FUNCTION, V8_S_GLOBAL, V8_S_TABLE, V8_S_MEMORY,
-  V8_S_MODULE, V8_S_NAME, V8_S_KIND, V8_S_EXPORTS,
+  V8_S_EXPORTS,
   V8_S_I32, V8_S_I64, V8_S_F32, V8_S_F64, V8_S_ANYREF, V8_S_ANYFUNC,
   V8_S_VALUE, V8_S_MUTABLE, V8_S_ELEMENT, V8_S_MINIMUM, V8_S_MAXIMUM,
-  V8_s_BUFFER,
   V8_S_COUNT
 };
 
 enum v8_function_t {
   V8_F_WEAKMAP, V8_F_WEAK_GET, V8_F_WEAK_SET,
-  V8_F_MODULE, V8_F_IMPORTS, V8_F_EXPORTS,
-  V8_F_GLOBAL, V8_F_GLOBAL_GET, V8_F_GLOBAL_SET,
-  V8_F_TABLE, V8_F_TABLE_GET, V8_F_TABLE_SET, V8_F_TABLE_GROW,
-  V8_F_MEMORY, V8_F_MEMORY_GROW,
+  V8_F_MODULE, V8_F_GLOBAL, V8_F_TABLE, V8_F_MEMORY,
   V8_F_INSTANCE, V8_F_VALIDATE,
   V8_F_COUNT,
 };
@@ -215,11 +210,9 @@ auto Store::make(own<Engine*>&) -> own<Store*> {
 
     static const char* const raw_strings[V8_S_COUNT] = {
       "",
-      "function", "global", "table", "memory",
-      "module", "name", "kind", "exports",
+      "exports",
       "i32", "i64", "f32", "f64", "anyref", "anyfunc", 
       "value", "mutable", "element", "initial", "maximum",
-      "buffer"
     };
     for (int i = 0; i < V8_S_COUNT; ++i) {
       auto maybe = v8::String::NewFromUtf8(isolate, raw_strings[i],
@@ -237,10 +230,6 @@ auto Store::make(own<Engine*>&) -> own<Store*> {
     auto maybe_wasm = global->Get(context, wasm_name);
     if (maybe_wasm.IsEmpty()) return own<Store*>();
     auto wasm = v8::Local<v8::Object>::Cast(maybe_wasm.ToLocalChecked());
-    v8::Local<v8::Object> wasm_module;
-    v8::Local<v8::Object> wasm_global;
-    v8::Local<v8::Object> wasm_table;
-    v8::Local<v8::Object> wasm_memory;
     v8::Local<v8::Object> weakmap;
 
     struct {
@@ -248,11 +237,7 @@ auto Store::make(own<Engine*>&) -> own<Store*> {
       v8::Local<v8::Object>* carrier;
     } raw_functions[V8_F_COUNT] = {
       {"WeakMap", &global}, {"get", &weakmap}, {"set", &weakmap},
-      {"Module", &wasm}, {"imports", &wasm_module}, {"exports", &wasm_module},
-      {"Global", &wasm}, {"get", &wasm_global}, {"set", &wasm_global},
-      {"Table", &wasm}, {"get", &wasm_table}, {"set", &wasm_table},
-        {"grow", &wasm_table},
-      {"Memory", &wasm}, {"grow", &wasm_memory},
+      {"Module", &wasm}, {"Global", &wasm}, {"Table", &wasm}, {"Memory", &wasm},
       {"Instance", &wasm}, {"validate", &wasm},
     };
     for (int i = 0; i < V8_F_COUNT; ++i) {
@@ -268,10 +253,6 @@ auto Store::make(own<Engine*>&) -> own<Store*> {
       auto function = v8::Local<v8::Function>::Cast(maybe_obj.ToLocalChecked());
       store->functions_[i] = v8::Eternal<v8::Function>(isolate, function);
       if (i == V8_F_WEAKMAP) weakmap = function;
-      else if (i == V8_F_MODULE) wasm_module = function;
-      else if (i == V8_F_GLOBAL) wasm_global = function;
-      else if (i == V8_F_TABLE) wasm_table = function;
-      else if (i == V8_F_MEMORY) wasm_memory = function;
     }
 
     v8::Local<v8::Value> empty_args[] = {};
@@ -1245,10 +1226,11 @@ auto make_func(
   };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
+  // TODO: crashes, why?
+  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
   auto exports_obj = v8::Local<v8::Object>::Cast(
     instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
   );
-  assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
   auto wrapped_func_obj = v8::Local<v8::Function>::Cast(
     exports_obj->Get(context, str).ToLocalChecked());
 
@@ -1650,21 +1632,22 @@ auto Instance::make(
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  v8::Local<v8::Value> imports_args[] = { module->v8_object() };
-  auto imports_result = store->v8_function(V8_F_IMPORTS)->Call(
-    context, v8::Undefined(isolate), 1, imports_args);
-  if (imports_result.IsEmpty()) return own<Instance*>();
-  auto imports_array = v8::Local<v8::Array>::Cast(
-    imports_result.ToLocalChecked());
-  size_t imports_size = imports_array->Length();
-
+  auto import_types = module_abs->imports();
   auto imports_obj = v8::Object::New(isolate);
-  for (size_t i = 0; i < imports_size; ++i) {
-    auto desc = v8::Local<v8::Object>::Cast(imports_array->Get(i));
-    auto module_str = v8::Local<v8::String>::Cast(
-      desc->Get(context, store->v8_string(V8_S_MODULE)).ToLocalChecked());
-    auto name_str = v8::Local<v8::String>::Cast(
-      desc->Get(context, store->v8_string(V8_S_NAME)).ToLocalChecked());
+  for (size_t i = 0; i < import_types.size(); ++i) {
+    auto type = import_types[i];
+    auto maybe_module = v8::String::NewFromOneByte(
+      isolate, reinterpret_cast<const uint8_t*>(type->module().get()),
+      v8::NewStringType::kNormal, type->module().size()
+    );
+    if (maybe_module.IsEmpty()) return own<Instance*>();
+    auto module_str = maybe_module.ToLocalChecked();
+    auto maybe_name = v8::String::NewFromOneByte(
+      isolate, reinterpret_cast<const uint8_t*>(type->name().get()),
+      v8::NewStringType::kNormal, type->name().size()
+    );
+    if (maybe_name.IsEmpty()) return own<Instance*>();
+    auto name_str = maybe_name.ToLocalChecked();
 
     v8::Local<v8::Object> module_obj;
     if (imports_obj->HasOwnProperty(context, module_str).ToChecked()) {
@@ -1682,6 +1665,8 @@ auto Instance::make(
   v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
+  // TODO: crashes, why?
+  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
   auto exports_obj = v8::Local<v8::Object>::Cast(
     instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
   );

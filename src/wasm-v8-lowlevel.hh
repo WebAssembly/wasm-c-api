@@ -19,6 +19,8 @@ auto memory_type(v8::Local<v8::Object> memory) -> own<MemoryType*>;
 auto module_binary_size(v8::Local<v8::Object> module) -> size_t;
 auto module_binary(v8::Local<v8::Object> module) -> const byte_t*;
 
+auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object>;
+
 auto extern_kind(v8::Local<v8::Object> external) -> ExternKind;
 
 auto func_instance(v8::Local<v8::Function>) -> v8::Local<v8::Object>;
