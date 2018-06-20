@@ -7,7 +7,7 @@ WASM_DIR = .
 EXAMPLE_DIR = example
 
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap
+EXAMPLES = hello callback trap reflect
 
 V8_VERSION = master  # or e.g. branch-heads/6.3
 V8_ARCH = x64
@@ -19,7 +19,7 @@ WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_DIR}
-WASM_LIBS = wasm-c wasm-v8 wasm-bin
+WASM_LIBS = wasm-c wasm-v8 wasm-bin wasm-v8-lowlevel
 WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
@@ -59,6 +59,7 @@ ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
 	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
+.PRECIOUS: ${EXAMPLE_OUT}/%.o ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%-cc
 ${EXAMPLE_OUT}/%: ${EXAMPLE_OUT}/%.o ${WASM_O}
 	clang++ ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \

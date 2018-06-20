@@ -3,6 +3,74 @@
 namespace wasm {
 namespace bin {
 
+////////////////////////////////////////////////////////////////////////////////
+// Encoding
+
+void encode_u32(char*& ptr, size_t n) {
+  for (int i = 0; i < 5; ++i) {
+    *ptr++ = (n & 0x7f) | (i == 4 ? 0x00 : 0x80);
+    n = n >> 7;
+  }
+}
+
+auto valtype_to_byte(const ValType* type) -> byte_t {
+  switch (type->kind()) {
+    case I32: return 0x7f;
+    case I64: return 0x7e;
+    case F32: return 0x7d;
+    case F64: return 0x7c;
+    case FUNCREF: return 0x70;
+    case ANYREF: return 0x6f;
+  }
+  assert(false);
+}
+
+auto wrapper(const own<FuncType*>& type) -> vec<byte_t> {
+  auto in_arity = type->params().size();
+  auto out_arity = type->results().size();
+  auto size = 39 + in_arity + out_arity;
+  auto binary = vec<byte_t>::make_uninitialized(size);
+  auto ptr = binary.get();
+
+  memcpy(ptr, "\x00""asm\x01\x00\x00\x00", 8);
+  ptr += 8;
+
+  *ptr++ = 0x01;  // type section
+  encode_u32(ptr, 12 + in_arity + out_arity);  // size
+  *ptr++ = 1;  // length
+  *ptr++ = 0x60;  // function
+  encode_u32(ptr, in_arity);
+  for (size_t i = 0; i < in_arity; ++i) {
+    *ptr++ = valtype_to_byte(type->params()[i].get());
+  }
+  encode_u32(ptr, out_arity);
+  for (size_t i = 0; i < out_arity; ++i) {
+    *ptr++ = valtype_to_byte(type->results()[i].get());
+  }
+
+  *ptr++ = 0x02;  // import section
+  *ptr++ = 5;  // size
+  *ptr++ = 1;  // length
+  *ptr++ = 0;  // module length
+  *ptr++ = 0;  // name length
+  *ptr++ = 0x00;  // func
+  *ptr++ = 0;  // type index
+
+  *ptr++ = 0x07;  // export section
+  *ptr++ = 4;  // size
+  *ptr++ = 1;  // length
+  *ptr++ = 0;  // name length
+  *ptr++ = 0x00;  // func
+  *ptr++ = 0;  // func index
+
+  assert(ptr - binary.get() == size);
+  return binary;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Decoding
+
 // Numbers
 
 auto u32(const byte_t*& pos) -> uint32_t {
@@ -364,18 +432,18 @@ auto exports(const vec<byte_t>& binary,
   return exports;
 }
 
-auto imports_exports(
-  const vec<byte_t>& binary
-) -> std::tuple<vec<ImportType*>, vec<ExportType*>> {
+auto imports(const vec<byte_t>& binary) -> vec<ImportType*> {
+  return bin::imports(binary, bin::types(binary));
+}
+
+auto exports(const vec<byte_t>& binary) -> vec<ExportType*> {
   auto types = bin::types(binary);
   auto imports = bin::imports(binary, types);
   auto funcs = bin::funcs(binary, imports, types);
   auto globals = bin::globals(binary, imports);
   auto tables = bin::tables(binary, imports);
   auto memories = bin::memories(binary, imports);
-  auto exports = bin::exports(binary, funcs, globals, tables, memories);
-
-  return std::make_tuple(std::move(imports), std::move(exports));
+  return bin::exports(binary, funcs, globals, tables, memories);
 }
 
 }  // namespace bin

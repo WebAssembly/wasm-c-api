@@ -7,37 +7,37 @@
 #include "wasm.hh"
 
 // Print a Wasm value
-void val_print(const wasm::Val& val) {
+auto operator<<(std::ostream& out, const wasm::Val& val) -> std::ostream& {
   switch (val.kind()) {
     case wasm::I32: {
-      std::cout << val.i32();
+      out << val.i32();
     } break;
     case wasm::I64: {
-      std::cout << val.i64();
+      out << val.i64();
     } break;
     case wasm::F32: {
-      std::cout << val.f32();
+      out << val.f32();
     } break;
     case wasm::F64: {
-      std::cout << val.f64();
+      out << val.f64();
     } break;
     case wasm::ANYREF:
     case wasm::FUNCREF: {
       if (val.ref() == nullptr) {
-        std::cout << "null";
+        out << "null";
       } else {
-        std::cout << "ref(" << val.ref() << ")";
+        out << "ref(" << val.ref() << ")";
       }
     } break;
   }
+  return out;
 }
 
 // A function to be called from Wasm code.
-auto print_wasm(const wasm::vec<wasm::Val>& args) -> wasm::Result {
+auto print_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
   std::cout << "Calling back..." << std::endl << ">";
   for (size_t i = 0; i < args.size(); ++i) {
-    std::cout << " ";
-    val_print(args[i]);
+    std::cout << " " << args[i];
   }
   std::cout << std::endl;
 
@@ -80,13 +80,13 @@ void run(int argc, const char* argv[]) {
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32)),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func1 = wasm::Func::make(store, print_type1, print_wasm);
+  auto print_func1 = wasm::Func::make(store, print_type1, print_callback);
 
   auto print_type2 = wasm::FuncType::make(
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32), wasm::ValType::make(wasm::I32)),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func2 = wasm::Func::make(store, print_type2, print_wasm);
+  auto print_func2 = wasm::Func::make(store, print_type2, print_callback);
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
