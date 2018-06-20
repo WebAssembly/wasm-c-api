@@ -126,21 +126,18 @@ struct borrowed_vec {
   } \
   extern "C++" inline auto get(vec<Name ptr_or_none>& v) \
   -> wasm_##name##_vec_t { \
-    wasm_##name##_vec_t v2; \
-    wasm_##name##_vec_init(&v2, v.size(), hide(v.get())); \
+    wasm_##name##_vec_t v2 = { v.size(), hide(v.get()) }; \
     return v2; \
   } \
   extern "C++" inline auto get(const vec<Name ptr_or_none>& v) \
   -> const wasm_##name##_vec_t { \
-    wasm_##name##_vec_t v2; \
-    wasm_##name##_vec_init(&v2, \
-      v.size(), const_cast<wasm_##name##_t ptr_or_none*>(hide(v.get()))); \
+    wasm_##name##_vec_t v2 = { \
+      v.size(), const_cast<wasm_##name##_t ptr_or_none*>(hide(v.get())) }; \
     return v2; \
   } \
   extern "C++" inline auto release(vec<Name ptr_or_none>&& v) \
   -> wasm_##name##_vec_t { \
-    wasm_##name##_vec_t v2; \
-    wasm_##name##_vec_init(&v2, v.size(), hide(v.release())); \
+    wasm_##name##_vec_t v2 = { v.size(), hide(v.release()) }; \
     return v2; \
   } \
   extern "C++" inline auto adopt(wasm_##name##_vec_t* v) \
@@ -412,46 +409,76 @@ const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* mt) {
 
 WASM_DEFINE_TYPE(externtype, ExternType)
 
-const wasm_externtype_t* wasm_functype_as_externtype(
+wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t* ft) {
+  return hide(static_cast<ExternType*>(ft));
+}
+wasm_externtype_t* wasm_globaltype_as_externtype(wasm_globaltype_t* gt) {
+  return hide(static_cast<ExternType*>(gt));
+}
+wasm_externtype_t* wasm_tabletype_as_externtype(wasm_tabletype_t* tt) {
+  return hide(static_cast<ExternType*>(tt));
+}
+wasm_externtype_t* wasm_memorytype_as_externtype(wasm_memorytype_t* mt) {
+  return hide(static_cast<ExternType*>(mt));
+}
+
+const wasm_externtype_t* wasm_functype_as_externtype_const(
   const wasm_functype_t* ft
 ) {
   return hide(static_cast<const ExternType*>(ft));
 }
-const wasm_externtype_t* wasm_globaltype_as_externtype(
+const wasm_externtype_t* wasm_globaltype_as_externtype_const(
   const wasm_globaltype_t* gt
 ) {
   return hide(static_cast<const ExternType*>(gt));
 }
-const wasm_externtype_t* wasm_tabletype_as_externtype(
+const wasm_externtype_t* wasm_tabletype_as_externtype_const(
   const wasm_tabletype_t* tt
 ) {
   return hide(static_cast<const ExternType*>(tt));
 }
-const wasm_externtype_t* wasm_memorytype_as_externtype(
+const wasm_externtype_t* wasm_memorytype_as_externtype_const(
   const wasm_memorytype_t* mt
 ) {
   return hide(static_cast<const ExternType*>(mt));
 }
 
-const wasm_functype_t* wasm_externtype_as_functype(
+wasm_functype_t* wasm_externtype_as_functype(wasm_externtype_t* et) {
+  return et->kind() == EXTERN_FUNC
+    ? hide(static_cast<FuncType*>(reveal(et))) : nullptr;
+}
+wasm_globaltype_t* wasm_externtype_as_globaltype(wasm_externtype_t* et) {
+  return et->kind() == EXTERN_GLOBAL
+    ? hide(static_cast<GlobalType*>(reveal(et))) : nullptr;
+}
+wasm_tabletype_t* wasm_externtype_as_tabletype(wasm_externtype_t* et) {
+  return et->kind() == EXTERN_TABLE
+    ? hide(static_cast<TableType*>(reveal(et))) : nullptr;
+}
+wasm_memorytype_t* wasm_externtype_as_memorytype(wasm_externtype_t* et) {
+  return et->kind() == EXTERN_MEMORY
+    ? hide(static_cast<MemoryType*>(reveal(et))) : nullptr;
+}
+
+const wasm_functype_t* wasm_externtype_as_functype_const(
   const wasm_externtype_t* et
 ) {
   return et->kind() == EXTERN_FUNC
     ? hide(static_cast<const FuncType*>(reveal(et))) : nullptr;
 }
-const wasm_globaltype_t* wasm_externtype_as_globaltype(
+const wasm_globaltype_t* wasm_externtype_as_globaltype_const(
   const wasm_externtype_t* et
 ) {
   return et->kind() == EXTERN_GLOBAL
     ? hide(static_cast<const GlobalType*>(reveal(et))) : nullptr;
 }
-const wasm_tabletype_t* wasm_externtype_as_tabletype(
+const wasm_tabletype_t* wasm_externtype_as_tabletype_const(
   const wasm_externtype_t* et
 ) {
   return et->kind() == EXTERN_TABLE
     ? hide(static_cast<const TableType*>(reveal(et))) : nullptr;
 }
-const wasm_memorytype_t* wasm_externtype_as_memorytype(
+const wasm_memorytype_t* wasm_externtype_as_memorytype_const(
   const wasm_externtype_t* et
 ) {
   return et->kind() == EXTERN_MEMORY
@@ -908,34 +935,60 @@ wasm_memory_pages_t wasm_memory_grow(
 WASM_DEFINE_REF(extern, Extern)
 WASM_DEFINE_VEC(extern, Extern, *)
 
-const wasm_extern_t* wasm_func_as_extern(const wasm_func_t* func) {
+wasm_extern_t* wasm_func_as_extern(wasm_func_t* func) {
+  return hide(static_cast<Extern*>(reveal(func)));
+}
+wasm_extern_t* wasm_global_as_extern(wasm_global_t* global) {
+  return hide(static_cast<Extern*>(reveal(global)));
+}
+wasm_extern_t* wasm_table_as_extern(wasm_table_t* table) {
+  return hide(static_cast<Extern*>(reveal(table)));
+}
+wasm_extern_t* wasm_memory_as_extern(wasm_memory_t* memory) {
+  return hide(static_cast<Extern*>(reveal(memory)));
+}
+
+const wasm_extern_t* wasm_func_as_extern_const(const wasm_func_t* func) {
   return hide(static_cast<const Extern*>(reveal(func)));
 }
-const wasm_extern_t* wasm_global_as_extern(const wasm_global_t* global) {
+const wasm_extern_t* wasm_global_as_extern_const(const wasm_global_t* global) {
   return hide(static_cast<const Extern*>(reveal(global)));
 }
-const wasm_extern_t* wasm_table_as_extern(const wasm_table_t* table) {
+const wasm_extern_t* wasm_table_as_extern_const(const wasm_table_t* table) {
   return hide(static_cast<const Extern*>(reveal(table)));
 }
-const wasm_extern_t* wasm_memory_as_extern(const wasm_memory_t* memory) {
+const wasm_extern_t* wasm_memory_as_extern_const(const wasm_memory_t* memory) {
   return hide(static_cast<const Extern*>(reveal(memory)));
+}
+
+wasm_func_t* wasm_extern_as_func(wasm_extern_t* external) {
+  return hide(external->func());
+}
+wasm_global_t* wasm_extern_as_global(wasm_extern_t* external) {
+  return hide(external->global());
+}
+wasm_table_t* wasm_extern_as_table(wasm_extern_t* external) {
+  return hide(external->table());
+}
+wasm_memory_t* wasm_extern_as_memory(wasm_extern_t* external) {
+  return hide(external->memory());
+}
+
+const wasm_func_t* wasm_extern_as_func_const(const wasm_extern_t* external) {
+  return hide(external->func());
+}
+const wasm_global_t* wasm_extern_as_global_const(const wasm_extern_t* external) {
+  return hide(external->global());
+}
+const wasm_table_t* wasm_extern_as_table_const(const wasm_extern_t* external) {
+  return hide(external->table());
+}
+const wasm_memory_t* wasm_extern_as_memory_const(const wasm_extern_t* external) {
+  return hide(external->memory());
 }
 
 wasm_externkind_t wasm_extern_kind(const wasm_extern_t* external) {
   return hide(external->kind());
-}
-
-const wasm_func_t* wasm_extern_as_func(const wasm_extern_t* external) {
-  return hide(external->func());
-}
-const wasm_global_t* wasm_extern_as_global(const wasm_extern_t* external) {
-  return hide(external->global());
-}
-const wasm_table_t* wasm_extern_as_table(const wasm_extern_t* external) {
-  return hide(external->table());
-}
-const wasm_memory_t* wasm_extern_as_memory(const wasm_extern_t* external) {
-  return hide(external->memory());
 }
 
 

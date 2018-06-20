@@ -91,11 +91,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* externs[] = {
+  wasm_extern_t* externs[] = {
     wasm_func_as_extern(print_func1), wasm_func_as_extern(print_func2)
   };
-  wasm_extern_vec_t imports;
-  wasm_extern_vec_init_const(&imports, 2, externs);
+  wasm_extern_vec_t imports = { 2, externs };
   own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
@@ -122,8 +121,7 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   wasm_val_t vals[] = { wasm_i32_val(3), wasm_i32_val(4) };
-  wasm_val_vec_t args;
-  wasm_val_vec_init(&args, 2, vals);
+  wasm_val_vec_t args = { 2, vals };
   own wasm_result_t result;
   wasm_func_call(run_func, &args, &result);
   if (result.kind != WASM_RETURN) {
