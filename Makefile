@@ -25,7 +25,7 @@ WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
 V8_V8 = ${V8_DIR}/v8
 V8_DEPOT_TOOLS = ${V8_DIR}/depot_tools
-V8_PATH = ${V8_DEPOT_TOOLS}:${PATH}
+V8_PATH = $(abspath ${V8_DEPOT_TOOLS}):${PATH}
 V8_INCLUDE = ${V8_V8}/include
 V8_SRC = ${V8_V8}/src
 V8_OUT = ${V8_V8}/out.gn/${V8_BUILD}
