@@ -8,10 +8,10 @@
 #define own
 
 // A function to be called from Wasm code.
-own wasm_result_t hello_callback(wasm_val_vec_t args) {
+void hello_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
   printf("Calling back...\n");
   printf("> Hello World!\n");
-  return wasm_result_new_empty();
+  wasm_result_new_empty(result);
 }
 
 
@@ -31,19 +31,20 @@ int main(int argc, const char* argv[]) {
   fseek(file, 0L, SEEK_END);
   size_t file_size = ftell(file);
   fseek(file, 0L, SEEK_SET);
-  wasm_byte_vec_t binary = wasm_byte_vec_new_uninitialized(file_size);
+  wasm_byte_vec_t binary;
+  wasm_byte_vec_new_uninitialized(&binary, file_size);
   fread(binary.data, file_size, 1, file);
   fclose(file);
 
   // Compile.
   printf("Compiling module...\n");
-  own wasm_module_t* module = wasm_module_new(store, binary);
+  own wasm_module_t* module = wasm_module_new(store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");
     return 1;
   }
 
-  wasm_byte_vec_delete(binary);
+  wasm_byte_vec_delete(&binary);
 
   // Create external print functions.
   printf("Creating callback...\n");
@@ -54,9 +55,9 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
-  own wasm_instance_t* instance = wasm_instance_new(
-    store, module, wasm_extern_vec_const(1, imports));
+  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_vec_t imports = { 1, externs };
+  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -64,7 +65,8 @@ int main(int argc, const char* argv[]) {
 
   // Extract export.
   printf("Extracting export...\n");
-  own wasm_extern_vec_t exports = wasm_instance_exports(instance);
+  own wasm_extern_vec_t exports;
+  wasm_instance_exports(instance, &exports);
   if (exports.size == 0) {
     printf("> Error accessing exports!\n");
     return 1;
@@ -80,14 +82,16 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  own wasm_result_t result = wasm_func_call(run_func, wasm_val_vec_empty());
+  wasm_val_vec_t args = { 0, NULL };
+  own wasm_result_t result;
+  wasm_func_call(run_func, &args, &result);
   if (result.kind != WASM_RETURN) {
     printf("> Error calling function!\n");
     return 1;
   }
 
-  wasm_extern_vec_delete(exports);
-  wasm_result_delete(result);
+  wasm_extern_vec_delete(&exports);
+  wasm_result_delete(&result);
 
   // Shut down.
   printf("Shutting down...\n");

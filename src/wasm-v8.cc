@@ -484,7 +484,7 @@ auto TableType::element() const -> const own<ValType*>& {
   return impl(this)->element;
 }
 
-auto TableType::limits() const -> Limits {
+auto TableType::limits() const -> const Limits& {
   return impl(this)->limits;
 }
 
@@ -525,7 +525,7 @@ auto MemoryType::copy() const -> own<MemoryType*> {
   return MemoryType::make(limits());
 }
 
-auto MemoryType::limits() const -> Limits {
+auto MemoryType::limits() const -> const Limits& {
   return impl(this)->limits;
 }
 
