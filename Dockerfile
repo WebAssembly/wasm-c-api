@@ -13,3 +13,4 @@ RUN apt-get update && apt-get install -y \
 ADD . /code
 WORKDIR /code
 RUN make v8-checkout && make -j v8
+RUN mkdir build && cd build && cmake .. && make
