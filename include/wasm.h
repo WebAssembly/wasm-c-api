@@ -166,14 +166,7 @@ typedef struct wasm_limits_t {
   uint32_t max;
 } wasm_limits_t;
 
-static inline wasm_limits_t wasm_limits(uint32_t min, uint32_t max) {
-  wasm_limits_t l = {min, max};
-  return l;
-}
-
-static inline wasm_limits_t wasm_limits_no_max(uint32_t min) {
-  return wasm_limits(min, 0xffffffff);
-}
+static const uint32_t wasm_limits_max_default = 0xffffffff;
 
 
 // Generic
