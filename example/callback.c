@@ -42,7 +42,9 @@ void print_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
   }
   printf("\n");
 
-  wasm_val_t vals[] = { wasm_i32_val((uint32_t)args->size) };
+  wasm_val_t vals[1];
+  vals[0].kind = WASM_I32;
+  vals[0].of.i32 = (int32_t)args->size;
   wasm_result_new_vals(result, 1, vals);
 }
 
@@ -120,7 +122,11 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t vals[] = { wasm_i32_val(3), wasm_i32_val(4) };
+  wasm_val_t vals[2];
+  vals[0].kind = WASM_I32;
+  vals[0].of.i32 = 3;
+  vals[1].kind = WASM_I32;
+  vals[1].of.i32 = 4;
   wasm_val_vec_t args = { 2, vals };
   own wasm_result_t result;
   wasm_func_call(run_func, &args, &result);

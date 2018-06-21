@@ -674,53 +674,21 @@ static inline own wasm_functype_t* wasm_functype_new_3_2(
 
 // Value construction short-hands
 
-static inline own wasm_val_t wasm_i32_val(uint32_t i32) {
-  wasm_val_t v = {WASM_I32};
-  v.of.i32 = i32;
-  return v;
-}
-
-static inline own wasm_val_t wasm_i64_val(uint64_t i64) {
-  wasm_val_t v = {WASM_I64};
-  v.of.i64 = i64;
-  return v;
-}
-
-static inline own wasm_val_t wasm_f32_val(float32_t f32) {
-  wasm_val_t v = {WASM_F32};
-  v.of.f32 = f32;
-  return v;
-}
-
-static inline own wasm_val_t wasm_f64_val(float64_t f64) {
-  wasm_val_t v = {WASM_F64};
-  v.of.f64 = f64;
-  return v;
-}
-
-static inline own wasm_val_t wasm_ref_val(wasm_ref_t* ref) {
-  wasm_val_t v = {WASM_ANYREF};
-  v.of.ref = ref;
-  return v;
-}
-
-static inline own wasm_val_t wasm_null_val() {
-  return wasm_ref_val(NULL);
-}
-
-static inline own wasm_val_t wasm_ptr_val(void* p) {
+static inline void wasm_val_init_ptr(own wasm_val_t* out, void* p) {
 #if UINTPTR_MAX == UINT32_MAX
-  return wasm_i32_val((uintptr_t)p);
+  out->kind = WASM_I32;
+  out->of.i32 = (intptr_t)p;
 #elif UINTPTR_MAX == UINT64_MAX
-  return wasm_i64_val((uintptr_t)p);
+  out->kind = WASM_I64;
+  out->of.i64 = (intptr_t)p;
 #endif
 }
 
-static inline void* wasm_val_ptr(wasm_val_t v) {
+static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #if UINTPTR_MAX == UINT32_MAX
-  return (void*)(uintptr_t)v.of.i32;
+  return (void*)(intptr_t)val->of.i32;
 #elif UINTPTR_MAX == UINT64_MAX
-  return (void*)(uintptr_t)v.of.i64;
+  return (void*)(intptr_t)val->of.i64;
 #endif
 }
 
