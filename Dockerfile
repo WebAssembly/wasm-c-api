@@ -14,4 +14,7 @@ RUN apt-get update && apt-get install -y \
 ADD . /code
 WORKDIR /code
 RUN make V8_VERSION="branch-heads/6.8" v8-checkout && make -j v8
+WORKDIR /code/v8/v8
+RUN touch out.gn/x64.release/args.gn && ninja -C out.gn/x64.release
+WORKDIR /code
 RUN mkdir build && cd build && cmake .. && make
