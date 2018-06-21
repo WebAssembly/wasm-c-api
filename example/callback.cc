@@ -108,7 +108,7 @@ void run(int argc, const char* argv[]) {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  auto result = run_func->call(wasm::Val(3), wasm::Val(4));
+  auto result = run_func->call(wasm::Val::i32(3), wasm::Val::i32(4));
   if (result.kind() != wasm::Result::RETURN) {
     std::cout << "> Error calling function!" << std::endl;
     return;

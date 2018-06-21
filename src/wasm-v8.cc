@@ -1388,22 +1388,27 @@ auto Global::make(
 
   assert(type->content()->kind() == val.kind());
 
-  // TODO(wasm+): remove
-  if (store->v8_function(V8_F_GLOBAL).IsEmpty()) {
-    UNIMPLEMENTED("Global::make");
-  }
+  // Create wrapper instance
+  auto binary = wasm::bin::wrapper(type);
+  auto module = Module::make(store_abs, binary);
 
-  v8::Local<v8::Value> args[] = {
-    globaltype_to_v8(store, type),
-    val_to_v8(store, val)
-  };
-  auto maybe_obj =
-    store->v8_function(V8_F_GLOBAL)->NewInstance(context, 2, args);
-  if (maybe_obj.IsEmpty()) return own<Global*>();
-  auto obj = maybe_obj.ToLocalChecked();
+  v8::Local<v8::Value> instantiate_args[] = { impl(module.get())->v8_object() };
+  auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
+    context, 1, instantiate_args).ToLocalChecked();
+  // TODO: crashes, why?
+  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
+  auto exports_obj = v8::Local<v8::Object>::Cast(
+    instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
+  );
+  auto global_obj = v8::Local<v8::Object>::Cast(
+    exports_obj->Get(context, store->v8_string(V8_S_EMPTY)).ToLocalChecked());
+  assert(!global_obj.IsEmpty() && global_obj->IsObject());
 
-  auto data = make_own(new(std::nothrow) GlobalData(store, obj));
-  return GlobalImpl::make(data);
+  auto data = make_own(new(std::nothrow) GlobalData(store, global_obj));
+  auto global = GlobalImpl::make(data);
+  assert(global);
+  global->set(val);
+  return global;
 }
 
 auto Global::type() const -> own<GlobalType*> {

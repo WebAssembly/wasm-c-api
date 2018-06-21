@@ -8,6 +8,7 @@ namespace wasm {
 namespace bin {
 
 auto wrapper(const own<FuncType*>&) -> vec<byte_t>;
+auto wrapper(const own<GlobalType*>&) -> vec<byte_t>;
 
 auto imports(const vec<byte_t>& binary) -> vec<ImportType*>;
 auto exports(const vec<byte_t>& binary) -> vec<ExportType*>;

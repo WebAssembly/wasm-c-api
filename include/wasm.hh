@@ -154,10 +154,12 @@ public:
   }
 
   auto operator[](size_t i) -> typename vec_traits<T>::proxy {
+    assert(i < size_);
     return typename vec_traits<T>::proxy(data_[i]);
   }
 
   auto operator[](size_t i) const -> const typename vec_traits<T>::proxy {
+    assert(i < size_);
     return typename vec_traits<T>::proxy(data_[i]);
   }
 
@@ -465,6 +467,14 @@ public:
     reset();
   }
 
+  static auto i32(int32_t x) -> Val { return Val(x); }
+  static auto i64(int64_t x) -> Val { return Val(x); }
+  static auto f32(float32_t x) -> Val { return Val(x); }
+  static auto f64(float64_t x) -> Val { return Val(x); }
+  static auto ref(own<Ref*>&& x) -> Val { return Val(std::move(x)); }
+  template<class T> inline static auto make(T x) -> Val;
+  template<class T> inline static auto make(own<T>&& x) -> Val;
+
   void reset() {
     if (is_ref(kind_) && impl_.ref) {
       delete impl_.ref;
@@ -490,6 +500,7 @@ public:
   auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
   auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
   auto ref() const -> Ref* { assert(is_ref(kind_)); return impl_.ref; }
+  template<class T> inline auto get() const -> T;
 
   auto release_ref() -> own<Ref*> {
     assert(is_ref(kind_));
@@ -507,6 +518,35 @@ public:
     }
   }
 };
+
+
+template<> inline auto Val::make<int32_t>(int32_t x) -> Val { return Val(x); }
+template<> inline auto Val::make<int64_t>(int64_t x) -> Val { return Val(x); }
+template<> inline auto Val::make<float32_t>(float32_t x) -> Val { return Val(x); }
+template<> inline auto Val::make<float64_t>(float64_t x) -> Val { return Val(x); }
+template<> inline auto Val::make<Ref*>(own<Ref*>&& x) -> Val {
+  return Val(std::move(x));
+}
+
+template<> inline auto Val::make<uint32_t>(uint32_t x) -> Val {
+  return Val(static_cast<int32_t>(x));
+}
+template<> inline auto Val::make<uint64_t>(uint64_t x) -> Val {
+  return Val(static_cast<int64_t>(x));
+}
+
+template<> inline auto Val::get<int32_t>() const -> int32_t { return i32(); }
+template<> inline auto Val::get<int64_t>() const -> int64_t { return i64(); }
+template<> inline auto Val::get<float32_t>() const -> float32_t { return f32(); }
+template<> inline auto Val::get<float64_t>() const -> float64_t { return f64(); }
+template<> inline auto Val::get<Ref*>() const -> Ref* { return ref(); }
+
+template<> inline auto Val::get<uint32_t>() const -> uint32_t {
+  return static_cast<uint32_t>(i32());
+}
+template<> inline auto Val::get<uint64_t>() const -> uint64_t {
+  return static_cast<uint64_t>(i64());
+}
 
 
 // Results
