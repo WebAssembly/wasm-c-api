@@ -1,6 +1,7 @@
 FROM ubuntu:bionic
 RUN apt-get update && apt-get install -y \
     apt-utils \
+    clang \
     cmake \
     curl \
     git \
@@ -12,5 +13,5 @@ RUN apt-get update && apt-get install -y \
     python
 ADD . /code
 WORKDIR /code
-RUN make v8-checkout && make -j v8
+RUN V8_VERSION="branch-heads/6.8" make v8-checkout && make -j v8
 RUN mkdir build && cd build && cmake .. && make
