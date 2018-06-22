@@ -13,8 +13,5 @@ RUN apt-get update && apt-get install -y \
     python
 ADD . /code/wasm-c-api
 WORKDIR /code/wasm-c-api
-RUN make V8_VERSION="branch-heads/6.8" v8-checkout && make -j v8
-WORKDIR /code/wasm-c-api/v8/v8
-RUN touch out.gn/x64.release/args.gn && ninja -C out.gn/x64.release
-WORKDIR /code/wasm-c-api
+RUN make v8-checkout && make -j v8
 RUN mkdir build && cd build && cmake .. && make

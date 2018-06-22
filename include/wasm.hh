@@ -216,7 +216,7 @@ public:
 
   static auto make() -> own<Config*>;
 
-  // Embedders may provide custom methods for manipulating Configs.
+  // Implementations may provide custom methods for manipulating Configs.
 };
 
 
