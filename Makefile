@@ -1,7 +1,3 @@
-CFLAGS = -ggdb -O0
-CXXFLAGS = ${CFLAGS} -fsanitize=address
-LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
-
 OUT_DIR = out
 WASM_DIR = .
 EXAMPLE_DIR = example
@@ -33,8 +29,14 @@ V8_LIBS = base libbase external_snapshot libplatform libsampler
 V8_ICU_LIBS = uc i18n
 V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
+V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
 
-# Example
+CFLAGS = -ggdb -O0
+CXXFLAGS = ${CFLAGS} -fsanitize=address
+LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
+
+
+# Examples
 
 .PHONY: all c cc
 all: c cc
@@ -95,22 +97,42 @@ ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLU
 
 .PHONY: v8
 v8:
+	@echo ==== Building V8 ${V8_CURRENT} ====
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
 	echo >>${V8_OUT}/args.gn v8_static_library = true
+	echo >>${V8_OUT}/args.gn use_custom_libcxx = false
+	echo >>${V8_OUT}/args.gn use_custom_libcxx_for_host = false
+	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
+	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 
 .PHONY: v8-checkout
-v8-checkout:
-	mkdir -p ${V8_DIR}
-	(cd ${V8_DIR}; git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git)
-	(cd ${V8_DIR}; PATH=${V8_PATH} fetch v8)
+v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
+	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
+	if [ ${V8_CURRENT} != ${V8_VERSION} ]; then rm -rf ${V8_OUT}; fi
+	mkdir -p ${V8_OUT}
+	echo >${V8_OUT}/version ${V8_VERSION}
+
+.PHONY: v8-checkout-banner
+v8-checkout-banner:
+	@echo ==== Checking out V8 ${V8_VERSION} ====
 
 .PHONY: v8-update
 v8-update:
+	@echo ==== Updating V8 ${V8_CURRENT} ====
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
-	(cd ${V8_V8}; git pull)
+	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
+
+${V8_DEPOT_TOOLS}:
+	mkdir -p ${V8_DIR}
+	(cd ${V8_DIR}; git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git)
+
+${V8_V8}:
+	mkdir -p ${V8_DIR}
+	(cd ${V8_DIR}; PATH=${V8_PATH} fetch v8)
+	(cd ${V8_V8}; git checkout ${V8_VERSION})
 
 
 # Clean-up
