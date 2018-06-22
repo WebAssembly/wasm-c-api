@@ -103,8 +103,8 @@ v8:
 .PHONY: v8-checkout
 v8-checkout:
 	mkdir -p ${V8_DIR}
-	(cd ${V8_DIR}; git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git)
-	(cd ${V8_DIR}; PATH=${V8_PATH} fetch v8)
+	(cd ${V8_DIR}; if [ -d depot_tools ]; then GIT_DIR=depot_tools/.git git pull; else git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git; fi)
+	(cd ${V8_DIR}; if [ -d v8 ]; then cd v8 && PATH=${V8_PATH} gclient sync; else PATH=${V8_PATH} fetch v8; fi)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 
 .PHONY: v8-update
