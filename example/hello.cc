@@ -18,7 +18,7 @@ auto hello_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
 void run(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
-  auto engine = wasm::Engine::make(argc, argv);
+  auto engine = wasm::Engine::make(argv[0]);
   auto store = wasm::Store::make(engine);
 
   // Load binary.

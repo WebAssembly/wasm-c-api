@@ -10,7 +10,7 @@
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_engine_t* engine = wasm_engine_new(argc, argv);
+  wasm_engine_t* engine = wasm_engine_new(argv[0]);
   wasm_store_t* store = wasm_store_new(engine);
 
   // Load binary.

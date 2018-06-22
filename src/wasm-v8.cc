@@ -101,12 +101,12 @@ void Engine::operator delete(void *p) {
 }
 
 auto Engine::make(
-  int argc, const char *const argv[], own<Config*>&& config
+  const char* directory_path, own<Config*>&& config
 ) -> own<Engine*> {
   v8::internal::FLAG_experimental_wasm_mut_global = true;
   auto engine = make_own(seal<Engine>(new(std::nothrow) EngineImpl));
   if (!engine) return engine;
-  v8::V8::InitializeExternalStartupData(argv[0]);
+  v8::V8::InitializeExternalStartupData(directory_path);
   static std::unique_ptr<v8::Platform> platform =
     v8::platform::NewDefaultPlatform();
   v8::V8::InitializePlatform(platform.get());
