@@ -229,7 +229,7 @@ public:
   void operator delete(void*);
 
   static auto make(
-    int argc, const char* const argv[], own<Config*>&& = Config::make()
+    const char* directory_path, own<Config*>&& = Config::make()
   ) -> own<Engine*>;
 };
 
