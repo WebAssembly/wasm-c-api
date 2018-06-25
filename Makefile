@@ -3,7 +3,7 @@ WASM_DIR = .
 EXAMPLE_DIR = example
 
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global
+EXAMPLES = hello callback trap reflect global table memory
 
 V8_VERSION = branch-heads/6.8
 V8_ARCH = x64
@@ -15,8 +15,10 @@ WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_DIR}
-WASM_LIBS = wasm-c wasm-v8 wasm-bin wasm-v8-lowlevel
+WASM_LIBS = wasm-c wasm-v8 wasm-bin
 WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
+
+V8_PATCH = wasm-v8-lowlevel
 
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
 V8_V8 = ${V8_DIR}/v8
@@ -96,8 +98,8 @@ ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLU
 # V8
 
 .PHONY: v8
-v8:
-	@echo ==== Building V8 ${V8_CURRENT} ====
+v8: v8-patch ${V8_INCLUDE}/${V8_PATCH}.hh ${V8_SRC}/${V8_PATCH}.cc
+	@echo ==== Building V8 ${V8_CURRENT} ${V8_BUILD} ====
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
 	echo >>${V8_OUT}/args.gn v8_static_library = true
@@ -107,8 +109,25 @@ v8:
 	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 
+.PHONY: v8-patch
+v8-patch:
+	if ! grep ${V8_PATCH} ${V8_V8}/BUILD.gn; then \
+	  @echo ==== Patching V8 ${V8_CURRENT} ${V8_BUILD} ====; \
+	  sed 's:"include/v8.h":\"include/v8.h", "include/${V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
+	  sed 's:"src/api.cc":\"src/api.cc", "src/${V8_PATCH}.cc":g' B >B2 && \
+	  mv -f B2 ${V8_V8}/BUILD.gn && \
+	  rm B; \
+	fi
+
+${V8_INCLUDE}/${V8_PATCH}.hh: ${WASM_SRC}/${V8_PATCH}.hh
+	cp $< $@
+
+${V8_SRC}/${V8_PATCH}.cc: ${WASM_SRC}/${V8_PATCH}.cc
+	cp $< $@
+
 .PHONY: v8-checkout
 v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
+	(cd ${V8_V8}; git stash)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
 	if [ ${V8_CURRENT} != ${V8_VERSION} ]; then rm -rf ${V8_OUT}; fi

@@ -16,7 +16,8 @@
 #include "wasm/wasm-objects-inl.h"
 
 
-namespace wasm_v8 {
+namespace v8 {
+namespace wasm {
 
 // Foreign pointers
 
@@ -36,80 +37,86 @@ auto foreign_get(v8::Local<v8::Value> val) -> void* {
 
 // Types
 
-auto v8_mutability_to_wasm(bool is_mutable) -> Mutability {
-  return is_mutable ? VAR : CONST;
-}
-
-auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> own<ValType*> {
+auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t {
   switch (v8_valtype) {
-    case v8::internal::wasm::kWasmI32: return wasm::ValType::make(wasm::I32);
-    case v8::internal::wasm::kWasmI64: return wasm::ValType::make(wasm::I64);
-    case v8::internal::wasm::kWasmF32: return wasm::ValType::make(wasm::F32);
-    case v8::internal::wasm::kWasmF64: return wasm::ValType::make(wasm::F64);
-    case v8::internal::wasm::kWasmAnyRef: return wasm::ValType::make(wasm::ANYREF);
+    case v8::internal::wasm::kWasmI32: return I32;
+    case v8::internal::wasm::kWasmI64: return I64;
+    case v8::internal::wasm::kWasmF32: return F32;
+    case v8::internal::wasm::kWasmF64: return F64;
     default:
       // TODO(wasm+): support new value types
       assert(false);
   }
 }
 
-auto v8_functype_to_wasm(const v8::internal::wasm::FunctionSig* v8_funcsig) -> own<FuncType*> {
-  auto params = vec<ValType*>::make_uninitialized(v8_funcsig->parameter_count());
-  auto results = vec<ValType*>::make_uninitialized(v8_funcsig->return_count());
-
-  for (size_t i = 0; i < params.size(); ++i) {
-    params[i] = v8_valtype_to_wasm(v8_funcsig->GetParam(i));
-  }
-  for (size_t i = 0; i < results.size(); ++i) {
-    results[i] = v8_valtype_to_wasm(v8_funcsig->GetReturn(i));
-  }
-
-  return FuncType::make(std::move(params), std::move(results));
-}
-
-
-auto func_type(v8::Local<v8::Object> function) -> own<FuncType*> {
+auto func_type_param_arity(v8::Local<v8::Object> function) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
   auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
-
   v8::internal::wasm::FunctionSig* sig =
     v8_function->instance()->module()->functions[v8_function->function_index()].sig;
-
-  return v8_functype_to_wasm(sig);
+  return static_cast<uint32_t>(sig->parameter_count());
 }
 
-auto global_type(v8::Local<v8::Object> global) -> own<GlobalType*> {
+auto func_type_result_arity(v8::Local<v8::Object> function) -> uint32_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
+  auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
+  v8::internal::wasm::FunctionSig* sig =
+    v8_function->instance()->module()->functions[v8_function->function_index()].sig;
+  return static_cast<uint32_t>(sig->return_count());
+}
+
+auto func_type_param(v8::Local<v8::Object> function, size_t i) -> val_kind_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
+  auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
+  v8::internal::wasm::FunctionSig* sig =
+    v8_function->instance()->module()->functions[v8_function->function_index()].sig;
+  return v8_valtype_to_wasm(sig->GetParam(i));
+}
+
+auto func_type_result(v8::Local<v8::Object> function, size_t i) -> val_kind_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
+  auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
+  v8::internal::wasm::FunctionSig* sig =
+    v8_function->instance()->module()->functions[v8_function->function_index()].sig;
+  return v8_valtype_to_wasm(sig->GetReturn(i));
+}
+
+auto global_type_content(v8::Local<v8::Object> global) -> val_kind_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
   auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
-
-  auto is_mutable = v8_global->is_mutable();
-  auto v8_valtype = v8_global->type();
-
-  return GlobalType::make(v8_valtype_to_wasm(v8_valtype), v8_mutability_to_wasm(is_mutable));
+  return v8_valtype_to_wasm(v8_global->type());
 }
 
-auto table_type(v8::Local<v8::Object> table) -> own<TableType*> {
+auto global_type_mutable(v8::Local<v8::Object> global) -> bool {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  return v8_global->is_mutable();
+}
+
+auto table_type_min(v8::Local<v8::Object> table) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
-
-  uint32_t min = v8_table->current_length();
-  uint32_t max;
-  auto v8_max_obj = v8_table->maximum_length();
-  Limits limits = v8_max_obj->ToUint32(&max) ? Limits(min, max) : Limits(min);
-
-  // TODO(wasm+): support new element types.
-  return TableType::make(ValType::make(FUNCREF), limits);
+  return v8_table->current_length();
 }
 
-auto memory_type(v8::Local<v8::Object> memory) -> own<MemoryType*> {
+auto table_type_max(v8::Local<v8::Object> table) -> uint32_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
+  auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
+  auto v8_max_obj = v8_table->maximum_length();
+  uint32_t max;
+  return v8_max_obj->ToUint32(&max) ? max : 0xffffffffu;
+}
+
+auto memory_type_min(v8::Local<v8::Object> memory) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  return v8_memory->current_pages();
+}
 
-  uint32_t min = v8_memory->current_pages();
-  Limits limits = v8_memory->has_maximum_pages()
-    ? Limits(min, v8_memory->maximum_pages()) : Limits(min);
-
-  return MemoryType::make(limits);
+auto memory_type_max(v8::Local<v8::Object> memory) -> uint32_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
+  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
+  return v8_memory->has_maximum_pages() ? v8_memory->maximum_pages() : 0xffffffffu;
 }
 
 
@@ -121,10 +128,10 @@ auto module_binary_size(v8::Local<v8::Object> module) -> size_t {
   return v8_module->shared()->module_bytes()->length();
 }
 
-auto module_binary(v8::Local<v8::Object> module) -> const byte_t* {
+auto module_binary(v8::Local<v8::Object> module) -> const char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return reinterpret_cast<byte_t*>(v8_module->shared()->module_bytes()->GetChars());
+  return reinterpret_cast<char*>(v8_module->shared()->module_bytes()->GetChars());
 }
 
 
@@ -140,7 +147,7 @@ auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
 
 // Externals
 
-auto extern_kind(v8::Local<v8::Object> external) -> ExternKind {
+auto extern_kind(v8::Local<v8::Object> external) -> extern_kind_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(external);
 
   if (v8::internal::WasmExportedFunction::IsWasmExportedFunction(*v8_object)) return EXTERN_FUNC;
@@ -200,7 +207,6 @@ auto func_make(
 auto func_instance(v8::Local<v8::Function> function) -> v8::Local<v8::Object> {
   auto v8_function = v8::Utils::OpenHandle(*function);
   auto v8_func = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_function);
-  auto index = v8_func->function_index();
   v8::internal::Handle<v8::internal::JSObject> v8_instance(v8_func->instance());
   return v8::Utils::ToLocal(v8_instance);
 }
@@ -208,32 +214,46 @@ auto func_instance(v8::Local<v8::Function> function) -> v8::Local<v8::Object> {
 
 // Globals
 
-auto global_get(v8::Local<v8::Object> global) -> Val {
+auto global_get_i32(v8::Local<v8::Object> global) -> int32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
   auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
-  switch (v8_global->type()) {
-    case v8::internal::wasm::kWasmI32: return Val(v8_global->GetI32());
-    case v8::internal::wasm::kWasmI64: return Val(v8_global->GetI64());
-    case v8::internal::wasm::kWasmF32: return Val(v8_global->GetF32());
-    case v8::internal::wasm::kWasmF64: return Val(v8_global->GetF64());
-    default:
-      // TODO(wasm+): support new value types
-      assert(false);
-  }
+  return v8_global->GetI32();
+}
+auto global_get_i64(v8::Local<v8::Object> global) -> int64_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  return v8_global->GetI64();
+}
+auto global_get_f32(v8::Local<v8::Object> global) -> float {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  return v8_global->GetF32();
+}
+auto global_get_f64(v8::Local<v8::Object> global) -> double {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  return v8_global->GetF64();
 }
 
-void global_set(v8::Local<v8::Object> global, const Val& val) {
+void global_set_i32(v8::Local<v8::Object> global, int32_t val) {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
   auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
-  switch (val.kind()) {
-    case I32: return v8_global->SetI32(val.i32());
-    case I64: return v8_global->SetI64(val.i64());
-    case F32: return v8_global->SetF32(val.f32());
-    case F64: return v8_global->SetF64(val.f64());
-    default:
-      // TODO(wasm+): support new value types
-      assert(false);
-  }
+  v8_global->SetI32(val);
+}
+void global_set_i64(v8::Local<v8::Object> global, int64_t val) {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  v8_global->SetI64(val);
+}
+void global_set_f32(v8::Local<v8::Object> global, float val) {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  v8_global->SetF32(val);
+}
+void global_set_f64(v8::Local<v8::Object> global, double val) {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
+  auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
+  v8_global->SetF32(val);
 }
 
 
@@ -258,10 +278,14 @@ auto table_set(v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Fun
     ? v8::internal::Handle<v8::internal::JSFunction>::null()
     : v8::internal::Handle<v8::internal::JSFunction>::cast(
         v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(maybe.ToLocalChecked()));
-  if (index > v8_table->current_length()) return false;
-  // TODO: failure?
-  v8::internal::WasmTableObject::Set(v8_table->GetIsolate(), v8_table,
-    static_cast<uint32_t>(index), v8_function);
+  if (index >= v8_table->current_length()) return false;
+
+  { v8::TryCatch handler(table->GetIsolate());
+    v8::internal::WasmTableObject::Set(v8_table->GetIsolate(), v8_table,
+      static_cast<uint32_t>(index), v8_function);
+    if (handler.HasCaught()) return false;
+  }
+
   return true;
 }
 
@@ -274,34 +298,53 @@ auto table_size(v8::Local<v8::Object> table) -> size_t {
 auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
-  if (delta > 0xffffffffu) return false;
-  // TODO: failure?
-  v8_table->Grow(v8_table->GetIsolate(), static_cast<uint32_t>(delta));
+  if (delta > 0xfffffffflu) return false;
+  auto old_size = v8_table->current_length();
+  auto new_size = old_size + static_cast<uint32_t>(delta);
+
+  { v8::TryCatch handler(table->GetIsolate());
+    v8_table->Grow(v8_table->GetIsolate(), static_cast<uint32_t>(delta));
+    if (handler.HasCaught()) return false;
+  }
+
+  // TODO(v8): This should happen in WasmTableObject::Grow.
+  if (new_size != old_size) {
+    auto isolate = v8_table->GetIsolate();
+    v8::internal::Handle<v8::internal::FixedArray> old_array(v8_table->functions(), isolate);
+    auto new_array = isolate->factory()->NewFixedArray(static_cast<int>(new_size));
+    assert(static_cast<uint32_t>(old_array->length()) == old_size);
+    for (int i = 0; i < static_cast<int>(old_size); ++i) new_array->set(i, old_array->get(i));
+    auto null = isolate->heap()->null_value();
+    for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, null);
+    v8_table->set_functions(*new_array);
+  }
+
   return true;
 }
 
 
 // Memory
 
-auto memory_data(v8::Local<v8::Object> memory) -> byte_t* {
+auto memory_data(v8::Local<v8::Object> memory) -> char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
-  return reinterpret_cast<byte_t*>(v8_memory->array_buffer()->allocation_base());
+  return reinterpret_cast<char*>(v8_memory->array_buffer()->backing_store());
 }
 
 auto memory_data_size(v8::Local<v8::Object> memory)-> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
-  return v8_memory->array_buffer()->allocation_length();
+  uint32_t size;
+  return v8_memory->array_buffer()->byte_length()->ToUint32(&size) ? size : 0;
 }
 
-auto memory_size(v8::Local<v8::Object> memory) -> Memory::pages_t {
+auto memory_size(v8::Local<v8::Object> memory) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
   return v8_memory->current_pages();
 }
 
-auto memory_grow(v8::Local<v8::Object> memory, Memory::pages_t delta) -> bool {
+auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
   auto old = v8::internal::WasmMemoryObject::Grow(
@@ -309,4 +352,5 @@ auto memory_grow(v8::Local<v8::Object> memory, Memory::pages_t delta) -> bool {
   return old != -1;
 }
 
-}  // namespace wasm_v8
+}  // namespace wasm
+}  // namespace v8

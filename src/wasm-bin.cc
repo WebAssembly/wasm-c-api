@@ -54,7 +54,7 @@ void encode_const_zero(char*& ptr, const ValType* type) {
 }
 
 
-auto wrapper(const own<FuncType*>& type) -> vec<byte_t> {
+auto wrapper(const FuncType* type) -> vec<byte_t> {
   auto in_arity = type->params().size();
   auto out_arity = type->results().size();
   auto size = 39 + in_arity + out_arity;
@@ -95,19 +95,19 @@ auto wrapper(const own<FuncType*>& type) -> vec<byte_t> {
   return binary;
 }
 
-auto wrapper(const own<GlobalType*>& type) -> vec<byte_t> {
-  auto size = 25 + zero_size(type->content().get());
+auto wrapper(const GlobalType* type) -> vec<byte_t> {
+  auto size = 25 + zero_size(type->content());
   auto binary = vec<byte_t>::make_uninitialized(size);
   auto ptr = binary.get();
 
   encode_header(ptr);
 
   *ptr++ = 0x06;  // global section
-  encode_u32(ptr, 5 + zero_size(type->content().get()));  // size
+  encode_u32(ptr, 5 + zero_size(type->content()));  // size
   *ptr++ = 1;  // length
-  encode_valtype(ptr, type->content().get());
+  encode_valtype(ptr, type->content());
   *ptr++ = (type->mutability() == VAR);
-  encode_const_zero(ptr, type->content().get());
+  encode_const_zero(ptr, type->content());
   *ptr++ = 0x0b;  // end
 
   *ptr++ = 0x07;  // export section
@@ -382,7 +382,7 @@ auto funcs(
     size + count(imports, EXTERN_FUNC));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
-    auto& et = imports[i]->type();
+    auto et = imports[i]->type();
     if (et->kind() == EXTERN_FUNC) {
       v[j++] = et->func()->copy();
     }
@@ -408,7 +408,7 @@ auto globals(
     size + count(imports, EXTERN_GLOBAL));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
-    auto& et = imports[i]->type();
+    auto et = imports[i]->type();
     if (et->kind() == EXTERN_GLOBAL) {
       v[j++] = et->global()->copy();
     }
@@ -435,7 +435,7 @@ auto tables(
     size + count(imports, EXTERN_TABLE));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
-    auto& et = imports[i]->type();
+    auto et = imports[i]->type();
     if (et->kind() == EXTERN_TABLE) {
       v[j++] = et->table()->copy();
     }
@@ -461,7 +461,7 @@ auto memories(
     size + count(imports, EXTERN_MEMORY));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
-    auto& et = imports[i]->type();
+    auto et = imports[i]->type();
     if (et->kind() == EXTERN_MEMORY) {
       v[j++] = et->memory()->copy();
     }

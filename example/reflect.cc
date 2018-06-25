@@ -74,7 +74,8 @@ void run(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
   auto engine = wasm::Engine::make(argc, argv);
-  auto store = wasm::Store::make(engine);
+  auto store_ = wasm::Store::make(engine.get());
+  auto store = store_.get();
 
   // Load binary.
   std::cout << "Loading binary..." << std::endl;
@@ -101,7 +102,7 @@ void run(int argc, const char* argv[]) {
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
   auto imports = wasm::vec<wasm::Extern*>::make();
-  auto instance = wasm::Instance::make(store, module, imports);
+  auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;

@@ -46,11 +46,21 @@ auto print_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
 }
 
 
+// A function closure.
+auto closure_callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
+  auto i = *reinterpret_cast<int*>(env);
+  std::cout << "Calling back closure..." << std::endl;
+  std::cout << "> " << i << std::endl;
+  return wasm::Result(wasm::Val::i32(static_cast<int32_t>(i)));
+}
+
+
 void run(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
   auto engine = wasm::Engine::make(argc, argv);
-  auto store = wasm::Store::make(engine);
+  auto store_ = wasm::Store::make(engine.get());
+  auto store = store_.get();
 
   // Load binary.
   std::cout << "Loading binary..." << std::endl;
@@ -80,18 +90,29 @@ void run(int argc, const char* argv[]) {
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32)),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func1 = wasm::Func::make(store, print_type1, print_callback);
+  auto print_func1 = wasm::Func::make(store, print_type1.get(), print_callback);
 
   auto print_type2 = wasm::FuncType::make(
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32), wasm::ValType::make(wasm::I32)),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func2 = wasm::Func::make(store, print_type2, print_callback);
+  auto print_func2 = wasm::Func::make(store, print_type2.get(), print_callback);
+
+  // Creating closure.
+  std::cout << "Creating closure..." << std::endl;
+  int i = 42;
+  auto closure_type = wasm::FuncType::make(
+    wasm::vec<wasm::ValType*>::make(),
+    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
+  );
+  auto closure_func = wasm::Func::make(store, closure_type.get(), closure_callback, &i);
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make(print_func1, print_func2);
-  auto instance = wasm::Instance::make(store, module, imports);
+  auto imports = wasm::vec<wasm::Extern*>::make(
+    print_func1, print_func2, closure_func
+  );
+  auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;
