@@ -14,12 +14,10 @@ extern "C++" {
 
 template<class T>
 struct borrowed {
-  own<T> it;
+  T it;
   borrowed(T x) : it(x) {}
-  borrowed(borrowed<T>&& that) : it(std::move(that.it)) {}
-  borrowed(const borrowed<T>&& that) :
-    it(std::move(const_cast<own<T>&>(that.it))) {}
-  ~borrowed() { it.release(); }
+  borrowed(borrowed<T>&& that) : it(that.it) {}
+  borrowed(const borrowed<T>&& that) : it(const_cast<T>(that.it)) {}
 };
 
 template<class T>
@@ -365,7 +363,7 @@ wasm_globaltype_t* wasm_globaltype_new(
 }
 
 const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t* gt) {
-  return get(gt->content());
+  return hide(gt->content());
 }
 
 wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t* gt) {
@@ -384,7 +382,7 @@ wasm_tabletype_t* wasm_tabletype_new(
 }
 
 const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t* tt) {
-  return get(tt->element());
+  return hide(tt->element());
 }
 
 const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t* tt) {
@@ -509,7 +507,7 @@ const wasm_name_t* wasm_importtype_name(const wasm_importtype_t* it) {
 }
 
 const wasm_externtype_t* wasm_importtype_type(const wasm_importtype_t* it) {
-  return get(it->type());
+  return hide(it->type());
 }
 
 
@@ -528,7 +526,7 @@ const wasm_name_t* wasm_exporttype_name(const wasm_exporttype_t* et) {
 }
 
 const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
-  return get(et->type());
+  return hide(et->type());
 }
 
 

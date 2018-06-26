@@ -242,7 +242,7 @@ public:
   ~Store();
   void operator delete(void*);
 
-  static auto make(own<Engine*>&) -> own<Store*>;
+  static auto make(Engine*) -> own<Store*>;
 };
 
 
@@ -349,7 +349,7 @@ public:
   static auto make(own<ValType*>&&, Mutability) -> own<GlobalType*>;
   auto copy() const -> own<GlobalType*>;
 
-  auto content() const -> const own<ValType*>&;
+  auto content() const -> const ValType*;
   auto mutability() const -> Mutability;
 };
 
@@ -364,7 +364,7 @@ public:
   static auto make(own<ValType*>&&, Limits) -> own<TableType*>;
   auto copy() const -> own<TableType*>;
 
-  auto element() const -> const own<ValType*>&;
+  auto element() const -> const ValType*;
   auto limits() const -> const Limits&;
 };
 
@@ -399,7 +399,7 @@ public:
 
   auto module() const -> const Name&;
   auto name() const -> const Name&;
-  auto type() const -> const own<ExternType*>&;
+  auto type() const -> const ExternType*;
 };
 
 
@@ -415,7 +415,7 @@ public:
   auto copy() const -> own<ExportType*>;
 
   auto name() const -> const Name&;
-  auto type() const -> const own<ExternType*>&;
+  auto type() const -> const ExternType*;
 };
 
 
@@ -582,8 +582,8 @@ public:
   Module() = delete;
   ~Module();
 
-  static auto validate(own<Store*>&, const vec<byte_t>& binary) -> bool;
-  static auto make(own<Store*>&, const vec<byte_t>& binary) -> own<Module*>;
+  static auto validate(Store*, const vec<byte_t>& binary) -> bool;
+  static auto make(Store*, const vec<byte_t>& binary) -> own<Module*>;
   auto copy() const -> own<Module*>;
 
   auto imports() const -> vec<ImportType*>;
@@ -601,7 +601,7 @@ public:
   Foreign() = delete;
   ~Foreign();
 
-  static auto make(own<Store*>&) -> own<Foreign*>;
+  static auto make(Store*) -> own<Foreign*>;
   auto copy() const -> own<Foreign*>;
 };
 
@@ -645,9 +645,9 @@ public:
   using callback = auto (*)(const vec<Val>&) -> Result;
   using callback_with_env = auto (*)(void*, const vec<Val>&) -> Result;
 
-  static auto make(own<Store*>&, const own<FuncType*>&, callback) -> own<Func*>;
-  static auto make(own<Store*>&, const own<FuncType*>&,
-    callback_with_env, void*, void (*finalizer)(void*) = nullptr) -> own<Func*>;
+  static auto make(Store*, const FuncType*, callback) -> own<Func*>;
+  static auto make(Store*, const FuncType*, callback_with_env,
+    void*, void (*finalizer)(void*) = nullptr) -> own<Func*>;
   auto copy() const -> own<Func*>;
 
   auto type() const -> own<FuncType*>;
@@ -667,8 +667,7 @@ public:
   Global() = delete;
   ~Global();
 
-  static auto make(own<Store*>&, const own<GlobalType*>&, const Val&) ->
-    own<Global*>;
+  static auto make(Store*, const GlobalType*, const Val&) -> own<Global*>;
   auto copy() const -> own<Global*>;
 
   auto type() const -> own<GlobalType*>;
@@ -686,13 +685,12 @@ public:
 
   using size_t = uint32_t;
 
-  static auto make(own<Store*>&, const own<TableType*>&, const own<Ref*>&) ->
-    own<Table*>;
+  static auto make(Store*, const TableType*, const Ref*) -> own<Table*>;
   auto copy() const -> own<Table*>;
 
   auto type() const -> own<TableType*>;
   auto get(size_t index) const -> own<Ref*>;
-  auto set(size_t index, const own<Ref*>&) -> bool;
+  auto set(size_t index, const Ref*) -> bool;
   auto size() const -> size_t;
   auto grow(size_t delta) -> bool;
 };
@@ -705,7 +703,7 @@ public:
   Memory() = delete;
   ~Memory();
 
-  static auto make(own<Store*>&, const own<MemoryType*>&) -> own<Memory*>;
+  static auto make(Store*, const MemoryType*) -> own<Memory*>;
   auto copy() const -> own<Memory*>;
 
   using pages_t = uint32_t;
@@ -727,7 +725,7 @@ public:
   Instance() = delete;
   ~Instance();
 
-  static auto make(own<Store*>&, const own<Module*>&, const vec<Extern*>&) ->
+  static auto make(Store*, const Module*, const vec<Extern*>&) ->
     own<Instance*>;
   auto copy() const -> own<Instance*>;
 

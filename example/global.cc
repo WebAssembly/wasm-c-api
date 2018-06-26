@@ -7,14 +7,6 @@
 #include "wasm.hh"
 
 
-// A function to be called from Wasm code.
-auto hello_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
-  std::cout << "Calling back..." << std::endl;
-  std::cout << "> Hello world!" << std::endl;
-  return wasm::Result();
-}
-
-
 // TODO(wasm+): use these until V8/JS can handle i64 paramaeters and results.
 auto i64_reinterpret_f64(float64_t x) -> int64_t {
   return *reinterpret_cast<int64_t*>(&x);
@@ -25,16 +17,16 @@ auto f64_reinterpret_i64(int64_t x) -> float64_t {
 }
 
 auto get_export_global(wasm::vec<wasm::Extern*>& exports, size_t i) -> wasm::Global* {
-  if (exports.size() <= i || exports[i]->kind() != wasm::EXTERN_GLOBAL || !exports[i]->global()) {
-    std::cout << "> Error accessing export!" << std::endl;
+  if (exports.size() <= i || !exports[i]->global()) {
+    std::cout << "> Error accessing global export " << i << "!" << std::endl;
     exit(1);
   }
   return exports[i]->global();
 }
 
 auto get_export_func(const wasm::vec<wasm::Extern*>& exports, size_t i) -> const wasm::Func* {
-  if (exports.size() <= i || exports[i]->kind() != wasm::EXTERN_FUNC || !exports[i]->func()) {
-    std::cout << "> Error accessing export!" << std::endl;
+  if (exports.size() <= i || !exports[i]->func()) {
+    std::cout << "> Error accessing function export " << i << "!" << std::endl;
     exit(1);
   }
   return exports[i]->func();
@@ -52,7 +44,8 @@ void run(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
   auto engine = wasm::Engine::make(argc, argv);
-  auto store = wasm::Store::make(engine);
+  auto store_ = wasm::Store::make(engine.get());
+  auto store = store_.get();
 
   // Load binary.
   std::cout << "Loading binary..." << std::endl;
@@ -86,10 +79,10 @@ void run(int argc, const char* argv[]) {
     wasm::ValType::make(wasm::F32), wasm::VAR);
   auto var_i64_type = wasm::GlobalType::make(
     wasm::ValType::make(wasm::I64), wasm::VAR);
-  auto const_f32_import = wasm::Global::make(store, const_f32_type, wasm::Val::f32(1));
-  auto const_i64_import = wasm::Global::make(store, const_i64_type, wasm::Val::i64(2));
-  auto var_f32_import = wasm::Global::make(store, var_f32_type, wasm::Val::f32(3));
-  auto var_i64_import = wasm::Global::make(store, var_i64_type, wasm::Val::i64(4));
+  auto const_f32_import = wasm::Global::make(store, const_f32_type.get(), wasm::Val::f32(1));
+  auto const_i64_import = wasm::Global::make(store, const_i64_type.get(), wasm::Val::i64(2));
+  auto var_f32_import = wasm::Global::make(store, var_f32_type.get(), wasm::Val::f32(3));
+  auto var_i64_import = wasm::Global::make(store, var_i64_type.get(), wasm::Val::i64(4));
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
@@ -97,7 +90,7 @@ void run(int argc, const char* argv[]) {
     const_f32_import->copy(), const_i64_import->copy(),
     var_f32_import->copy(), var_i64_import->copy()
   );
-  auto instance = wasm::Instance::make(store, module, imports);
+  auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;
