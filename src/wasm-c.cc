@@ -805,8 +805,7 @@ wasm_func_t* wasm_func_new(
 
 wasm_func_t *wasm_func_new_with_env(
   wasm_store_t* store, const wasm_functype_t* type,
-  wasm_func_callback_with_env_t callback,
-  wasm_ref_t *env, void (*finalizer)(void*)
+  wasm_func_callback_with_env_t callback, void *env, void (*finalizer)(void*)
 ) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
