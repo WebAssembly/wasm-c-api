@@ -49,6 +49,19 @@ void print_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
 }
 
 
+// A function closure.
+void closure_callback(void* env, const wasm_val_vec_t* args, own wasm_result_t* result) {
+  int i = *(int*)env;
+  printf("Calling back closure...\n");
+  printf("> %d\n", i);
+
+  wasm_val_t vals[1];
+  vals[0].kind = WASM_I32;
+  vals[0].of.i32 = (int32_t)i;
+  wasm_result_new_vals(result, 1, vals);
+}
+
+
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
@@ -88,15 +101,21 @@ int main(int argc, const char* argv[]) {
   own wasm_functype_t* print_type2 = wasm_functype_new_2_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32());
   own wasm_func_t* print_func2 = wasm_func_new(store, print_type2, print_callback);
 
+  int i = 42;
+  own wasm_functype_t* closure_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
+  own wasm_func_t* closure_func = wasm_func_new_with_env(store, closure_type, closure_callback, &i, NULL);
+
   wasm_functype_delete(print_type1);
   wasm_functype_delete(print_type2);
+  wasm_functype_delete(closure_type);
 
   // Instantiate.
   printf("Instantiating module...\n");
   wasm_extern_t* externs[] = {
-    wasm_func_as_extern(print_func1), wasm_func_as_extern(print_func2)
+    wasm_func_as_extern(print_func1), wasm_func_as_extern(print_func2),
+    wasm_func_as_extern(closure_func)
   };
-  wasm_extern_vec_t imports = { 2, externs };
+  wasm_extern_vec_t imports = { 3, externs };
   own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
