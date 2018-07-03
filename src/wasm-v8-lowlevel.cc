@@ -19,6 +19,20 @@
 namespace v8 {
 namespace wasm {
 
+// Handles
+
+auto object_isolate(v8::Handle<v8::Object> obj) -> v8::Isolate* {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return reinterpret_cast<v8::Isolate*>(v8_obj->GetIsolate());
+}
+
+auto object_isolate(const v8::Persistent<v8::Object>& obj) -> v8::Isolate* {
+  struct FakePersistent { v8::Object* val; };
+  auto v8_obj = reinterpret_cast<const FakePersistent*>(&obj)->val;
+  return v8_obj->GetIsolate();
+}
+
+
 // Foreign pointers
 
 auto foreign_new(v8::Isolate* isolate, void* ptr) -> v8::Local<v8::Value> {
@@ -30,7 +44,9 @@ auto foreign_new(v8::Isolate* isolate, void* ptr) -> v8::Local<v8::Value> {
 }
 
 auto foreign_get(v8::Local<v8::Value> val) -> void* {
-  auto addr = v8::ToCData<v8::internal::Address>(*v8::Utils::OpenHandle(*val));
+  auto foreign = v8::Utils::OpenHandle(*val);
+  if (!foreign->IsForeign()) return nullptr;
+  auto addr = v8::ToCData<v8::internal::Address>(*foreign);
   return reinterpret_cast<void*>(addr);
 }
 
@@ -125,17 +141,24 @@ auto memory_type_max(v8::Local<v8::Object> memory) -> uint32_t {
 auto module_binary_size(v8::Local<v8::Object> module) -> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return v8_module->shared()->module_bytes()->length();
+  return v8_module->module_bytes()->length();
 }
 
 auto module_binary(v8::Local<v8::Object> module) -> const char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return reinterpret_cast<char*>(v8_module->shared()->module_bytes()->GetChars());
+  return reinterpret_cast<char*>(v8_module->module_bytes()->GetChars());
 }
 
 
 // Instance
+
+auto instance_module(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);
+  auto v8_instance = v8::internal::Handle<v8::internal::WasmInstanceObject>::cast(v8_object);
+  auto v8_module = handle(v8::internal::JSObject::cast(v8_instance->module_object()));
+  return v8::Utils::ToLocal(v8_module);
+}
 
 auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);

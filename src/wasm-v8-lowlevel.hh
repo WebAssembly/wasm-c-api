@@ -6,6 +6,9 @@
 namespace v8 {
 namespace wasm {
 
+auto object_isolate(v8::Handle<v8::Object>) -> v8::Isolate*;
+auto object_isolate(const v8::Persistent<v8::Object>&) -> v8::Isolate*;
+
 auto foreign_new(v8::Isolate*, void*) -> v8::Local<v8::Value>;
 auto foreign_get(v8::Local<v8::Value>) -> void*;
 
@@ -27,6 +30,7 @@ auto memory_type_max(v8::Local<v8::Object> memory) -> uint32_t;
 auto module_binary_size(v8::Local<v8::Object> module) -> size_t;
 auto module_binary(v8::Local<v8::Object> module) -> const char*;
 
+auto instance_module(v8::Local<v8::Object> instance) -> v8::Local<v8::Object>;
 auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object>;
 
 enum extern_kind_t { EXTERN_FUNC, EXTERN_GLOBAL, EXTERN_TABLE, EXTERN_MEMORY };

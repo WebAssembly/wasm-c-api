@@ -3,11 +3,11 @@ WASM_DIR = .
 EXAMPLE_DIR = example
 
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory
+EXAMPLES = hello callback trap reflect global table memory threads
 
 V8_VERSION = branch-heads/6.8
 V8_ARCH = x64
-V8_MODE = release
+V8_MODE = debug
 V8_DIR = v8
 
 WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
