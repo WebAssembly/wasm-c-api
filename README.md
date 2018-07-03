@@ -50,11 +50,15 @@ V8 implementation:
 
 ### TODO
 
+Tests:
+
+  * Create C versions of global, table, memory test.
+
+  * Create C++ version of threads test.
+
 V8 implementation:
 
   * Implement Module::serialize, Module::deserialize
-
-  * Simplify reference wrappers to be plain persistent handles
 
   * Use reference counting and caching for types
 

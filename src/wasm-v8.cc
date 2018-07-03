@@ -126,14 +126,18 @@ auto Engine::make(
 
 enum v8_string_t {
   V8_S_EMPTY,
-  V8_S_EXPORTS,
   V8_S_I32, V8_S_I64, V8_S_F32, V8_S_F64, V8_S_ANYREF, V8_S_ANYFUNC,
   V8_S_VALUE, V8_S_MUTABLE, V8_S_ELEMENT, V8_S_MINIMUM, V8_S_MAXIMUM,
   V8_S_COUNT
 };
 
+enum v8_symbol_t {
+  V8_Y_CALLBACK, V8_Y_ENV,
+  V8_Y_COUNT
+};
+
 enum v8_function_t {
-  V8_F_WEAKMAP, V8_F_WEAK_GET, V8_F_WEAK_SET,
+  V8_F_WEAKMAP, V8_F_WEAK_PROTO, V8_F_WEAK_GET, V8_F_WEAK_SET,
   V8_F_MODULE, V8_F_GLOBAL, V8_F_TABLE, V8_F_MEMORY,
   V8_F_INSTANCE, V8_F_VALIDATE,
   V8_F_COUNT,
@@ -145,10 +149,11 @@ class StoreImpl {
   v8::Isolate::CreateParams create_params_;
   v8::Isolate *isolate_;
   v8::Eternal<v8::Context> context_;
-  v8::Eternal<v8::ObjectTemplate> callbackData_template_;
   v8::Eternal<v8::String> strings_[V8_S_COUNT];
+  v8::Eternal<v8::Symbol> symbols_[V8_Y_COUNT];
   v8::Eternal<v8::Function> functions_[V8_F_COUNT];
-  v8::Eternal<v8::Object> cache_;
+  v8::Eternal<v8::Object> host_data_map_;
+  v8::Eternal<v8::Symbol> callback_symbol_;
 
 public:
   ~StoreImpl() {
@@ -166,16 +171,22 @@ public:
     return context_.Get(isolate_);
   }
 
-  auto callbackData_template() const -> v8::Local<v8::ObjectTemplate> {
-    return callbackData_template_.Get(isolate_);
-  }
-
   auto v8_string(v8_string_t i) const -> v8::Local<v8::String> {
     return strings_[i].Get(isolate_);
   }
-
+  auto v8_string(v8_symbol_t i) const -> v8::Local<v8::Symbol> {
+    return symbols_[i].Get(isolate_);
+  }
   auto v8_function(v8_function_t i) const -> v8::Local<v8::Function> {
     return functions_[i].Get(isolate_);
+  }
+
+  auto host_data_map() const -> v8::Local<v8::Object> {
+    return host_data_map_.Get(isolate_);
+  }
+
+  static auto get(v8::Isolate* isolate) -> StoreImpl* {
+    return static_cast<StoreImpl*>(isolate->GetData(0));
   }
 };
 
@@ -193,31 +204,28 @@ void Store::operator delete(void *p) {
 auto Store::make(Engine*) -> own<Store*> {
   auto store = make_own(new(std::nothrow) StoreImpl());
   if (!store) return own<Store*>();
+
+  // Create isolate.
   store->create_params_.array_buffer_allocator =
     v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-
   auto isolate = v8::Isolate::New(store->create_params_);
   if (!isolate) return own<Store*>();
+
   {
     v8::Isolate::Scope isolate_scope(isolate);
     v8::HandleScope handle_scope(isolate);
 
+    // Create context.
     auto context = v8::Context::New(isolate);
     if (context.IsEmpty()) return own<Store*>();
     v8::Context::Scope context_scope(context);
 
-    auto callbackData_template = v8::ObjectTemplate::New(isolate);
-    if (callbackData_template.IsEmpty()) return own<Store*>();
-    callbackData_template->SetInternalFieldCount(1);
-
     store->isolate_ = isolate;
     store->context_ = v8::Eternal<v8::Context>(isolate, context);
-    store->callbackData_template_ =
-      v8::Eternal<v8::ObjectTemplate>(isolate, callbackData_template);
 
+    // Create strings.
     static const char* const raw_strings[V8_S_COUNT] = {
       "",
-      "exports",
       "i32", "i64", "f32", "f64", "anyref", "anyfunc", 
       "value", "mutable", "element", "initial", "maximum",
     };
@@ -229,6 +237,12 @@ auto Store::make(Engine*) -> own<Store*> {
       store->strings_[i] = v8::Eternal<v8::String>(isolate, string);
     }
 
+    for (int i = 0; i < V8_Y_COUNT; ++i) {
+      auto symbol = v8::Symbol::New(isolate);
+      store->symbols_[i] = v8::Eternal<v8::Symbol>(isolate, symbol);
+    }
+
+    // Extract functions.
     auto global = context->Global();
     auto maybe_wasm_name = v8::String::NewFromUtf8(isolate, "WebAssembly",
         v8::NewStringType::kNormal);
@@ -238,12 +252,14 @@ auto Store::make(Engine*) -> own<Store*> {
     if (maybe_wasm.IsEmpty()) return own<Store*>();
     auto wasm = v8::Local<v8::Object>::Cast(maybe_wasm.ToLocalChecked());
     v8::Local<v8::Object> weakmap;
+    v8::Local<v8::Object> weakmap_proto;
 
     struct {
       const char* name;
       v8::Local<v8::Object>* carrier;
     } raw_functions[V8_F_COUNT] = {
-      {"WeakMap", &global}, {"get", &weakmap}, {"set", &weakmap},
+      {"WeakMap", &global}, {"prototype", &weakmap},
+      {"get", &weakmap_proto}, {"set", &weakmap_proto},
       {"Module", &wasm}, {"Global", &wasm}, {"Table", &wasm}, {"Memory", &wasm},
       {"Instance", &wasm}, {"validate", &wasm},
     };
@@ -257,21 +273,28 @@ auto Store::make(Engine*) -> own<Store*> {
       if ((*raw_functions[i].carrier)->IsUndefined()) continue;
       auto maybe_obj = (*raw_functions[i].carrier)->Get(context, name);
       if (maybe_obj.IsEmpty()) return own<Store*>();
-      auto function = v8::Local<v8::Function>::Cast(maybe_obj.ToLocalChecked());
-      store->functions_[i] = v8::Eternal<v8::Function>(isolate, function);
-      if (i == V8_F_WEAKMAP) weakmap = function;
+      auto obj = v8::Local<v8::Object>::Cast(maybe_obj.ToLocalChecked());
+      if (i == V8_F_WEAK_PROTO) {
+        weakmap_proto = obj;
+      } else {
+        auto function = v8::Local<v8::Function>::Cast(obj);
+        store->functions_[i] = v8::Eternal<v8::Function>(isolate, function);
+        if (i == V8_F_WEAKMAP) weakmap = function;
+      }
     }
 
+    // Create host data weak map.
     v8::Local<v8::Value> empty_args[] = {};
-    auto maybe_cache =
+    auto maybe_weakmap =
       store->v8_function(V8_F_WEAKMAP)->NewInstance(context, 0, empty_args);
-    if (maybe_cache.IsEmpty()) return own<Store*>();
-    auto cache = v8::Local<v8::Object>::Cast(maybe_cache.ToLocalChecked());
-    store->cache_ = v8::Eternal<v8::Object>(isolate, cache);
+    if (maybe_weakmap.IsEmpty()) return own<Store*>();
+    auto map = v8::Local<v8::Object>::Cast(maybe_weakmap.ToLocalChecked());
+    store->host_data_map_ = v8::Eternal<v8::Object>(isolate, map);
   }
 
   store->isolate()->Enter();
   store->context()->Enter();
+  isolate->SetData(0, store.get());
 
   return make_own(seal<Store>(store.release()));
 };
@@ -800,101 +823,84 @@ auto v8_to_val(
 
 // References
 
-// - each API wrapper has C side reference count
-// - when refcount goes to 0 (drop), SetWeak on persistent handle
-// - finalizer deletes wrapper
-// - store has weakmap for each V8 object category, mapping to API wrapper (TODO)
-// - when returning V8 object to C, looks up wrapper or create fresh (TODO)
-// - when wrapper was found in weakmap, bump refcnt (take)
-// - if refcnt was 0, ClearWeak on persistent handle
-
-// TODO: make refs casted persistent handles directly, 
-// and put extra info on object, with fallback to a weakmap when frozen
-
-class RefData {
-  template<class, class> friend struct RefImpl;
-
-  int count_ = 1;
-  StoreImpl* store_;
-  v8::Persistent<v8::Object> obj_;
-  void* host_info_ = nullptr;
-  void (*host_finalizer_)(void*) = nullptr;
-
-  void take() {
-    if (count_++ == 0) {
-      obj_.ClearWeak();
-    }
-  }
-  bool drop() {
-    if (--count_ == 0) {
-      obj_.template SetWeak<RefData>(
-        this, &finalizer, v8::WeakCallbackType::kParameter);
-    }
-    return count_ == 0;
-  }
-
-  static void finalizer(const v8::WeakCallbackInfo<RefData>& info) {
-    auto data = info.GetParameter();
-    assert(data->count_ == 0);
-    if (data->host_finalizer_) (*data->host_finalizer_)(data->host_info_);
-    delete data;
-  }
-
+template<class Ref>
+class RefImpl {
 public:
-  RefData(StoreImpl* store, v8::Local<v8::Object> obj) :
-    store_(store), obj_(store->isolate(), obj) {}
-
-  virtual ~RefData() {}
-
-  auto store() const -> StoreImpl* {
-    return store_;
-  }
-
-  auto v8_object() const -> v8::Local<v8::Object> {
-    return obj_.Get(store_->isolate());
-  }
-};
-
-template<class Ref, class Data>
-struct RefImpl {
-  Data* const data;
-
-  static auto make(std::unique_ptr<Data>& data) -> own<Ref*> {
-    return own<Ref*>(
-      data ? seal<Ref>(new(std::nothrow) RefImpl(data.release())) : nullptr);
-  }
-  
-  ~RefImpl() {
-    if (data) data->drop();
+  static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref*> {
+    return make_own(seal<Ref>(new(std::nothrow) RefImpl(store, obj)));
   }
 
   auto copy() const -> own<Ref*> {
-    if (data) data->take();
-    return own<Ref*>(seal<Ref>(new(std::nothrow) RefImpl(data)));
+    v8::HandleScope handle_scope(isolate());
+    return make(store(), v8_object());
   }
 
   auto store() const -> StoreImpl* {
-    return data->store_;
+    return reinterpret_cast<StoreImpl*>(isolate()->GetData(0));
+  }
+
+  auto isolate() const -> v8::Isolate* {
+    return wasm_v8::object_isolate(v8_object_);
   }
 
   auto v8_object() const -> v8::Local<v8::Object> {
-    return data->v8_object();
+    return v8_object_.Get(isolate());
   }
 
   auto get_host_info() const -> void* {
-    return data->host_info_;
+    v8::HandleScope handle_scope(isolate());
+    auto store = this->store();
+
+    v8::Local<v8::Value> args[] = { v8_object() };
+    auto maybe_result = store->v8_function(V8_F_WEAK_GET)->Call(
+      store->context(), store->host_data_map(), 1, args);
+    if (maybe_result.IsEmpty()) return nullptr;
+
+    auto data = wasm_v8::foreign_get(maybe_result.ToLocalChecked());
+    return reinterpret_cast<HostData*>(data)->info;
   }
 
   void set_host_info(void* info, void (*finalizer)(void*)) {
-    data->host_info_ = info;
-    data->host_finalizer_ = finalizer;
+    v8::HandleScope handle_scope(isolate());
+    auto store = this->store();
+    auto previous = this->v8_object_.template ClearWeak<HostData>();
+
+    auto data = new HostData{info, finalizer, previous};
+    auto foreign = wasm_v8::foreign_new(store->isolate(), data);
+
+    v8::Local<v8::Value> args[] = { v8_object(), foreign };
+    auto maybe_result = store->v8_function(V8_F_WEAK_SET)->Call(
+      store->context(), store->host_data_map(), 2, args);
+    if (maybe_result.IsEmpty()) return;
+
+    this->v8_object_.template SetWeak<HostData>(
+      data, &v8_finalizer, v8::WeakCallbackType::kParameter);
   }
 
 private:
-  explicit RefImpl(Data* data) : data(data) {}
+  v8::Persistent<v8::Object> v8_object_;
+
+  RefImpl(StoreImpl* store, v8::Local<v8::Object> obj) :
+    v8_object_(store->isolate(), obj) {}
+
+  struct HostData {
+    void* info;
+    void (*finalizer)(void*);
+    HostData* other;
+  };
+
+  static void v8_finalizer(const v8::WeakCallbackInfo<HostData>& info) {
+    auto data = info.GetParameter();
+    while (data) {
+      if (data->finalizer) (*data->finalizer)(data->info);
+      auto next = data->other;
+      delete data;
+      data = next;
+    }
+  }
 };
 
-template<> struct implement<Ref> { using type = RefImpl<Ref, RefData>; };
+template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 
 Ref::~Ref() {
@@ -923,9 +929,7 @@ void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
 
 // Modules
 
-using ModuleData = RefData;
-using ModuleImpl = RefImpl<Module, RefData>;
-template<> struct implement<Module> { using type = ModuleImpl; };
+template<> struct implement<Module> { using type = RefImpl<Module>; };
 
 
 Module::~Module() {}
@@ -963,11 +967,7 @@ auto Module::make(Store* store_abs, const vec<byte_t>& binary) -> own<Module*> {
   auto maybe_obj =
     store->v8_function(V8_F_MODULE)->NewInstance(context, 1, args);
   if (maybe_obj.IsEmpty()) return nullptr;
-  auto obj = maybe_obj.ToLocalChecked();
-
-  // TODO store->cache_set(obj, module);
-  auto data = make_own(new(std::nothrow) ModuleData(store, obj));
-  return data ? ModuleImpl::make(data) : own<Module*>();
+  return RefImpl<Module>::make(store, maybe_obj.ToLocalChecked());
 }
 
 auto Module::imports() const -> vec<ImportType*> {
@@ -1056,19 +1056,19 @@ auto Module::exports() const -> vec<ExportType*> {
 }
 
 auto Module::serialize() const -> vec<byte_t> {
+  // TODO
   UNIMPLEMENTED("Module::serialize");
 }
 
 auto Module::deserialize(vec<byte_t>& serialized) -> own<Module*> {
+  // TODO
   UNIMPLEMENTED("Module::deserialize");
 }
 
 
 // Foreign Objects
 
-using ForeignData = RefData;
-using ForeignImpl = RefImpl<Foreign, ForeignData>;
-template<> struct implement<Foreign> { using type = ForeignImpl; };
+template<> struct implement<Foreign> { using type = RefImpl<Foreign>; };
 
 
 Foreign::~Foreign() {}
@@ -1083,22 +1083,13 @@ auto Foreign::make(Store* store_abs) -> own<Foreign*> {
   v8::HandleScope handle_scope(isolate);
 
   auto obj = v8::Object::New(isolate);
-  auto data = make_own(new(std::nothrow) ForeignData(store, obj));
-  return data ? ForeignImpl::make(data) : own<Foreign*>();
+  return RefImpl<Foreign>::make(store, obj);
 }
 
 
 // Externals
 
-struct ExternData : RefData {
-  ExternKind kind;
-
-  ExternData(StoreImpl* store, v8::Local<v8::Object> obj, ExternKind kind) :
-    RefData(store, obj), kind(kind) {}
-};
-
-using ExternImpl = RefImpl<Extern, ExternData>;
-template<> struct implement<Extern> { using type = ExternImpl; };
+template<> struct implement<Extern> { using type = RefImpl<Extern>; };
 
 
 Extern::~Extern() {}
@@ -1108,8 +1099,6 @@ auto Extern::copy() const -> own<Extern*> {
 }
 
 auto Extern::kind() const -> ExternKind {
-  return impl(this)->data->kind;
-  // TODO: WTF?
   v8::HandleScope handle_scope(impl(this)->store()->isolate());
   return static_cast<ExternKind>(wasm_v8::extern_kind(impl(this)->v8_object()));
 }
@@ -1162,27 +1151,7 @@ auto extern_to_v8(const Extern* ex) -> v8::Local<v8::Object> {
 
 // Function Instances
 
-struct FuncData : ExternData {
-  enum { CALLBACK, CALLBACK_WITH_ENV } kind;
-  union {
-    Func::callback callback;
-    Func::callback_with_env callback_with_env;
-  };
-  void* env;
-  void (*finalizer)(void*);
-
-  FuncData(StoreImpl* store, v8::Local<v8::Object> obj) :
-    ExternData(store, obj, EXTERN_FUNC) {}
-
-  ~FuncData() {
-    if (kind == CALLBACK_WITH_ENV && finalizer) finalizer(env);
-  }
-
-  static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
-};
-
-using FuncImpl = RefImpl<Func, FuncData>;
-template<> struct implement<Func> { using type = FuncImpl; };
+template<> struct implement<Func> { using type = RefImpl<Func>; };
 
 
 Func::~Func() {}
@@ -1191,29 +1160,41 @@ auto Func::copy() const -> own<Func*> {
   return impl(this)->copy();
 }
 
+struct FuncData {
+  Store* store;
+  own<FuncType*> type;
+  enum Kind { CALLBACK, CALLBACK_WITH_ENV } kind;
+  union {
+    Func::callback callback;
+    Func::callback_with_env callback_with_env;
+  };
+  void* env;
+
+  FuncData(Store* store, const FuncType* type, Kind kind) :
+    store(store), type(type->copy()), kind(kind) {}
+
+  static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
+  static void finalize_func_data(void* data);
+};
+
 namespace {
 
-auto make_func(Store* store_abs, const FuncType* type) -> own<Func*> {
+auto make_func(Store* store_abs, FuncData* data) -> own<Func*> {
   auto store = impl(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
   // Create V8 function
-  // TODO(lowlevel): use V8 Foreign value
-  auto data_template = store->callbackData_template();
-  auto maybeData = data_template->NewInstance(context);
-  if (maybeData.IsEmpty()) return own<Func*>();
-  auto v8Data = maybeData.ToLocalChecked();
-
+  auto v8_data = wasm_v8::foreign_new(isolate, data);
   auto function_template = v8::FunctionTemplate::New(
-    isolate, &FuncData::v8_callback, v8Data);
+    isolate, &FuncData::v8_callback, v8_data);
   auto maybe_func_obj = function_template->GetFunction(context);
   if (maybe_func_obj.IsEmpty()) return own<Func*>();
   auto func_obj = maybe_func_obj.ToLocalChecked();
 
   // Create wrapper instance
-  auto binary = wasm::bin::wrapper(type);
+  auto binary = wasm::bin::wrapper(data->type.get());
   auto module = Module::make(store_abs, binary);
 
   auto imports_obj = v8::Object::New(isolate);
@@ -1227,18 +1208,13 @@ auto make_func(Store* store_abs, const FuncType* type) -> own<Func*> {
   };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
-  // TODO: crashes, why?
-  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
-  auto exports_obj = v8::Local<v8::Object>::Cast(
-    instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
-  );
+  auto exports_obj = wasm_v8::instance_exports(instance_obj);
   auto wrapped_func_obj = v8::Local<v8::Function>::Cast(
     exports_obj->Get(context, str).ToLocalChecked());
 
-  auto data = make_own(new(std::nothrow) FuncData(store, wrapped_func_obj));
-  if (data) v8Data->SetAlignedPointerInInternalField(0, data.get());
-
-  return FuncImpl::make(data);
+  auto func = RefImpl<Func>::make(store, wrapped_func_obj);
+  func->set_host_info(data, &FuncData::finalize_func_data);
+  return func;
 }
 
 auto func_type(v8::Handle<v8::Object> v8_func) -> own<FuncType*> {
@@ -1263,26 +1239,21 @@ auto func_type(v8::Handle<v8::Object> v8_func) -> own<FuncType*> {
 }  // namespace
 
 auto Func::make(
-  Store* store_abs, const FuncType* type, Func::callback callback
+  Store* store, const FuncType* type, Func::callback callback
 ) -> own<Func*> {
-  auto func = make_func(store_abs, type);
-  auto data = impl(func.get())->data;
-  data->kind = FuncData::CALLBACK;
+  auto data = new FuncData(store, type, FuncData::CALLBACK);
   data->callback = callback;
-  return func;
+  return make_func(store, data);
 }
 
 auto Func::make(
-  Store* store_abs, const FuncType* type,
+  Store* store, const FuncType* type,
   callback_with_env callback, void* env, void (*finalizer)(void*)
 ) -> own<Func*> {
-  auto func = make_func(store_abs, type);
-  auto data = impl(func.get())->data;
-  data->kind = FuncData::CALLBACK_WITH_ENV;
+  auto data = new FuncData(store, type, FuncData::CALLBACK_WITH_ENV);
   data->callback_with_env = callback;
   data->env = env;
-  data->finalizer = finalizer;
-  return func;
+  return make_func(store, data);
 }
 
 auto Func::type() const -> own<FuncType*> {
@@ -1334,17 +1305,15 @@ auto Func::call(const vec<Val>& args) const -> Result {
 }
 
 void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
-  auto v8Data = v8::Local<v8::Object>::Cast(info.Data());
-  auto self = reinterpret_cast<FuncData*>(
-    v8Data->GetAlignedPointerFromInternalField(0));
-  auto store = self->store();
+  auto v8_data = v8::Local<v8::Object>::Cast(info.Data());
+  auto self = reinterpret_cast<FuncData*>(wasm_v8::foreign_get(v8_data));
+  auto store = impl(self->store);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto type = func_type(self->v8_object());
-  auto& type_params = type->params();
-  auto& type_results = type->results();
+  auto& type_params = self->type->params();
+  auto& type_results = self->type->results();
 
   assert(type_params.size() == info.Length());
 
@@ -1381,16 +1350,14 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   }
 }
 
+void FuncData::finalize_func_data(void* data) {
+  delete reinterpret_cast<FuncData*>(data);
+}
+
 
 // Global Instances
 
-struct GlobalData : ExternData {
-  GlobalData(StoreImpl* store, v8::Local<v8::Object> obj) :
-    ExternData(store, obj, EXTERN_GLOBAL) {}
-};
-
-using GlobalImpl = RefImpl<Global, GlobalData>;
-template<> struct implement<Global> { using type = GlobalImpl; };
+template<> struct implement<Global> { using type = RefImpl<Global>; };
 
 
 Global::~Global() {}
@@ -1416,17 +1383,12 @@ auto Global::make(
   v8::Local<v8::Value> instantiate_args[] = { impl(module.get())->v8_object() };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 1, instantiate_args).ToLocalChecked();
-  // TODO: crashes, why?
-  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
-  auto exports_obj = v8::Local<v8::Object>::Cast(
-    instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
-  );
-  auto global_obj = v8::Local<v8::Object>::Cast(
+  auto exports_obj = wasm_v8::instance_exports(instance_obj);
+  auto obj = v8::Local<v8::Object>::Cast(
     exports_obj->Get(context, store->v8_string(V8_S_EMPTY)).ToLocalChecked());
-  assert(!global_obj.IsEmpty() && global_obj->IsObject());
+  assert(!obj.IsEmpty() && obj->IsObject());
 
-  auto data = make_own(new(std::nothrow) GlobalData(store, global_obj));
-  auto global = GlobalImpl::make(data);
+  auto global = RefImpl<Global>::make(store, obj);
   assert(global);
   global->set(val);
   return global;
@@ -1515,13 +1477,7 @@ void Global::set(const Val& val) {
 
 // Table Instances
 
-struct TableData : ExternData {
-  TableData(StoreImpl* store, v8::Local<v8::Object> obj) :
-    ExternData(store, obj, EXTERN_TABLE) {}
-};
-
-using TableImpl = RefImpl<Table, TableData>;
-template<> struct implement<Table> { using type = TableImpl; };
+template<> struct implement<Table> { using type = RefImpl<Table>; };
 
 
 Table::~Table() {}
@@ -1546,10 +1502,7 @@ auto Table::make(
   auto maybe_obj =
     store->v8_function(V8_F_TABLE)->NewInstance(context, 2, args);
   if (maybe_obj.IsEmpty()) return own<Table*>();
-  auto obj = maybe_obj.ToLocalChecked();
-
-  auto data = make_own(new(std::nothrow) TableData(store, obj));
-  return TableImpl::make(data);
+  return RefImpl<Table>::make(store, maybe_obj.ToLocalChecked());
 }
 
 auto Table::type() const -> own<TableType*> {
@@ -1569,8 +1522,7 @@ auto Table::get(size_t index) const -> own<Ref*> {
   // TODO(wasm+): other references
   auto obj = maybe.ToLocalChecked();
   assert(obj->IsFunction());
-  auto data = make_own(new(std::nothrow) FuncData(impl(this)->store(), obj));
-  return FuncImpl::make(data);
+  return RefImpl<Func>::make(impl(this)->store(), obj);
 }
 
 auto Table::set(size_t index, const Ref* ref) -> bool {
@@ -1599,13 +1551,7 @@ auto Table::grow(size_t delta) -> bool {
 
 // Memory Instances
 
-struct MemoryData : ExternData {
-  MemoryData(StoreImpl* store, v8::Local<v8::Object> obj) :
-    ExternData(store, obj, EXTERN_MEMORY) {}
-};
-
-using MemoryImpl = RefImpl<Memory, MemoryData>;
-template<> struct implement<Memory> { using type = MemoryImpl; };
+template<> struct implement<Memory> { using type = RefImpl<Memory>; };
 
 
 Memory::~Memory() {}
@@ -1624,10 +1570,7 @@ auto Memory::make(Store* store_abs, const MemoryType* type) -> own<Memory*> {
   auto maybe_obj =
     store->v8_function(V8_F_MEMORY)->NewInstance(context, 1, args);
   if (maybe_obj.IsEmpty()) return own<Memory*>();
-  auto obj = maybe_obj.ToLocalChecked();
-
-  auto data = make_own(new(std::nothrow) MemoryData(store, obj));
-  return MemoryImpl::make(data);
+  return RefImpl<Memory>::make(store, maybe_obj.ToLocalChecked());
 }
 
 auto Memory::type() const -> own<MemoryType*> {
@@ -1662,16 +1605,7 @@ auto Memory::grow(pages_t delta) -> bool {
 
 // Module Instances
 
-struct InstanceData : RefData {
-  vec<Extern*> exports;
-
-  InstanceData(
-    StoreImpl* store, v8::Local<v8::Object> obj, vec<Extern*>& exports
-  ) : RefData(store, obj), exports(std::move(exports)) {}
-};
-
-using InstanceImpl = RefImpl<Instance, InstanceData>;
-template<> struct implement<Instance> { using type = InstanceImpl; };
+template<> struct implement<Instance> { using type = RefImpl<Instance>; };
 
 
 Instance::~Instance() {}
@@ -1720,23 +1654,33 @@ auto Instance::make(
   }
 
   v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};
-  auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
+  auto obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
-  // TODO: crashes, why?
-  // auto exports_obj = wasm_v8::instance_exports(instance_obj);
-  auto exports_obj = v8::Local<v8::Object>::Cast(
-    instance_obj->Get(context, store->v8_string(V8_S_EXPORTS)).ToLocalChecked()
-  );
+  return RefImpl<Instance>::make(store, obj);
+}
+
+auto Instance::exports() const -> vec<Extern*> {
+  auto instance = impl(this);
+  auto store = instance->store();
+  auto isolate = store->isolate();
+  auto context = store->context();
+  v8::HandleScope handle_scope(isolate);
+
+  auto module_obj = wasm_v8::instance_module(instance->v8_object());
+  auto exports_obj = wasm_v8::instance_exports(instance->v8_object());
+  assert(!module_obj.IsEmpty() && module_obj->IsObject());
   assert(!exports_obj.IsEmpty() && exports_obj->IsObject());
 
-  auto export_types = module_abs->exports();
+  auto module = RefImpl<Module>::make(store, module_obj);
+  auto export_types = module->exports();
   auto exports = vec<Extern*>::make_uninitialized(export_types.size());
-  if (!exports) return own<Instance*>();
+  if (!exports) return vec<Extern*>::invalid();
+
   for (size_t i = 0; i < export_types.size(); ++i) {
     auto& name = export_types[i]->name();
     auto maybe_name_obj = v8::String::NewFromUtf8(isolate, name.get(),
       v8::NewStringType::kNormal, name.size());
-    if (maybe_name_obj.IsEmpty()) return own<Instance*>();
+    if (maybe_name_obj.IsEmpty()) return vec<Extern*>::invalid();
     auto name_obj = maybe_name_obj.ToLocalChecked();
     auto obj = v8::Local<v8::Object>::Cast(
       exports_obj->Get(context, name_obj).ToLocalChecked());
@@ -1745,34 +1689,24 @@ auto Instance::make(
     switch (type->kind()) {
       case EXTERN_FUNC: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_FUNC);
-        auto data = make_own(new(std::nothrow) FuncData(store, obj));
-        exports[i].reset(FuncImpl::make(data));
+        exports[i].reset(RefImpl<Func>::make(store, obj));
       } break;
       case EXTERN_GLOBAL: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_GLOBAL);
-        auto data = make_own(new(std::nothrow) GlobalData(store, obj));
-        exports[i].reset(GlobalImpl::make(data));
+        exports[i].reset(RefImpl<Global>::make(store, obj));
       } break;
       case EXTERN_TABLE: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_TABLE);
-        auto data = make_own(new(std::nothrow) TableData(store, obj));
-        exports[i].reset(TableImpl::make(data));
+        exports[i].reset(RefImpl<Table>::make(store, obj));
       } break;
       case EXTERN_MEMORY: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
-        auto data = make_own(new(std::nothrow) MemoryData(store, obj));
-        exports[i].reset(MemoryImpl::make(data));
+        exports[i].reset(RefImpl<Memory>::make(store, obj));
       } break;
     }
   }
 
-  auto data = make_own(
-    new(std::nothrow) InstanceData(store, instance_obj, exports));
-  return InstanceImpl::make(data);
-}
-
-auto Instance::exports() const -> vec<Extern*> {
-  return impl(this)->data->exports.copy();
+  return exports;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

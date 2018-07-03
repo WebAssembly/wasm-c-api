@@ -460,12 +460,15 @@ public:
   Val(own<Ref*>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
 
   Val(Val&& that) : kind_(that.kind_), impl_(that.impl_) {
-    if (is_ref(kind_)) that.impl_.ref = nullptr;
+    if (is_ref()) that.impl_.ref = nullptr;
   }
 
   ~Val() {
     reset();
   }
+
+  auto is_num() const -> bool { return wasm::is_num(kind_); }
+  auto is_ref() const -> bool { return wasm::is_ref(kind_); }
 
   static auto i32(int32_t x) -> Val { return Val(x); }
   static auto i64(int64_t x) -> Val { return Val(x); }
@@ -476,7 +479,7 @@ public:
   template<class T> inline static auto make(own<T>&& x) -> Val;
 
   void reset() {
-    if (is_ref(kind_) && impl_.ref) {
+    if (is_ref() && impl_.ref) {
       delete impl_.ref;
       impl_.ref = nullptr;
     }
@@ -486,7 +489,7 @@ public:
     reset();
     kind_ = that.kind_;
     impl_ = that.impl_;
-    if (is_ref(kind_)) that.impl_.ref = nullptr;
+    if (is_ref()) that.impl_.ref = nullptr;
   }
 
   auto operator=(Val&& that) -> Val& {
@@ -499,18 +502,18 @@ public:
   auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
   auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
   auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
-  auto ref() const -> Ref* { assert(is_ref(kind_)); return impl_.ref; }
+  auto ref() const -> Ref* { assert(is_ref()); return impl_.ref; }
   template<class T> inline auto get() const -> T;
 
   auto release_ref() -> own<Ref*> {
-    assert(is_ref(kind_));
+    assert(is_ref());
     auto ref = impl_.ref;
     ref = nullptr;
     return own<Ref*>(ref);
   }
 
   auto copy() const -> Val {
-    if (is_ref(kind_) && impl_.ref != nullptr) {
+    if (is_ref() && impl_.ref != nullptr) {
       impl impl = {.ref = impl_.ref->copy().release()};
       return Val(kind_, impl);
     } else {

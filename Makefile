@@ -3,7 +3,7 @@ WASM_DIR = .
 EXAMPLE_DIR = example
 
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory
+EXAMPLES = hello callback trap reflect global table memory threads
 
 V8_VERSION = branch-heads/6.8
 V8_ARCH = x64
