@@ -153,7 +153,6 @@ class StoreImpl {
   v8::Eternal<v8::Symbol> symbols_[V8_Y_COUNT];
   v8::Eternal<v8::Function> functions_[V8_F_COUNT];
   v8::Eternal<v8::Object> host_data_map_;
-  v8::Eternal<v8::Object> env_data_map_;
   v8::Eternal<v8::Symbol> callback_symbol_;
 
 public:
@@ -185,9 +184,6 @@ public:
   auto host_data_map() const -> v8::Local<v8::Object> {
     return host_data_map_.Get(isolate_);
   }
-  auto env_data_map() const -> v8::Local<v8::Object> {
-    return env_data_map_.Get(isolate_);
-  }
 
   static auto get(v8::Isolate* isolate) -> StoreImpl* {
     return static_cast<StoreImpl*>(isolate->GetData(0));
@@ -208,15 +204,18 @@ void Store::operator delete(void *p) {
 auto Store::make(Engine*) -> own<Store*> {
   auto store = make_own(new(std::nothrow) StoreImpl());
   if (!store) return own<Store*>();
+
+  // Create isolate.
   store->create_params_.array_buffer_allocator =
     v8::ArrayBuffer::Allocator::NewDefaultAllocator();
-
   auto isolate = v8::Isolate::New(store->create_params_);
   if (!isolate) return own<Store*>();
+
   {
     v8::Isolate::Scope isolate_scope(isolate);
     v8::HandleScope handle_scope(isolate);
 
+    // Create context.
     auto context = v8::Context::New(isolate);
     if (context.IsEmpty()) return own<Store*>();
     v8::Context::Scope context_scope(context);
@@ -224,6 +223,7 @@ auto Store::make(Engine*) -> own<Store*> {
     store->isolate_ = isolate;
     store->context_ = v8::Eternal<v8::Context>(isolate, context);
 
+    // Create strings.
     static const char* const raw_strings[V8_S_COUNT] = {
       "",
       "i32", "i64", "f32", "f64", "anyref", "anyfunc", 
@@ -242,6 +242,7 @@ auto Store::make(Engine*) -> own<Store*> {
       store->symbols_[i] = v8::Eternal<v8::Symbol>(isolate, symbol);
     }
 
+    // Extract functions.
     auto global = context->Global();
     auto maybe_wasm_name = v8::String::NewFromUtf8(isolate, "WebAssembly",
         v8::NewStringType::kNormal);
@@ -282,17 +283,13 @@ auto Store::make(Engine*) -> own<Store*> {
       }
     }
 
+    // Create host data weak map.
     v8::Local<v8::Value> empty_args[] = {};
-    v8::Eternal<v8::Object>* maps[] = {
-      &store->host_data_map_, &store->env_data_map_
-    };
-    for (int i = 0; i < 2; ++i) {
-      auto maybe_weakmap =
-        store->v8_function(V8_F_WEAKMAP)->NewInstance(context, 0, empty_args);
-      if (maybe_weakmap.IsEmpty()) return own<Store*>();
-      auto weakmap = v8::Local<v8::Object>::Cast(maybe_weakmap.ToLocalChecked());
-      *maps[i] = v8::Eternal<v8::Object>(isolate, weakmap);
-    }
+    auto maybe_weakmap =
+      store->v8_function(V8_F_WEAKMAP)->NewInstance(context, 0, empty_args);
+    if (maybe_weakmap.IsEmpty()) return own<Store*>();
+    auto map = v8::Local<v8::Object>::Cast(maybe_weakmap.ToLocalChecked());
+    store->host_data_map_ = v8::Eternal<v8::Object>(isolate, map);
   }
 
   store->isolate()->Enter();
@@ -832,7 +829,7 @@ public:
   static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref*> {
     return make_own(seal<Ref>(new(std::nothrow) RefImpl(store, obj)));
   }
-  
+
   auto copy() const -> own<Ref*> {
     v8::HandleScope handle_scope(isolate());
     return make(store(), v8_object());
@@ -1325,7 +1322,7 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     args[i] = v8_to_val(store, info[i], type_params[i]);
   }
 
-  auto result = self->kind == FuncData::CALLBACK_WITH_ENV
+  auto result = self->kind == CALLBACK_WITH_ENV
     ? self->callback_with_env(self->env, args)
     : self->callback(args);
 
