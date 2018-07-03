@@ -1,5 +1,5 @@
 (module
-  (func $hello (import "" "hello") (param i32))
+  (func $message (import "" "hello") (param i32))
   (global $id (import "" "id") i32)
-  (func (export "run") (call $hello (get_global $id)))
+  (func (export "run") (call $message (get_global $id)))
 )
