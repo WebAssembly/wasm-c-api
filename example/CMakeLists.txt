@@ -7,6 +7,11 @@ configure_file(${V8V8}/out.gn/x64.release/snapshot_blob.bin
                ${CMAKE_CURRENT_BINARY_DIR}/snapshot_blob.bin
 	       COPYONLY)
 
+file(GLOB WASM *.wasm)
+foreach(f ${WASM})
+  configure_file(${f} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+endforeach(f)
+
 function(example name source)
   add_executable (${name} ${source})
   target_include_directories(${name} PRIVATE ${V8_INCLUDE})
