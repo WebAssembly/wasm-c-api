@@ -620,7 +620,11 @@ struct borrowed_val {
   Val it;
   borrowed_val(Val&& v) : it(std::move(v)) {}
   borrowed_val(borrowed_val&& that) : it(std::move(that.it)) {}
-  ~borrowed_val() { it.release_ref(); }
+  ~borrowed_val() {
+    if(is_ref(it.kind())) {
+      it.release_ref();
+    }
+  }
 };
 
 inline auto borrow(const wasm_val_t* v) -> borrowed_val {
