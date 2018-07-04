@@ -61,7 +61,7 @@ auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t 
     case v8::internal::wasm::kWasmF64: return F64;
     default:
       // TODO(wasm+): support new value types
-      assert(false);
+      UNREACHABLE();
   }
 }
 
@@ -177,7 +177,7 @@ auto extern_kind(v8::Local<v8::Object> external) -> extern_kind_t {
   if (v8_object->IsWasmGlobalObject()) return EXTERN_GLOBAL;
   if (v8_object->IsWasmTableObject()) return EXTERN_TABLE;
   if (v8_object->IsWasmMemoryObject()) return EXTERN_MEMORY;
-  assert(false);
+  UNREACHABLE();
 }
 
 
