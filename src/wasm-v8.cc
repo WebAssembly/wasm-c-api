@@ -1208,9 +1208,15 @@ auto make_func(Store* store_abs, FuncData* data) -> own<Func*> {
   };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
+  assert(!instance_obj.IsEmpty());
+  assert(instance_obj->IsObject());
   auto exports_obj = wasm_v8::instance_exports(instance_obj);
+  assert(!exports_obj.IsEmpty());
+  assert(exports_obj->IsObject());
   auto wrapped_func_obj = v8::Local<v8::Function>::Cast(
     exports_obj->Get(context, str).ToLocalChecked());
+  assert(!wrapped_func_obj.IsEmpty());
+  assert(wrapped_func_obj->IsFunction());
 
   auto func = RefImpl<Func>::make(store, wrapped_func_obj);
   func->set_host_info(data, &FuncData::finalize_func_data);
