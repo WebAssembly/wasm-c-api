@@ -66,6 +66,9 @@ void* run(void* args_abs) {
       return NULL;
     }
 
+    wasm_func_delete(func);
+    wasm_global_delete(global);
+
     // Extract export.
     own wasm_extern_vec_t exports;
     wasm_instance_exports(instance, &exports);

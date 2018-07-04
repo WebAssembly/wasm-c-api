@@ -9,6 +9,13 @@ namespace wasm {
 auto object_isolate(v8::Handle<v8::Object>) -> v8::Isolate*;
 auto object_isolate(const v8::Persistent<v8::Object>&) -> v8::Isolate*;
 
+auto object_is_module(v8::Local<v8::Object>) -> bool;
+auto object_is_instance(v8::Local<v8::Object>) -> bool;
+auto object_is_func(v8::Local<v8::Object>) -> bool;
+auto object_is_global(v8::Local<v8::Object>) -> bool;
+auto object_is_table(v8::Local<v8::Object>) -> bool;
+auto object_is_memory(v8::Local<v8::Object>) -> bool;
+
 auto foreign_new(v8::Isolate*, void*) -> v8::Local<v8::Value>;
 auto foreign_get(v8::Local<v8::Value>) -> void*;
 

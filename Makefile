@@ -5,9 +5,9 @@ EXAMPLE_DIR = example
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLES = hello callback trap reflect global table memory threads
 
-V8_VERSION = branch-heads/6.8
+V8_VERSION = master  # branch-heads/6.8
 V8_ARCH = x64
-V8_MODE = release
+V8_MODE = debug
 V8_DIR = v8
 
 WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
@@ -33,7 +33,7 @@ V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
 
-CFLAGS = -ggdb -O0
+CFLAGS = -ggdb -O0 -DDEBUG
 CXXFLAGS = ${CFLAGS} -fsanitize=address
 LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
@@ -130,7 +130,7 @@ v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
 	(cd ${V8_V8}; git stash)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
-	if [ ${V8_CURRENT} != ${V8_VERSION} ]; then rm -rf ${V8_OUT}; fi
+	#if [ ${V8_CURRENT} != ${V8_VERSION} ]; then rm -rf ${V8_OUT}; fi
 	mkdir -p ${V8_OUT}
 	echo >${V8_OUT}/version ${V8_VERSION}
 
