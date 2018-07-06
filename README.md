@@ -62,9 +62,6 @@ V8 implementation:
 
   * Use reference counting and caching for types
 
-  * Add a memory debug mode?
-
-
 Possible API tweaks:
 
   * Distinguish vec and own_vec in C++ API

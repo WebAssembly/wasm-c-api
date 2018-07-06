@@ -155,6 +155,10 @@ struct borrowed_vec {
   } \
   void wasm_##name##_vec_new_empty(wasm_##name##_vec_t* out) { \
     wasm_##name##_vec_new_uninitialized(out, 0); \
+  } \
+  \
+  void wasm_##name##_vec_delete(wasm_##name##_vec_t* v) { \
+    adopt(v); \
   }
 
 // Vectors with no ownership management of elements
@@ -177,10 +181,6 @@ struct borrowed_vec {
     wasm_##name##_vec_t* out, wasm_##name##_vec_t* v \
   ) { \
     wasm_##name##_vec_new(out, v->size, v->data); \
-  } \
-  \
-  void wasm_##name##_vec_delete(wasm_##name##_vec_t* v) { \
-    if (v->data) delete[] v->data; \
   }
 
 // Vectors who own their elements
@@ -207,15 +207,6 @@ struct borrowed_vec {
       v2[i] = adopt(wasm_##name##_copy(v->data[i])); \
     } \
     *out = release(std::move(v2)); \
-  } \
-  \
-  void wasm_##name##_vec_delete(wasm_##name##_vec_t* v) { \
-    if (v->data) { \
-      for (size_t i = 0; i < v->size; ++i) { \
-        if (!is_empty(v->data[i])) wasm_##name##_delete(v->data[i]); \
-      } \
-      delete[] reveal(v->data); \
-    } \
   }
 
 extern "C++" {
@@ -660,15 +651,6 @@ void wasm_val_vec_copy(wasm_val_vec_t* out, wasm_val_vec_t* v) {
     v2[i] = adopt(val);
   }
   *out = release(std::move(v2));
-}
-
-void wasm_val_vec_delete(wasm_val_vec_t* v) {
-  if (v->data) {
-    for (size_t i = 0; i < v->size; ++i) {
-      if (!is_empty(v->data[i])) wasm_val_delete(&v->data[i]);
-    }
-    delete[] reveal(v->data);
-  }
 }
 
 

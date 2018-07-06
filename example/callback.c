@@ -122,6 +122,10 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
+  wasm_func_delete(print_func1);
+  wasm_func_delete(print_func2);
+  wasm_func_delete(closure_func);
+
   // Extract export.
   printf("Extracting export...\n");
   own wasm_extern_vec_t exports;

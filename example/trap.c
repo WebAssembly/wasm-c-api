@@ -62,6 +62,8 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
+  wasm_func_delete(fail_func);
+
   // Extract export.
   printf("Extracting exports...\n");
   own wasm_extern_vec_t exports;

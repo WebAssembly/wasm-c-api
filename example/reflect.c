@@ -135,7 +135,9 @@ int main(int argc, const char* argv[]) {
     print_externtype(wasm_exporttype_type(export_types.data[i]));
     printf("\n");
     printf(">> current: ");
-    print_externtype(wasm_extern_type(exports.data[i]));
+    own wasm_externtype_t* current = wasm_extern_type(exports.data[i]);
+    print_externtype(current);
+    wasm_externtype_delete(current);
     printf("\n");
   }
 

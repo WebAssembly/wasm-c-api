@@ -19,7 +19,8 @@
 namespace v8 {
 namespace wasm {
 
-// Handles
+
+// Objects
 
 auto object_isolate(v8::Handle<v8::Object> obj) -> v8::Isolate* {
   auto v8_obj = v8::Utils::OpenHandle(*obj);
@@ -31,6 +32,38 @@ auto object_isolate(const v8::Persistent<v8::Object>& obj) -> v8::Isolate* {
   auto v8_obj = reinterpret_cast<const FakePersistent*>(&obj)->val;
   return v8_obj->GetIsolate();
 }
+
+
+auto object_is_module(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsWasmModuleObject();
+}
+
+auto object_is_instance(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsWasmInstanceObject();
+}
+
+auto object_is_func(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8::internal::WasmExportedFunction::IsWasmExportedFunction(*v8_obj);
+}
+
+auto object_is_global(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsWasmGlobalObject();
+}
+
+auto object_is_table(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsWasmTableObject();
+}
+
+auto object_is_memory(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsWasmMemoryObject();
+}
+
 
 
 // Foreign pointers

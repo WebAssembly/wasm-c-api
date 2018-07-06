@@ -51,6 +51,7 @@ int main(int argc, const char* argv[]) {
   own wasm_functype_t* hello_type = wasm_functype_new_0_0();
   own wasm_func_t* hello_func =
     wasm_func_new(store, hello_type, hello_callback);
+
   wasm_functype_delete(hello_type);
 
   // Instantiate.
@@ -62,6 +63,8 @@ int main(int argc, const char* argv[]) {
     printf("> Error instantiating module!\n");
     return 1;
   }
+
+  wasm_func_delete(hello_func);
 
   // Extract export.
   printf("Extracting export...\n");
