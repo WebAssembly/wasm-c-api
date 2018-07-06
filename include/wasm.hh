@@ -110,7 +110,17 @@ class vec {
   size_t size_;
   std::unique_ptr<T[]> data_;
 
-  vec(size_t size) : vec(size, size ? new(std::nothrow) T[size] : nullptr) {}
+#ifdef DEBUG
+  static void stats_make();
+  static void stats_destroy();
+#endif
+
+  vec(size_t size) : vec(size, size ? new(std::nothrow) T[size] : nullptr) {
+#ifdef DEBUG
+    if (data_) stats_make();
+#endif
+  }
+
   vec(size_t size, T* data) : size_(size), data_(data) {
     assert(!!size_ == !!data_ || size_ == invalid_size);
   }
@@ -120,6 +130,9 @@ public:
   vec(vec<U>&& that) : vec(that.size_, that.data_.release()) {}
 
   ~vec() {
+#ifdef DEBUG
+    if (data_) stats_destroy();
+#endif
     if (data_) vec_traits<T>::destruct(size_, data_.get());
   }
 
@@ -143,8 +156,12 @@ public:
     return data_.release();
   }
 
-  void reset(vec& that = vec()) {
+  void reset(vec& that = vec(0)) {
     size_ = that.size_;
+#ifdef DEBUG
+    if (data_) stats_destroy();
+#endif
+    if (data_) vec_traits<T>::destruct(size_, data_.get());
     data_.reset(that.data_.release());
   }
 

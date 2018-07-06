@@ -64,8 +64,8 @@ struct Stats {
   enum category_t {
     BYTE, CONFIG, ENGINE, STORE,
     VALTYPE, FUNCTYPE, GLOBALTYPE, TABLETYPE, MEMORYTYPE,
-    IMPORTTYPE, EXPORTTYPE,
-    REF, MODULE, INSTANCE, FUNC, GLOBAL, TABLE, MEMORY,
+    EXTERNTYPE, IMPORTTYPE, EXPORTTYPE,
+    VAL, REF, MODULE, INSTANCE, FUNC, GLOBAL, TABLE, MEMORY, EXTERN,
     STRONG_COUNT,
     FUNCDATA_FUNCTYPE, FUNCDATA_VALTYPE,
     CATEGORY_COUNT
@@ -80,27 +80,36 @@ struct Stats {
   static const char* right[CARDINALITY_COUNT];
   static const int32_t dead_marker;
 
-  std::atomic<size_t> live[CATEGORY_COUNT][CARDINALITY_COUNT];
+  std::atomic<size_t> made[CATEGORY_COUNT][CARDINALITY_COUNT];
+  std::atomic<size_t> freed[CATEGORY_COUNT][CARDINALITY_COUNT];
 
   Stats() {
     for (int i = 0; i < CATEGORY_COUNT; ++i) {
       for (int j = 0; j < CARDINALITY_COUNT; ++j) {
-        live[i][j] = 0;
+        made[i][j] = freed[i][j] = 0;
       }
     }
   }
 
   ~Stats() {
+    // Hack for func data weakly owned by V8 heap.
+    freed[FUNCTYPE][OWN] +=
+      made[FUNCDATA_FUNCTYPE][OWN] - freed[FUNCDATA_FUNCTYPE][OWN];
+    freed[VALTYPE][OWN] +=
+      made[FUNCDATA_VALTYPE][OWN] - freed[FUNCDATA_VALTYPE][OWN];
+    freed[VALTYPE][VEC] +=
+      made[FUNCDATA_VALTYPE][VEC] - freed[FUNCDATA_VALTYPE][VEC];
+
     bool leak = false;
-    assert(live[FUNCTYPE][OWN] >= live[FUNCDATA_FUNCTYPE][OWN]);
-    assert(live[VALTYPE][OWN] >= live[FUNCDATA_VALTYPE][OWN]);
-    live[FUNCTYPE][OWN] -= live[FUNCDATA_FUNCTYPE][OWN];
-    live[VALTYPE][OWN] -= live[FUNCDATA_VALTYPE][OWN];
     for (int i = 0; i < STRONG_COUNT; ++i) {
       for (int j = 0; j < CARDINALITY_COUNT; ++j) {
-        if (live[i][j]) {
-          printf("Leaked %zu instances of wasm::%s%s%s!\n",
-            live[i][j].load(), left[j], name[i], right[j]);
+        assert(made[i][j] >= freed[i][j]);
+        auto live = made[i][j] - freed[i][j];
+        if (live) {
+          std::cerr << "Leaked " << live << " instances of wasm::"
+            << left[j] << name[i] << right[j]
+            << ", made " << made[i][j] << ", freed " << freed[i][j] << "!"
+            << std::endl;
           leak = true;
         }
       }
@@ -111,25 +120,19 @@ struct Stats {
 
   void make(category_t i, cardinality_t j = OWN, size_t n = 1) {
 #ifdef DEBUG
-    live[i][j] += n;
+    made[i][j] += n;
 #endif
   }
 
-  void destroy(void* ptr, category_t i, cardinality_t j = OWN, size_t n = 1) {
+  void destroy(category_t i, cardinality_t j = OWN, size_t n = 1) {
 #ifdef DEBUG
-    if (live[i][j] < n) {
-      printf("Deleting instance of wasm::%s%s%s when none is alive!\n",
-        left[j], name[i], right[j]);
+    freed[i][j] += n;
+    if (freed[i][j] > made[i][j]) {
+      std::cerr << "Deleting instance of wasm::"
+        << left[j] << name[i] << right[j] << " when none is alive"
+        << ", made " << made[i][j] << ", freed " << freed[i][j] << "!"
+        << std::endl;
       exit(1);
-    }
-    live[i][j] -= n;
-    if (ptr) {
-      if (*reinterpret_cast<int32_t*>(ptr) == dead_marker) {
-        printf("Deleting dead instance of wasm::%s%s%s!\n",
-          left[j], name[i], right[j]);
-        exit(1);
-      }
-      *reinterpret_cast<int32_t*>(ptr) = dead_marker;
     }
 #endif
   }
@@ -153,8 +156,8 @@ struct Stats {
 const char* Stats::name[STRONG_COUNT] = {
   "byte_t", "Config", "Engine", "Store",
   "ValType", "FuncType", "GlobalType", "TableType", "MemoryType",
-  "ImportType", "ExportType",
-  "Ref", "Module", "Instance", "Func", "Global", "Table", "Memory"
+  "ExternType", "ImportType", "ExportType",
+  "Val", "Ref", "Module", "Instance", "Func", "Global", "Table", "Memory", "Extern"
 };
 
 const char* Stats::left[CARDINALITY_COUNT] = {
@@ -171,6 +174,45 @@ const int32_t Stats::dead_marker = 0xbeefdead;
 Stats stats;
 
 
+template<> void vec<byte_t>::stats_make() { stats.make(Stats::BYTE, Stats::VEC); }
+template<> void vec<ValType*>::stats_make() { stats.make(Stats::VALTYPE, Stats::VEC); }
+template<> void vec<FuncType*>::stats_make() { stats.make(Stats::FUNCTYPE, Stats::VEC); }
+template<> void vec<GlobalType*>::stats_make() { stats.make(Stats::GLOBALTYPE, Stats::VEC); }
+template<> void vec<TableType*>::stats_make() { stats.make(Stats::TABLETYPE, Stats::VEC); }
+template<> void vec<MemoryType*>::stats_make() { stats.make(Stats::MEMORYTYPE, Stats::VEC); }
+template<> void vec<ExternType*>::stats_make() { stats.make(Stats::EXTERNTYPE, Stats::VEC); }
+template<> void vec<ImportType*>::stats_make() { stats.make(Stats::IMPORTTYPE, Stats::VEC); }
+template<> void vec<ExportType*>::stats_make() { stats.make(Stats::EXPORTTYPE, Stats::VEC); }
+template<> void vec<Module*>::stats_make() { stats.make(Stats::MODULE, Stats::VEC); }
+template<> void vec<Instance*>::stats_make() { stats.make(Stats::INSTANCE, Stats::VEC); }
+template<> void vec<Func*>::stats_make() { stats.make(Stats::FUNC, Stats::VEC); }
+template<> void vec<Global*>::stats_make() { stats.make(Stats::GLOBAL, Stats::VEC); }
+template<> void vec<Table*>::stats_make() { stats.make(Stats::TABLE, Stats::VEC); }
+template<> void vec<Memory*>::stats_make() { stats.make(Stats::MEMORY, Stats::VEC); }
+template<> void vec<Extern*>::stats_make() { stats.make(Stats::EXTERN, Stats::VEC); }
+template<> void vec<Ref*>::stats_make() { stats.make(Stats::REF, Stats::VEC); }
+template<> void vec<Val>::stats_make() { stats.make(Stats::VAL, Stats::VEC); }
+
+template<> void vec<byte_t>::stats_destroy() { stats.destroy(Stats::BYTE, Stats::VEC); }
+template<> void vec<ValType*>::stats_destroy() { stats.destroy(Stats::VALTYPE, Stats::VEC); }
+template<> void vec<FuncType*>::stats_destroy() { stats.destroy(Stats::FUNCTYPE, Stats::VEC); }
+template<> void vec<GlobalType*>::stats_destroy() { stats.destroy(Stats::GLOBALTYPE, Stats::VEC); }
+template<> void vec<TableType*>::stats_destroy() { stats.destroy(Stats::TABLETYPE, Stats::VEC); }
+template<> void vec<MemoryType*>::stats_destroy() { stats.destroy(Stats::MEMORYTYPE, Stats::VEC); }
+template<> void vec<ExternType*>::stats_destroy() { stats.destroy(Stats::EXTERNTYPE, Stats::VEC); }
+template<> void vec<ImportType*>::stats_destroy() { stats.destroy(Stats::IMPORTTYPE, Stats::VEC); }
+template<> void vec<ExportType*>::stats_destroy() { stats.destroy(Stats::EXPORTTYPE, Stats::VEC); }
+template<> void vec<Module*>::stats_destroy() { stats.destroy(Stats::MODULE, Stats::VEC); }
+template<> void vec<Instance*>::stats_destroy() { stats.destroy(Stats::INSTANCE, Stats::VEC); }
+template<> void vec<Func*>::stats_destroy() { stats.destroy(Stats::FUNC, Stats::VEC); }
+template<> void vec<Global*>::stats_destroy() { stats.destroy(Stats::GLOBAL, Stats::VEC); }
+template<> void vec<Table*>::stats_destroy() { stats.destroy(Stats::TABLE, Stats::VEC); }
+template<> void vec<Memory*>::stats_destroy() { stats.destroy(Stats::MEMORY, Stats::VEC); }
+template<> void vec<Extern*>::stats_destroy() { stats.destroy(Stats::EXTERN, Stats::VEC); }
+template<> void vec<Ref*>::stats_destroy() { stats.destroy(Stats::REF, Stats::VEC); }
+template<> void vec<Val>::stats_destroy() { stats.destroy(Stats::VAL, Stats::VEC); }
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
@@ -178,7 +220,7 @@ Stats stats;
 
 struct ConfigImpl {
   ConfigImpl() { stats.make(Stats::CONFIG); }
-  ~ConfigImpl() { stats.destroy(nullptr, Stats::CONFIG); }
+  ~ConfigImpl() { stats.destroy(Stats::CONFIG); }
 };
 
 template<> struct implement<Config> { using type = ConfigImpl; };
@@ -213,7 +255,7 @@ struct EngineImpl {
   ~EngineImpl() {
     v8::V8::Dispose();
     v8::V8::ShutdownPlatform();
-    stats.destroy(nullptr, Stats::ENGINE);
+    stats.destroy(Stats::ENGINE);
   }
 };
 
@@ -294,7 +336,7 @@ public:
     isolate_->Exit();
     isolate_->Dispose();
     delete create_params_.array_buffer_allocator;
-    stats.destroy(this, Stats::STORE);
+    stats.destroy(Stats::STORE);
   }
 
   auto isolate() const -> v8::Isolate* {
@@ -461,7 +503,7 @@ ValTypeImpl* valtypes[] = {
 
 
 ValType::~ValType() {
-  stats.destroy(nullptr, Stats::VALTYPE);
+  stats.destroy(Stats::VALTYPE);
 }
 
 void ValType::operator delete(void*) {}
@@ -528,7 +570,7 @@ struct FuncTypeImpl : ExternTypeImpl {
   }
 
   ~FuncTypeImpl() {
-    stats.destroy(this, Stats::FUNCTYPE);
+    stats.destroy(Stats::FUNCTYPE);
   }
 };
 
@@ -585,7 +627,7 @@ struct GlobalTypeImpl : ExternTypeImpl {
   }
 
   ~GlobalTypeImpl() {
-    stats.destroy(this, Stats::GLOBALTYPE);
+    stats.destroy(Stats::GLOBALTYPE);
   }
 };
 
@@ -642,7 +684,7 @@ struct TableTypeImpl : ExternTypeImpl {
   }
 
   ~TableTypeImpl() {
-    stats.destroy(this, Stats::TABLETYPE);
+    stats.destroy(Stats::TABLETYPE);
   }
 };
 
@@ -696,7 +738,7 @@ struct MemoryTypeImpl : ExternTypeImpl {
   }
 
   ~MemoryTypeImpl() {
-    stats.destroy(this, Stats::MEMORYTYPE);
+    stats.destroy(Stats::MEMORYTYPE);
   }
 };
 
@@ -746,7 +788,7 @@ struct ImportTypeImpl {
   }
 
   ~ImportTypeImpl() {
-    stats.destroy(this, Stats::IMPORTTYPE);
+    stats.destroy(Stats::IMPORTTYPE);
   }
 };
 
@@ -800,7 +842,7 @@ struct ExportTypeImpl {
   }
 
   ~ExportTypeImpl() {
-    stats.destroy(this, Stats::EXPORTTYPE);
+    stats.destroy(Stats::EXPORTTYPE);
   }
 };
 
@@ -1059,7 +1101,7 @@ public:
   }
 
   ~RefImpl() {
-    stats.destroy(this, Stats::categorize(v8_object_));
+    stats.destroy(Stats::categorize(v8_object_));
   }
 
 private:
@@ -1364,17 +1406,16 @@ struct FuncData {
     stats.make(Stats::FUNCDATA_FUNCTYPE);
     stats.make(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->params().size());
     stats.make(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->results().size());
-    stats.make(Stats::FUNCDATA_VALTYPE, Stats::VEC, 2);
+    if (type->params().size()) stats.make(Stats::FUNCDATA_VALTYPE, Stats::VEC);
+    if (type->results().size()) stats.make(Stats::FUNCDATA_VALTYPE, Stats::VEC);
   }
 
   ~FuncData() {
-    stats.destroy(this, Stats::FUNCDATA_FUNCTYPE);
-    stats.destroy(nullptr,
-      Stats::FUNCDATA_VALTYPE, Stats::OWN, type->params().size());
-    stats.destroy(nullptr,
-      Stats::FUNCDATA_VALTYPE, Stats::OWN, type->results().size());
-    stats.destroy(nullptr,
-      Stats::FUNCDATA_VALTYPE, Stats::VEC, 2);
+    stats.destroy(Stats::FUNCDATA_FUNCTYPE);
+    stats.destroy(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->params().size());
+    stats.destroy(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->results().size());
+    if (type->params().size()) stats.destroy(Stats::FUNCDATA_VALTYPE, Stats::VEC);
+    if (type->results().size()) stats.destroy(Stats::FUNCDATA_VALTYPE, Stats::VEC);
   }
 
   static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
