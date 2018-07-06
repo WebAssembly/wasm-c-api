@@ -103,8 +103,6 @@ v8: v8-patch ${V8_INCLUDE}/${V8_PATCH}.hh ${V8_SRC}/${V8_PATCH}.cc
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
 	echo >>${V8_OUT}/args.gn v8_static_library = true
-	echo >>${V8_OUT}/args.gn use_custom_libcxx = false
-	echo >>${V8_OUT}/args.gn use_custom_libcxx_for_host = false
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
