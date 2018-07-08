@@ -111,14 +111,15 @@ class vec {
   std::unique_ptr<T[]> data_;
 
 #ifdef DEBUG
-  static void stats_make();
-  static void stats_destroy();
+  void make_data();
+  void free_data();
+#else
+  void make_data() {}
+  void free_data() {}
 #endif
 
   vec(size_t size) : vec(size, size ? new(std::nothrow) T[size] : nullptr) {
-#ifdef DEBUG
-    if (data_) stats_make();
-#endif
+    make_data();
   }
 
   vec(size_t size, T* data) : size_(size), data_(data) {
@@ -130,10 +131,8 @@ public:
   vec(vec<U>&& that) : vec(that.size_, that.data_.release()) {}
 
   ~vec() {
-#ifdef DEBUG
-    if (data_) stats_destroy();
-#endif
     if (data_) vec_traits<T>::destruct(size_, data_.get());
+    free_data();
   }
 
   operator bool() const {
@@ -158,10 +157,8 @@ public:
 
   void reset(vec& that = vec(0)) {
     size_ = that.size_;
-#ifdef DEBUG
-    if (data_) stats_destroy();
-#endif
     if (data_) vec_traits<T>::destruct(size_, data_.get());
+    free_data();
     data_.reset(that.data_.release());
   }
 

@@ -1,25 +1,42 @@
-OUT_DIR = out
-WASM_DIR = .
-EXAMPLE_DIR = example
+###############################################################################
+# Configuration
 
-EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory threads
+# Change these as you see fit.
 
 V8_VERSION = tags/6.9.323  # branch-heads/6.9
 V8_ARCH = x64
-V8_MODE = release
+V8_MODE = debug
+
+WASM_FLAGS = -DDEBUG
+C_FLAGS = ${WASM_FLAGS} -ggdb -O0 -fsanitize=address
+CC_FLAGS = ${C_FLAGS}
+LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
+
+WASM_INTERPRETER = ../spec.master/interpreter/wasm  # Adjust as needed.
+
+# No need to change what follows.
+
+# Base directories
 V8_DIR = v8
+WASM_DIR = .
+EXAMPLE_DIR = example
+OUT_DIR = out
 
-WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
+# Example config
+EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
+EXAMPLES = hello callback trap reflect global table memory threads
 
+# Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_DIR}
-WASM_LIBS = wasm-c wasm-v8 wasm-bin
-WASM_O = ${WASM_LIBS:%=${WASM_OUT}/%.o}
+WASM_C_LIBS = wasm-c wasm-bin
+WASM_CC_LIBS = wasm-v8 wasm-bin
+WASM_C_O = ${WASM_C_LIBS:%=${WASM_OUT}/%.o}
+WASM_CC_O = ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
+WASM_V8_PATCH = wasm-v8-lowlevel
 
-V8_PATCH = wasm-v8-lowlevel
-
+# V8 config
 V8_BUILD = ${V8_ARCH}.${V8_MODE}
 V8_V8 = ${V8_DIR}/v8
 V8_DEPOT_TOOLS = ${V8_DIR}/depot_tools
@@ -33,18 +50,34 @@ V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
 V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
 
-CFLAGS = -ggdb -O0 -DDEBUG
-CXXFLAGS = ${CFLAGS} -fsanitize=address
-LDFLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
-
+###############################################################################
 # Examples
+#
+# To build Wasm APIs and run all examples:
+#   make all
+#
+# To run only C examples:
+#   make c
+#
+# To run only C++ examples:
+#   make cc
+#
+# To run individual C example (e.g. hello):
+#   make run-hello-c
+#
+# To run individual C++ example (e.g. hello):
+#   make run-hello-cc
+#
+# To rebuild after V8 version change:
+#   make clean all
 
 .PHONY: all c cc
 all: c cc
 c: ${EXAMPLES:%=run-%-c}
 cc: ${EXAMPLES:%=run-%-cc}
 
+# Running a C / C++ example
 run-%-c: ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%.wasm ${V8_BIN:%=${EXAMPLE_OUT}/%.bin}
 	@echo ==== C ${@:run-%-c=%} ====; \
 	cd ${EXAMPLE_OUT}; ./${@:run-%=%}
@@ -55,46 +88,69 @@ run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BIN:%=${EXAMPLE_OUT}/%.
 	cd ${EXAMPLE_OUT}; ./${@:run-%=%}
 	@echo ==== Done ====
 
+# Compiling C / C++ example
 ${EXAMPLE_OUT}/%-c.o: ${EXAMPLE_DIR}/%.c ${WASM_INCLUDE}/wasm.h
 	mkdir -p ${EXAMPLE_OUT}
-	clang -c -std=c11 ${CFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	clang -c -std=c11 ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
-	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	clang++ -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
-.PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c} ${EXAMPLES:%=${EXAMPLE_OUT}/%-cc}
-${EXAMPLE_OUT}/%: ${EXAMPLE_OUT}/%.o ${WASM_O}
-	clang++ ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
+# Linking C / C++ example
+.PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c}
+${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
+	clang++ ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
-		${WASM_O} \
+		${WASM_C_O} \
 		-ldl -pthread
 
+.PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-cc}
+${EXAMPLE_OUT}/%-cc: ${EXAMPLE_OUT}/%-cc.o ${WASM_CC_O}
+	clang++ ${CC_FLAGS} ${LD_FLAGS} $< -o $@ \
+		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
+		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
+		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
+		${WASM_CC_O} \
+		-ldl -pthread
+
+# Installing V8 snapshots
 .PRECIOUS: ${V8_BIN:%=${EXAMPLE_OUT}/%.bin}
 ${EXAMPLE_OUT}/%.bin: ${V8_OUT}/%.bin
 	cp $< $@
 
+# Installing Wasm binaries
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%.wasm}
 ${EXAMPLE_OUT}/%.wasm: ${EXAMPLE_DIR}/%.wasm
 	cp $< $@
 
+# Assembling Wasm binaries
 .PRECIOUS: %.wasm
 %.wasm: %.wat
 	${WASM_INTERPRETER} -d $< -o $@
 
 
-# Wasm C API
+###############################################################################
+# Wasm C / C++ API
+#
+# To build both C / C++ APIs:
+#   make wasm
 
-.PHONY: wasm
-wasm: ${WASM_LIBS:%=${WASM_OUT}/%.o}
+.PHONY: wasm wasm-c wasm-cc
+wasm: wasm-c wasm-cc
+wasm-c: ${WASM_C_LIBS:%=${WASM_OUT}/%.o}
+wasm-cc: ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 
-${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
+
+# Compiling
+${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
-	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+	clang++ -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 
+###############################################################################
 # Clean-up
 
 .PHONY: clean
@@ -102,10 +158,21 @@ clean:
 	rm -rf ${OUT_DIR}
 
 
+###############################################################################
 # V8
+#
+# To get and build V8:
+#   make v8-checkout
+#   make v8
+#
+# To update and build current branch:
+#   make v8-update
+#   make v8
+
+# Building
 
 .PHONY: v8
-v8: v8-patch ${V8_INCLUDE}/${V8_PATCH}.hh ${V8_SRC}/${V8_PATCH}.cc
+v8: v8-patch ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc
 	@echo ==== Building V8 ${V8_CURRENT} ${V8_BUILD} ====
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
@@ -116,24 +183,28 @@ v8: v8-patch ${V8_INCLUDE}/${V8_PATCH}.hh ${V8_SRC}/${V8_PATCH}.cc
 
 .PHONY: v8-patch
 v8-patch:
-	if ! grep ${V8_PATCH} ${V8_V8}/BUILD.gn; then \
+	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
 	  @echo ==== Patching V8 ${V8_CURRENT} ${V8_BUILD} ====; \
-	  sed 's:"include/v8.h":\"include/v8.h", "include/${V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
-	  sed 's:"src/api.cc":\"src/api.cc", "src/${V8_PATCH}.cc":g' B >B2 && \
+	  sed 's:"include/v8.h":\"include/v8.h", "include/${WASM_V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
+	  sed 's:"src/api.cc":\"src/api.cc", "src/${WASM_V8_PATCH}.cc":g' B >B2 && \
 	  mv -f B2 ${V8_V8}/BUILD.gn && \
 	  rm B; \
 	fi
 
-${V8_INCLUDE}/${V8_PATCH}.hh: ${WASM_SRC}/${V8_PATCH}.hh
+${V8_INCLUDE}/${WAM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
 	cp $< $@
 
-${V8_SRC}/${V8_PATCH}.cc: ${WASM_SRC}/${V8_PATCH}.cc
+${V8_SRC}/${WASM_V8_PATCH}.cc: ${WASM_SRC}/${WASM_V8_PATCH}.cc
 	cp $< $@
 
+
+# Check-out
+
+# Check out set version
 .PHONY: v8-checkout
 v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
-	(cd ${V8_V8}; git stash)
-	(cd ${V8_V8}; git pull)
+	(cd ${V8_V8}; git stash)  # Drop Wasm patch
+	(cd ${V8_V8}; git pull origin ${V8_VERSION})
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
 	mkdir -p ${V8_OUT}
@@ -144,13 +215,6 @@ v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
 v8-checkout-banner:
 	@echo ==== Checking out V8 ${V8_VERSION} ====
 
-.PHONY: v8-update
-v8-update:
-	@echo ==== Updating V8 ${V8_CURRENT} ====
-	(cd ${V8_V8}; git stash)
-	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
-	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
-
 ${V8_DEPOT_TOOLS}:
 	mkdir -p ${V8_DIR}
 	(cd ${V8_DIR}; git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git)
@@ -160,7 +224,20 @@ ${V8_V8}:
 	(cd ${V8_DIR}; PATH=${V8_PATH} fetch v8)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 
+# Update current check-out
+.PHONY: v8-update
+v8-update:
+	@echo ==== Updating V8 ${V8_CURRENT} ====
+	(cd ${V8_V8}; git stash)  # Drop Wasm patch
+	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
+	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
+
+
+# Clean-up
+
+# Delete V8 build
 .PHONY: v8-clean
+v8-clean:
 	rm -rf ${V8_OUT}
 	mkdir -p ${V8_OUT}
 	echo >${V8_OUT}/version ${V8_VERSION}

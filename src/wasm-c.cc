@@ -1,6 +1,8 @@
 #include "wasm.h"
 #include "wasm.hh"
 
+#include "wasm-v8.cc"
+
 using namespace wasm;
 
 extern "C" {
