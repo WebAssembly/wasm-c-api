@@ -5,9 +5,9 @@ EXAMPLE_DIR = example
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLES = hello callback trap reflect global table memory threads
 
-V8_VERSION = branch-heads/6.8
+V8_VERSION = tags/6.9.323  # branch-heads/6.9
 V8_ARCH = x64
-V8_MODE = debug
+V8_MODE = release
 V8_DIR = v8
 
 WASM_INTERPRETER = ../spec.master/interpreter/wasm   # change as needed
@@ -95,6 +95,13 @@ ${WASM_O}: ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLU
 	clang++ -c -std=c++11 ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 
+# Clean-up
+
+.PHONY: clean
+clean:
+	rm -rf ${OUT_DIR}
+
+
 # V8
 
 .PHONY: v8
@@ -126,11 +133,12 @@ ${V8_SRC}/${V8_PATCH}.cc: ${WASM_SRC}/${V8_PATCH}.cc
 .PHONY: v8-checkout
 v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
 	(cd ${V8_V8}; git stash)
+	(cd ${V8_V8}; git pull)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
-	if [ ${V8_CURRENT} != ${V8_VERSION} ]; then rm -rf ${V8_OUT}; fi
 	mkdir -p ${V8_OUT}
 	echo >${V8_OUT}/version ${V8_VERSION}
+	@if [ ${V8_CURRENT} != ${V8_VERSION} ]; then echo ==== Done. If you have trouble building V8, run \`make v8-clean\` first ====; fi
 
 .PHONY: v8-checkout-banner
 v8-checkout-banner:
@@ -139,8 +147,9 @@ v8-checkout-banner:
 .PHONY: v8-update
 v8-update:
 	@echo ==== Updating V8 ${V8_CURRENT} ====
-	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
+	(cd ${V8_V8}; git stash)
 	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
+	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
 
 ${V8_DEPOT_TOOLS}:
 	mkdir -p ${V8_DIR}
@@ -151,9 +160,7 @@ ${V8_V8}:
 	(cd ${V8_DIR}; PATH=${V8_PATH} fetch v8)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 
-
-# Clean-up
-
-.PHONY: clean
-clean:
-	rm -rf ${OUT_DIR}
+.PHONY: v8-clean
+	rm -rf ${V8_OUT}
+	mkdir -p ${V8_OUT}
+	echo >${V8_OUT}/version ${V8_VERSION}

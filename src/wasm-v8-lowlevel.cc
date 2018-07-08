@@ -22,6 +22,10 @@ namespace wasm {
 
 // Objects
 
+auto object_isolate(v8::internal::HeapObject* v8_obj) -> v8::Isolate* {
+  return reinterpret_cast<v8::Isolate*>(v8_obj->GetIsolate());
+}
+
 auto object_isolate(v8::Handle<v8::Object> obj) -> v8::Isolate* {
   auto v8_obj = v8::Utils::OpenHandle(*obj);
   return reinterpret_cast<v8::Isolate*>(v8_obj->GetIsolate());
@@ -31,6 +35,11 @@ auto object_isolate(const v8::Persistent<v8::Object>& obj) -> v8::Isolate* {
   struct FakePersistent { v8::Object* val; };
   auto v8_obj = reinterpret_cast<const FakePersistent*>(&obj)->val;
   return v8_obj->GetIsolate();
+}
+
+template<class T>
+auto object_handle(T* v8_obj) -> v8::internal::Handle<T> {
+  return handle(v8_obj, v8_obj->GetIsolate());
 }
 
 
@@ -174,13 +183,13 @@ auto memory_type_max(v8::Local<v8::Object> memory) -> uint32_t {
 auto module_binary_size(v8::Local<v8::Object> module) -> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return v8_module->shared()->module_bytes()->length();
+  return v8_module->native_module()->wire_bytes().size();
 }
 
 auto module_binary(v8::Local<v8::Object> module) -> const char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return reinterpret_cast<char*>(v8_module->shared()->module_bytes()->GetChars());
+  return reinterpret_cast<const char*>(v8_module->native_module()->wire_bytes().start());
 }
 
 
@@ -189,14 +198,14 @@ auto module_binary(v8::Local<v8::Object> module) -> const char* {
 auto instance_module(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);
   auto v8_instance = v8::internal::Handle<v8::internal::WasmInstanceObject>::cast(v8_object);
-  auto v8_module = handle(v8::internal::JSObject::cast(v8_instance->module_object()));
+  auto v8_module = object_handle(v8::internal::JSObject::cast(v8_instance->module_object()));
   return v8::Utils::ToLocal(v8_module);
 }
 
 auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);
   auto v8_instance = v8::internal::Handle<v8::internal::WasmInstanceObject>::cast(v8_object);
-  auto v8_exports = handle(v8_instance->exports_object());
+  auto v8_exports = object_handle(v8_instance->exports_object());
   return v8::Utils::ToLocal(v8_exports);
 }
 
@@ -263,7 +272,7 @@ auto func_make(
 auto func_instance(v8::Local<v8::Function> function) -> v8::Local<v8::Object> {
   auto v8_function = v8::Utils::OpenHandle(*function);
   auto v8_func = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_function);
-  v8::internal::Handle<v8::internal::JSObject> v8_instance(v8_func->instance());
+  auto v8_instance = object_handle(v8::internal::JSObject::cast(v8_func->instance()));
   return v8::Utils::ToLocal(v8_instance);
 }
 
@@ -370,8 +379,8 @@ auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool {
     auto new_array = isolate->factory()->NewFixedArray(static_cast<int>(new_size));
     assert(static_cast<uint32_t>(old_array->length()) == old_size);
     for (int i = 0; i < static_cast<int>(old_size); ++i) new_array->set(i, old_array->get(i));
-    auto null = isolate->heap()->null_value();
-    for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, null);
+    auto null = isolate->factory()->null_value();
+    for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, *null);
     v8_table->set_functions(*new_array);
   }
 
