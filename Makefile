@@ -191,7 +191,7 @@ v8-patch:
 	  rm B; \
 	fi
 
-${V8_INCLUDE}/${WAM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
+${V8_INCLUDE}/${WASM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
 	cp $< $@
 
 ${V8_SRC}/${WASM_V8_PATCH}.cc: ${WASM_SRC}/${WASM_V8_PATCH}.cc
