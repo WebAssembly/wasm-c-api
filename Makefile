@@ -183,15 +183,15 @@ v8: v8-patch ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc
 
 .PHONY: v8-patch
 v8-patch:
+	@echo ==== Patching V8 ${V8_CURRENT} ${V8_BUILD} ====
 	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
-	  @echo ==== Patching V8 ${V8_CURRENT} ${V8_BUILD} ====; \
 	  sed 's:"include/v8.h":\"include/v8.h", "include/${WASM_V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
 	  sed 's:"src/api.cc":\"src/api.cc", "src/${WASM_V8_PATCH}.cc":g' B >B2 && \
 	  mv -f B2 ${V8_V8}/BUILD.gn && \
 	  rm B; \
 	fi
 
-${V8_INCLUDE}/${WAM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
+${V8_INCLUDE}/${WASM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
 	cp $< $@
 
 ${V8_SRC}/${WASM_V8_PATCH}.cc: ${WASM_SRC}/${WASM_V8_PATCH}.cc
