@@ -5,7 +5,7 @@
 
 V8_VERSION = tags/6.9.323  # branch-heads/6.9
 V8_ARCH = x64
-V8_MODE = debug
+V8_MODE = release
 
 WASM_FLAGS = -DDEBUG
 C_FLAGS = ${WASM_FLAGS} -ggdb -O0 -fsanitize=address
@@ -172,7 +172,10 @@ clean:
 # Building
 
 .PHONY: v8
-v8: v8-patch ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc
+v8: ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc v8-patch v8-build v8-unpatch
+
+.PHONY: v8-build
+v8-build:
 	@echo ==== Building V8 ${V8_CURRENT} ${V8_BUILD} ====
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
@@ -183,12 +186,18 @@ v8: v8-patch ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc
 
 .PHONY: v8-patch
 v8-patch:
-	@echo ==== Patching V8 ${V8_CURRENT} ${V8_BUILD} ====
 	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
+	  cp ${V8_V8}/BUILD.gn ${V8_V8}/BUILD.gn.save; \
 	  sed 's:"include/v8.h":\"include/v8.h", "include/${WASM_V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
 	  sed 's:"src/api.cc":\"src/api.cc", "src/${WASM_V8_PATCH}.cc":g' B >B2 && \
 	  mv -f B2 ${V8_V8}/BUILD.gn && \
 	  rm B; \
+	fi
+
+.PHONY: v8-unpatch
+v8-unpatch:
+	if [ -f ${V8_V8}/BUILD.gn.save ]; then \
+	  mv ${V8_V8}/BUILD.gn.save ${V8_V8}/BUILD.gn; \
 	fi
 
 ${V8_INCLUDE}/${WASM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
@@ -203,7 +212,6 @@ ${V8_SRC}/${WASM_V8_PATCH}.cc: ${WASM_SRC}/${WASM_V8_PATCH}.cc
 # Check out set version
 .PHONY: v8-checkout
 v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
-	(cd ${V8_V8}; git stash)  # Drop Wasm patch
 	(cd ${V8_V8}; git pull origin ${V8_VERSION})
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
@@ -228,7 +236,6 @@ ${V8_V8}:
 .PHONY: v8-update
 v8-update:
 	@echo ==== Updating V8 ${V8_CURRENT} ====
-	(cd ${V8_V8}; git stash)  # Drop Wasm patch
 	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
 
