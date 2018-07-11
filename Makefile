@@ -12,6 +12,8 @@ C_FLAGS = ${WASM_FLAGS} -ggdb -O0 -fsanitize=address
 CC_FLAGS = ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
+C_COMP = clang
+
 WASM_INTERPRETER = ../spec.master/interpreter/wasm  # Adjust as needed.
 
 # No need to change what follows.
@@ -30,8 +32,8 @@ EXAMPLES = hello callback trap reflect global table memory threads
 WASM_INCLUDE = ${WASM_DIR}/include
 WASM_SRC = ${WASM_DIR}/src
 WASM_OUT = ${OUT_DIR}/${WASM_DIR}
-WASM_C_LIBS = wasm-c wasm-bin
-WASM_CC_LIBS = wasm-v8 wasm-bin
+WASM_C_LIBS = wasm-bin wasm-c
+WASM_CC_LIBS = wasm-bin wasm-v8
 WASM_C_O = ${WASM_C_LIBS:%=${WASM_OUT}/%.o}
 WASM_CC_O = ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 WASM_V8_PATCH = wasm-v8-lowlevel
@@ -47,8 +49,21 @@ V8_OUT = ${V8_V8}/out.gn/${V8_BUILD}
 V8_LIBS = base libbase external_snapshot libplatform libsampler
 V8_ICU_LIBS = uc i18n
 V8_OTHER_LIBS = src/inspector/libinspector
-V8_BIN = natives_blob snapshot_blob snapshot_blob_trusted
+V8_BIN = natives_blob snapshot_blob #snapshot_blob_trusted
 V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
+
+# Compiler config
+ifeq (${C_COMP},clang)
+  CC_COMP = clang++
+  LD_GROUP_START = 
+  LD_GROUP_END = 
+else ifeq (${C_COMP},gcc)
+  CC_COMP = g++
+  LD_GROUP_START = -Wl,--start-group
+  LD_GROUP_END = -Wl,--end-group
+else
+  $(error C_COMP set to unknown compiler, must be clang or gcc)
+endif
 
 
 ###############################################################################
@@ -91,29 +106,33 @@ run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BIN:%=${EXAMPLE_OUT}/%.
 # Compiling C / C++ example
 ${EXAMPLE_OUT}/%-c.o: ${EXAMPLE_DIR}/%.c ${WASM_INCLUDE}/wasm.h
 	mkdir -p ${EXAMPLE_OUT}
-	clang -c -std=c11 ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${C_COMP} -c -std=c11 ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
-	clang++ -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 # Linking C / C++ example
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c}
 ${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
-	clang++ ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
-		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
-		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
-		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
+	${CC_COMP} ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
 		${WASM_C_O} \
+		${LD_GROUP_START} \
+		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
+		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
+		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
+		${LD_GROUP_END} \
 		-ldl -pthread
 
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-cc}
 ${EXAMPLE_OUT}/%-cc: ${EXAMPLE_OUT}/%-cc.o ${WASM_CC_O}
-	clang++ ${CC_FLAGS} ${LD_FLAGS} $< -o $@ \
+	${CC_COMP} ${CC_FLAGS} ${LD_FLAGS} $< -o $@ \
+		${WASM_CC_O} \
+		${LD_GROUP_START} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
-		${WASM_CC_O} \
+		${LD_GROUP_END} \
 		-ldl -pthread
 
 # Installing V8 snapshots
@@ -147,7 +166,7 @@ wasm-cc: ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 # Compiling
 ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
-	clang++ -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${V8_SRC} -I${V8_V8} -I${V8_OUT}/gen -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 
 ###############################################################################
@@ -180,6 +199,8 @@ v8-build:
 	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
 	echo >>${V8_OUT}/args.gn is_component_build = false
 	echo >>${V8_OUT}/args.gn v8_static_library = true
+	echo >>${V8_OUT}/args.gn use_custom_libcxx = false
+	echo >>${V8_OUT}/args.gn use_custom_libcxx_for_host = false
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
@@ -197,7 +218,7 @@ v8-patch:
 .PHONY: v8-unpatch
 v8-unpatch:
 	if [ -f ${V8_V8}/BUILD.gn.save ]; then \
-	  mv ${V8_V8}/BUILD.gn.save ${V8_V8}/BUILD.gn; \
+	  mv -f ${V8_V8}/BUILD.gn.save ${V8_V8}/BUILD.gn; \
 	fi
 
 ${V8_INCLUDE}/${WASM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
@@ -234,7 +255,7 @@ ${V8_V8}:
 
 # Update current check-out
 .PHONY: v8-update
-v8-update:
+v8-update: v8-unpatch
 	@echo ==== Updating V8 ${V8_CURRENT} ====
 	(cd ${V8_V8}; git pull origin ${V8_CURRENT})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
@@ -248,3 +269,12 @@ v8-clean:
 	rm -rf ${V8_OUT}
 	mkdir -p ${V8_OUT}
 	echo >${V8_OUT}/version ${V8_VERSION}
+
+
+###############################################################################
+# Docker
+#
+
+.PHONY: docker
+docker:
+	docker build -t wasm:Dockerfile .

@@ -33,6 +33,9 @@ namespace wasm {
   exit(1);
 }
 
+template<class T>
+void ignore(T) {}
+
 
 template<class C> struct implement;
 
@@ -906,10 +909,10 @@ auto mutability_to_v8(
 void limits_to_v8(StoreImpl* store, Limits limits, v8::Local<v8::Object> desc) {
   auto isolate = store->isolate();
   auto context = store->context();
-  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MINIMUM),
+  ignore(desc->DefineOwnProperty(context, store->v8_string(V8_S_MINIMUM),
     v8::Integer::NewFromUnsigned(isolate, limits.min)));
   if (limits.max != Limits(0).max) {
-    void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MAXIMUM),
+    ignore(desc->DefineOwnProperty(context, store->v8_string(V8_S_MAXIMUM),
       v8::Integer::NewFromUnsigned(isolate, limits.max)));
   }
 }
@@ -920,9 +923,9 @@ auto globaltype_to_v8(
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
-  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_VALUE),
+  ignore(desc->DefineOwnProperty(context, store->v8_string(V8_S_VALUE),
     valtype_to_v8(store, type->content())));
-  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_MUTABLE),
+  ignore(desc->DefineOwnProperty(context, store->v8_string(V8_S_MUTABLE),
     mutability_to_v8(store, type->mutability())));
   return desc;
 }
@@ -933,7 +936,7 @@ auto tabletype_to_v8(
   auto isolate = store->isolate();
   auto context = store->context();
   auto desc = v8::Object::New(isolate);
-  void(desc->DefineOwnProperty(context, store->v8_string(V8_S_ELEMENT),
+  ignore(desc->DefineOwnProperty(context, store->v8_string(V8_S_ELEMENT),
     valtype_to_v8(store, type->element())));
   limits_to_v8(store, type->limits(), desc);
   return desc;
@@ -1440,8 +1443,8 @@ auto make_func(Store* store_abs, FuncData* data) -> own<Func*> {
   auto imports_obj = v8::Object::New(isolate);
   auto module_obj = v8::Object::New(isolate);
   auto str = store->v8_string(V8_S_EMPTY);
-  void(imports_obj->DefineOwnProperty(context, str, module_obj));
-  void(module_obj->DefineOwnProperty(context, str, func_obj));
+  ignore(imports_obj->DefineOwnProperty(context, str, module_obj));
+  ignore(module_obj->DefineOwnProperty(context, str, func_obj));
 
   v8::Local<v8::Value> instantiate_args[] = {
     impl(module.get())->v8_object(), imports_obj
@@ -1715,7 +1718,7 @@ void Global::set(const Val& val) {
   }
 
   v8::Local<v8::Value> args[] = { val_to_v8(store, val) };
-  void(store->v8_function(V8_F_GLOBAL_SET)->Call(
+  ignore(store->v8_function(V8_F_GLOBAL_SET)->Call(
     context, global->v8_object(), 1, args));
 */
 }
@@ -1892,10 +1895,10 @@ auto Instance::make(
         imports_obj->Get(context, module_str).ToLocalChecked());
     } else {
       module_obj = v8::Object::New(isolate);
-      void(imports_obj->DefineOwnProperty(context, module_str, module_obj));
+      ignore(imports_obj->DefineOwnProperty(context, module_str, module_obj));
     }
 
-    void(module_obj->DefineOwnProperty(
+    ignore(module_obj->DefineOwnProperty(
       context, name_str, extern_to_v8(imports[i])));
   }
 

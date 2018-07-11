@@ -1,5 +1,7 @@
 #include "wasm-bin.hh"
 
+#include <cstring>
+
 namespace wasm {
 namespace bin {
 
@@ -7,7 +9,7 @@ namespace bin {
 // Encoding
 
 void encode_header(char*& ptr) {
-  memcpy(ptr, "\x00""asm\x01\x00\x00\x00", 8);
+  std::memcpy(ptr, "\x00""asm\x01\x00\x00\x00", 8);
   ptr += 8;
 }
 
@@ -150,7 +152,7 @@ auto name(const byte_t*& pos) -> Name {
   auto size = bin::u32(pos);
   auto start = pos;
   auto name = Name::make_uninitialized(size);
-  memcpy(name.get(), start, size);
+  std::memcpy(name.get(), start, size);
   pos += size;
   return name;
 }

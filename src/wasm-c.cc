@@ -759,19 +759,22 @@ Result wasm_callback(void* env, const vec<Val>& args) {
   return adopt(result);
 }
 
-using wasm_callback_env =
-  std::tuple<wasm_func_callback_with_env_t, void*, void (*)(void*)>;
+struct wasm_callback_env_t {
+  wasm_func_callback_with_env_t callback;
+  void* env;
+  void (*finalizer)(void*);
+};
 
 Result wasm_callback_with_env(void* env, const vec<Val>& args) {
-  auto t = *static_cast<wasm_callback_env*>(env);
+  auto t = static_cast<wasm_callback_env_t*>(env);
   wasm_result_t result;
-  std::get<0>(t)(std::get<1>(t), hide(args), &result);
+  t->callback(t->env, hide(args), &result);
   return adopt(result);
 }
 
 void wasm_callback_env_finalizer(void* env) {
-  auto t = static_cast<wasm_callback_env*>(env);
-  std::get<2>(*t)(std::get<1>(*t));
+  auto t = static_cast<wasm_callback_env_t*>(env);
+  t->finalizer(t->env);
   delete t;
 }
 
@@ -793,7 +796,7 @@ wasm_func_t *wasm_func_new_with_env(
 ) {
   auto store_ = borrow(store);
   auto type_ = borrow(type);
-  auto env2 = new wasm_callback_env(callback, env);
+  auto env2 = new wasm_callback_env_t{callback, env, finalizer};
   return release(Func::make(store_.it, type_.it, wasm_callback_with_env, env2));
 }
 

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <limits>
 #include <string>
@@ -197,7 +198,7 @@ public:
 
   static auto make(std::string s) -> vec<char> {
     auto v = vec(s.length() + 1);
-    if (v) strcpy(v.get(), s.data());
+    if (v) std::strcpy(v.get(), s.data());
     return v;
   }
 
