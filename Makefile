@@ -277,8 +277,8 @@ v8-clean:
 
 .PHONY: docker
 docker:
-	docker build -t wasm-c-api:${V8_VERSION} .
+	docker build -t wasm-c-api:${V8_VERSION:tags/%=%} .
 
 .PHONY: v8_version
 v8_version:
-	@echo ${V8_VERSION} | sed 's/tags\///'
+	@echo ${V8_VERSION:tags/%=%}
