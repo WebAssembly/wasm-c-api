@@ -668,34 +668,35 @@ void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
 }
 
 
-// Results
-
-extern "C++" {
-
-wasm_result_t release(Result result) {
-  wasm_result_t r = { static_cast<wasm_result_kind_t>(result.kind()) };
-  switch (result.kind()) {
-    case Result::RETURN: r.of.vals = release(std::move(result.vals())); break;
-    case Result::TRAP: r.of.trap = release(std::move(result.trap())); break;
-  }
-  return r;
-}
-
-Result adopt(wasm_result_t result) {
-  switch (result.kind) {
-    case WASM_RETURN: return Result(adopt(&result.of.vals));
-    case WASM_TRAP: return Result(adopt(&result.of.trap));
-  }
-}
-
-}  // extern "C++"
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Objects
 
-// Modules
+// Traps
 
+WASM_DEFINE_REF(trap, Trap)
+
+wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t* message) {
+  auto store_ = borrow(store);
+  auto message_ = borrow(message);
+  return release(Trap::make(store_.it, message_.it));
+}
+
+void wasm_trap_message(const wasm_trap_t* trap, wasm_message_t* out) {
+  *out = release(reveal(trap)->message());
+}
+
+
+// Foreign Objects
+
+WASM_DEFINE_REF(foreign, Foreign)
+
+wasm_foreign_t* wasm_foreign_new(wasm_store_t* store) {
+  auto store_ = borrow(store);
+  return release(Foreign::make(store_.it));
+}
+
+
+// Modules
 
 WASM_DEFINE_REF(module, Module)
 
@@ -736,14 +737,27 @@ wasm_module_t* wasm_module_deserialize(const wasm_byte_vec_t* binary) {
 }
 
 
-// Foreign Objects
+// Results
 
-WASM_DEFINE_REF(foreign, Foreign)
+extern "C++" {
 
-wasm_foreign_t* wasm_foreign_new(wasm_store_t* store) {
-  auto store_ = borrow(store);
-  return release(Foreign::make(store_.it));
+wasm_result_t release(Result result) {
+  wasm_result_t r = { static_cast<wasm_result_kind_t>(result.kind()) };
+  switch (result.kind()) {
+    case Result::RETURN: r.of.vals = release(std::move(result.vals())); break;
+    case Result::TRAP: r.of.trap = hide(result.release_trap()); break;
+  }
+  return r;
 }
+
+Result adopt(wasm_result_t result) {
+  switch (result.kind) {
+    case WASM_RETURN: return Result(adopt(&result.of.vals));
+    case WASM_TRAP: return Result(adopt(result.of.trap));
+  }
+}
+
+}  // extern "C++"
 
 
 // Function Instances

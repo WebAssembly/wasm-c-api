@@ -567,17 +567,31 @@ template<> inline auto Val::get<uint64_t>() const -> uint64_t {
 }
 
 
-// Results
+// Traps
 
 using Message = vec<byte_t>;
 
+class Trap : public Ref {
+public:
+  Trap() = delete;
+  ~Trap();
+
+  static auto make(Store*, const Message& msg) -> own<Trap*>;
+  auto copy() const -> own<Trap*>;
+
+  auto message() const -> Message;
+};
+
+
+// Results
+
 class Result {
   vec<Val> vals_;
-  Message trap_;
+  own<Trap*> trap_;
 
 public:
-  Result(vec<Val>&& vals) : vals_(std::move(vals)), trap_(Message::invalid()) {}
-  Result(Message&& msg) : vals_(vec<Val>::invalid()), trap_(std::move(msg)) {}
+  Result(vec<Val>&& vals) : vals_(std::move(vals)) {}
+  Result(own<Trap*> trap) : vals_(vec<Val>::invalid()), trap_(std::move(trap)) {}
   Result(Result&& that) :
     vals_(std::move(that.vals_)), trap_(std::move(that.trap_)) {}
 
@@ -587,7 +601,8 @@ public:
   enum Kind { RETURN, TRAP };
   auto kind() const -> Kind { return vals_ ? RETURN : TRAP; }
   auto vals() -> vec<Val>& { assert(kind() == RETURN); return vals_; }
-  auto trap() -> Message& { assert (kind() == TRAP); return trap_; }
+  auto trap() -> Trap* { assert (kind() == TRAP); return trap_.get(); }
+  auto release_trap() -> Trap* { assert (kind() == TRAP); return trap_.release(); }
 
   auto operator[](size_t i) -> Val& { assert (kind() == RETURN); return vals_[i]; }
 };

@@ -8,9 +8,13 @@
 #define own
 
 // A function to be called from Wasm code.
-void fail_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
+void fail_callback(void* env, const wasm_val_vec_t* args, own wasm_result_t* result) {
   printf("Calling back...\n");
-  wasm_result_new_trap(result, "callback abort");
+  own wasm_name_t message;
+  wasm_name_new_from_string(&message, "callback abort");
+  own wasm_trap_t* trap = wasm_trap_new((wasm_store_t*)env, &message);
+  wasm_name_delete(&message);
+  wasm_result_new_trap(result, trap);
 }
 
 
@@ -48,7 +52,7 @@ int main(int argc, const char* argv[]) {
   // Create external print functions.
   printf("Creating callback...\n");
   own wasm_functype_t* fail_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
-  own wasm_func_t* fail_func = wasm_func_new(store, fail_type, fail_callback);
+  own wasm_func_t* fail_func = wasm_func_new_with_env(store, fail_type, fail_callback, store, NULL);
 
   wasm_functype_delete(fail_type);
 
@@ -94,9 +98,12 @@ int main(int argc, const char* argv[]) {
     }
 
     printf("Printing message...\n");
-    printf("> %s\n", result.of.trap.data);
+    own wasm_name_t message;
+    wasm_trap_message(result.of.trap, &message);
+    printf("> %s\n", message.data);
 
     wasm_result_delete(&result);
+    wasm_name_delete(&message);
   }
 
   wasm_extern_vec_delete(&exports);

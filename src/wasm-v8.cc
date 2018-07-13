@@ -68,7 +68,8 @@ struct Stats {
     BYTE, CONFIG, ENGINE, STORE,
     VALTYPE, FUNCTYPE, GLOBALTYPE, TABLETYPE, MEMORYTYPE,
     EXTERNTYPE, IMPORTTYPE, EXPORTTYPE,
-    VAL, REF, MODULE, INSTANCE, FUNC, GLOBAL, TABLE, MEMORY, EXTERN,
+    VAL, REF, TRAP,
+    MODULE, INSTANCE, FUNC, GLOBAL, TABLE, MEMORY, EXTERN,
     STRONG_COUNT,
     FUNCDATA_FUNCTYPE, FUNCDATA_VALTYPE,
     CATEGORY_COUNT
@@ -150,6 +151,7 @@ struct Stats {
     if (wasm_v8::object_is_memory(obj)) return MEMORY;
     if (wasm_v8::object_is_module(obj)) return MODULE;
     if (wasm_v8::object_is_instance(obj)) return INSTANCE;
+    if (wasm_v8::object_is_error(obj)) return TRAP;
 #endif
     return REF;
   }
@@ -160,7 +162,8 @@ const char* Stats::name[STRONG_COUNT] = {
   "byte_t", "Config", "Engine", "Store",
   "ValType", "FuncType", "GlobalType", "TableType", "MemoryType",
   "ExternType", "ImportType", "ExportType",
-  "Val", "Ref", "Module", "Instance", "Func", "Global", "Table", "Memory", "Extern"
+  "Val", "Ref", "Trap",
+  "Module", "Instance", "Func", "Global", "Table", "Memory", "Extern"
 };
 
 const char* Stats::left[CARDINALITY_COUNT] = {
@@ -198,6 +201,8 @@ DEFINE_VEC(MemoryType*, MEMORYTYPE)
 DEFINE_VEC(ExternType*, EXTERNTYPE)
 DEFINE_VEC(ImportType*, IMPORTTYPE)
 DEFINE_VEC(ExportType*, EXPORTTYPE)
+DEFINE_VEC(Ref*, REF)
+DEFINE_VEC(Trap*, TRAP)
 DEFINE_VEC(Module*, MODULE)
 DEFINE_VEC(Instance*, INSTANCE)
 DEFINE_VEC(Func*, FUNC)
@@ -205,7 +210,6 @@ DEFINE_VEC(Global*, GLOBAL)
 DEFINE_VEC(Table*, TABLE)
 DEFINE_VEC(Memory*, MEMORY)
 DEFINE_VEC(Extern*, EXTERN)
-DEFINE_VEC(Ref*, REF)
 DEFINE_VEC(Val, VAL)
 
 #endif  // #ifdef DEBUG
@@ -1155,6 +1159,60 @@ void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Objects
 
+// Traps
+
+template<> struct implement<Trap> { using type = RefImpl<Trap>; };
+
+
+Trap::~Trap() {}
+
+auto Trap::copy() const -> own<Trap*> {
+  return impl(this)->copy();
+}
+
+auto Trap::make(Store* store_abs, const Message& message) -> own<Trap*> {
+  auto store = impl(store_abs);
+  v8::Isolate* isolate = store->isolate();
+  v8::HandleScope handle_scope(isolate);
+
+  auto maybe_string = v8::String::NewFromUtf8(isolate, message.get(),
+    v8::NewStringType::kNormal, message.size());
+  if (maybe_string.IsEmpty()) return own<Trap*>();
+  auto exception = v8::Exception::Error(maybe_string.ToLocalChecked());
+  return RefImpl<Trap>::make(store, v8::Handle<v8::Object>::Cast(exception));
+}
+
+auto Trap::message() const -> Message {
+  auto isolate = impl(this)->isolate();
+  v8::HandleScope handle_scope(isolate);
+
+  auto message = v8::Exception::CreateMessage(isolate, impl(this)->v8_object());
+  v8::String::Utf8Value string(isolate, message->Get());
+  return vec<byte_t>::make(std::string(*string));
+}
+
+
+// Foreign Objects
+
+template<> struct implement<Foreign> { using type = RefImpl<Foreign>; };
+
+
+Foreign::~Foreign() {}
+
+auto Foreign::copy() const -> own<Foreign*> {
+  return impl(this)->copy();
+}
+
+auto Foreign::make(Store* store_abs) -> own<Foreign*> {
+  auto store = impl(store_abs);
+  auto isolate = store->isolate();
+  v8::HandleScope handle_scope(isolate);
+
+  auto obj = v8::Object::New(isolate);
+  return RefImpl<Foreign>::make(store, obj);
+}
+
+
 // Modules
 
 template<> struct implement<Module> { using type = RefImpl<Module>; };
@@ -1291,27 +1349,6 @@ auto Module::serialize() const -> vec<byte_t> {
 auto Module::deserialize(vec<byte_t>& serialized) -> own<Module*> {
   // TODO
   UNIMPLEMENTED("Module::deserialize");
-}
-
-
-// Foreign Objects
-
-template<> struct implement<Foreign> { using type = RefImpl<Foreign>; };
-
-
-Foreign::~Foreign() {}
-
-auto Foreign::copy() const -> own<Foreign*> {
-  return impl(this)->copy();
-}
-
-auto Foreign::make(Store* store_abs) -> own<Foreign*> {
-  auto store = impl(store_abs);
-  auto isolate = store->isolate();
-  v8::HandleScope handle_scope(isolate);
-
-  auto obj = v8::Object::New(isolate);
-  return RefImpl<Foreign>::make(store, obj);
 }
 
 
@@ -1537,8 +1574,15 @@ auto Func::call(const vec<Val>& args) const -> Result {
     context, v8::Undefined(isolate), args.size(), v8_args.get());
 
   if (handler.HasCaught()) {
-    v8::String::Utf8Value message(isolate, handler.Exception());
-    return Result(vec<byte_t>::make(std::string(*message)));
+    auto exception = handler.Exception();
+    if (!exception->IsObject()) {
+      auto maybe_string = exception->ToString(store->context());
+      auto string = maybe_string.IsEmpty()
+        ? store->v8_string(V8_S_EMPTY) : maybe_string.ToLocalChecked();
+      exception = v8::Exception::Error(string);
+    }
+    return Result(RefImpl<Trap>::make(
+      store, v8::Handle<v8::Object>::Cast(exception)));
   }
 
   auto result = maybe_result.ToLocalChecked();
@@ -1576,13 +1620,7 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     : self->callback(args);
 
   if (result.kind() == Result::TRAP) {
-    v8::Local<v8::Value> exn = v8::Undefined(isolate);
-    if (result.trap()) {
-      auto maybe = v8::String::NewFromUtf8(
-        isolate, result.trap().get(), v8::NewStringType::kNormal);
-      if (!maybe.IsEmpty()) exn = maybe.ToLocalChecked();
-    }
-    isolate->ThrowException(exn);
+    isolate->ThrowException(impl(result.trap())->v8_object());
     return;
   }
 
