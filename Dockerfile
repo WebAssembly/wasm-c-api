@@ -14,4 +14,4 @@ RUN apt-get update && apt-get install -y \
 ADD . /code/wasm-c-api
 WORKDIR /code/wasm-c-api
 RUN make v8-checkout && make -j v8
-RUN make C_COMP=gcc LD_FLAGS= C_FLAGS="-fPIC"
+RUN make clean && make C_COMP=gcc LD_FLAGS= C_FLAGS="-fPIC"
