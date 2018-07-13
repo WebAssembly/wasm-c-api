@@ -193,14 +193,16 @@ clean:
 .PHONY: v8
 v8: ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc v8-patch v8-build v8-unpatch
 
+V8_GN_ARGS = \
+	is_component_build=false \
+	v8_static_library=true \
+	use_custom_libcxx=false \
+	use_custom_libcxx_for_host=false
+
 .PHONY: v8-build
 v8-build:
 	@echo ==== Building V8 ${V8_CURRENT} ${V8_BUILD} ====
-	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD})
-	echo >>${V8_OUT}/args.gn is_component_build = false
-	echo >>${V8_OUT}/args.gn v8_static_library = true
-	echo >>${V8_OUT}/args.gn use_custom_libcxx = false
-	echo >>${V8_OUT}/args.gn use_custom_libcxx_for_host = false
+	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD} -- ${V8_GN_ARGS})
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
