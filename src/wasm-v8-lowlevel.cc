@@ -73,6 +73,11 @@ auto object_is_memory(v8::Local<v8::Object> obj) -> bool {
   return v8_obj->IsWasmMemoryObject();
 }
 
+auto object_is_error(v8::Local<v8::Object> obj) -> bool {
+  auto v8_obj = v8::Utils::OpenHandle(*obj);
+  return v8_obj->IsJSError();
+}
+
 
 
 // Foreign pointers

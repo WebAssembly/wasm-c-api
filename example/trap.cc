@@ -7,9 +7,11 @@
 #include "wasm.hh"
 
 // A function to be called from Wasm code.
-auto fail_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
+auto fail_callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
   std::cout << "Calling back..." << std::endl;
-  return wasm::Result(wasm::Name::make(std::string("callback abort")));
+  auto store = reinterpret_cast<wasm::Store*>(env);
+  auto message = wasm::Name::make(std::string("callback abort"));
+  return wasm::Result(wasm::Trap::make(store, message));
 }
 
 
@@ -48,7 +50,8 @@ void run(int argc, const char* argv[]) {
     wasm::vec<wasm::ValType*>::make(),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto fail_func = wasm::Func::make(store, fail_type.get(), fail_callback);
+  auto fail_func =
+    wasm::Func::make(store, fail_type.get(), fail_callback, store);
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
@@ -79,7 +82,7 @@ void run(int argc, const char* argv[]) {
     }
 
     std::cout << "Printing message..." << std::endl;
-    std::cout << "> " << result.trap().get() << std::endl;
+    std::cout << "> " << result.trap()->message().get() << std::endl;
   }
 
   // Shut down.

@@ -15,6 +15,7 @@ auto object_is_func(v8::Local<v8::Object>) -> bool;
 auto object_is_global(v8::Local<v8::Object>) -> bool;
 auto object_is_table(v8::Local<v8::Object>) -> bool;
 auto object_is_memory(v8::Local<v8::Object>) -> bool;
+auto object_is_error(v8::Local<v8::Object>) -> bool;
 
 auto foreign_new(v8::Isolate*, void*) -> v8::Local<v8::Value>;
 auto foreign_get(v8::Local<v8::Value>) -> void*;

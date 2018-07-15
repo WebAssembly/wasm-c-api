@@ -100,7 +100,7 @@ typedef wasm_byte_vec_t wasm_name_t;
 static inline void wasm_name_new_from_string(
   own wasm_name_t* out, const char* s
 ) {
-  wasm_name_new(out, strlen(s), s);
+  wasm_name_new(out, strlen(s) + 1, s);
 }
 
 
@@ -314,54 +314,6 @@ void wasm_val_copy(own wasm_val_t* out, const wasm_val_t*);
 WASM_DECLARE_VEC(val, )
 
 
-// Results
-
-typedef wasm_byte_vec_t wasm_message_t;
-
-typedef enum wasm_result_kind_t {
-  WASM_RETURN,
-  WASM_TRAP
-} wasm_result_kind_t;
-
-typedef struct wasm_result_t {
-  wasm_result_kind_t kind;
-  union {
-    own wasm_val_vec_t vals;
-    own wasm_message_t trap;
-  } of;
-} wasm_result_t;
-
-
-static inline void wasm_result_new_empty(own wasm_result_t* out) {
-  out->kind = WASM_RETURN;
-  wasm_val_vec_new_empty(&out->of.vals);
-}
-
-static inline void wasm_result_new_vals(
-  own wasm_result_t* out,
-  size_t size,
-  own wasm_val_t const vals[]
-) {
-  out->kind = WASM_RETURN;
-  wasm_val_vec_new(&out->of.vals, size, vals);
-}
-
-static inline void wasm_result_new_trap(
-  own wasm_result_t* out, const char* msg
-) {
-  out->kind = WASM_TRAP;
-  wasm_byte_vec_new_uninitialized(&out->of.trap, strlen(msg) + 1);
-  strcpy(out->of.trap.data, msg);
-}
-
-static inline void wasm_result_delete(own wasm_result_t* result) {
-  switch (result->kind) {
-    case WASM_RETURN: return wasm_val_vec_delete(&result->of.vals);
-    case WASM_TRAP: return wasm_byte_vec_delete(&result->of.trap);
-  }
-}
-
-
 // References
 
 #define WASM_DECLARE_REF_BASE(name) \
@@ -384,6 +336,24 @@ static inline void wasm_result_delete(own wasm_result_t* result) {
 WASM_DECLARE_REF_BASE(ref)
 
 
+// Traps
+
+typedef wasm_name_t wasm_message_t;
+
+WASM_DECLARE_REF(trap)
+
+own wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t*);
+
+void wasm_trap_message(const wasm_trap_t*, own wasm_message_t* out);
+
+
+// Foreign Objects
+
+WASM_DECLARE_REF(foreign)
+
+own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
+
+
 // Modules
 
 WASM_DECLARE_REF(module)
@@ -400,11 +370,49 @@ void wasm_module_serialize(const wasm_module_t*, own wasm_byte_vec_t* out);
 own wasm_module_t* wasm_module_deserialize(const wasm_byte_vec_t*);
 
 
-// Foreign Objects
+// Results
 
-WASM_DECLARE_REF(foreign)
+typedef enum wasm_result_kind_t {
+  WASM_RETURN,
+  WASM_TRAP
+} wasm_result_kind_t;
 
-own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
+typedef struct wasm_result_t {
+  wasm_result_kind_t kind;
+  union {
+    own wasm_val_vec_t vals;
+    own wasm_trap_t* trap;
+  } of;
+} wasm_result_t;
+
+
+static inline void wasm_result_new_empty(own wasm_result_t* out) {
+  out->kind = WASM_RETURN;
+  wasm_val_vec_new_empty(&out->of.vals);
+}
+
+static inline void wasm_result_new_vals(
+  own wasm_result_t* out,
+  size_t size,
+  own wasm_val_t const vals[]
+) {
+  out->kind = WASM_RETURN;
+  wasm_val_vec_new(&out->of.vals, size, vals);
+}
+
+static inline void wasm_result_new_trap(
+  own wasm_result_t* out, own wasm_trap_t* trap
+) {
+  out->kind = WASM_TRAP;
+  out->of.trap = trap;
+}
+
+static inline void wasm_result_delete(own wasm_result_t* result) {
+  switch (result->kind) {
+    case WASM_RETURN: return wasm_val_vec_delete(&result->of.vals);
+    case WASM_TRAP: return wasm_trap_delete(result->of.trap);
+  }
+}
 
 
 // Function Instances
