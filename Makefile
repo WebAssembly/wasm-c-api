@@ -52,6 +52,12 @@ V8_OTHER_LIBS = src/inspector/libinspector
 V8_BIN = natives_blob snapshot_blob #snapshot_blob_trusted
 V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
 
+V8_GN_ARGS = \
+	is_component_build=false \
+	v8_static_library=true \
+	use_custom_libcxx=false \
+	use_custom_libcxx_for_host=false
+
 # Compiler config
 ifeq (${C_COMP},clang)
   CC_COMP = clang++
@@ -192,12 +198,6 @@ clean:
 
 .PHONY: v8
 v8: ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc v8-patch v8-build v8-unpatch
-
-V8_GN_ARGS = \
-	is_component_build=false \
-	v8_static_library=true \
-	use_custom_libcxx=false \
-	use_custom_libcxx_for_host=false
 
 .PHONY: v8-build
 v8-build:
