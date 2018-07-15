@@ -46,17 +46,18 @@ V8_PATH = $(abspath ${V8_DEPOT_TOOLS}):${PATH}
 V8_INCLUDE = ${V8_V8}/include
 V8_SRC = ${V8_V8}/src
 V8_OUT = ${V8_V8}/out.gn/${V8_BUILD}
-V8_LIBS = base libbase external_snapshot libplatform libsampler
-V8_ICU_LIBS = uc i18n
-V8_OTHER_LIBS = src/inspector/libinspector
-V8_BIN = natives_blob snapshot_blob #snapshot_blob_trusted
+V8_LIBS = monolith # base libbase external_snapshot libplatform libsampler
+V8_BLOBS = # natives_blob snapshot_blob
 V8_CURRENT = $(shell if [ -f ${V8_OUT}/version ]; then cat ${V8_OUT}/version; else echo ${V8_VERSION}; fi)
 
 V8_GN_ARGS = \
-	is_component_build=false \
-	v8_static_library=true \
-	use_custom_libcxx=false \
-	use_custom_libcxx_for_host=false
+  is_component_build=false \
+  v8_static_library=true \
+  v8_monolithic=true \
+  v8_use_external_startup_data=false \
+  v8_enable_i18n_support=false \
+  use_custom_libcxx=false \
+  use_custom_libcxx_for_host=false
 
 # Compiler config
 ifeq (${C_COMP},clang)
@@ -99,12 +100,12 @@ c: ${EXAMPLES:%=run-%-c}
 cc: ${EXAMPLES:%=run-%-cc}
 
 # Running a C / C++ example
-run-%-c: ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%.wasm ${V8_BIN:%=${EXAMPLE_OUT}/%.bin}
+run-%-c: ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/%.bin}
 	@echo ==== C ${@:run-%-c=%} ====; \
 	cd ${EXAMPLE_OUT}; ./${@:run-%=%}
 	@echo ==== Done ====
 
-run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BIN:%=${EXAMPLE_OUT}/%.bin}
+run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/%.bin}
 	@echo ==== C++ ${@:run-%-cc=%} ====; \
 	cd ${EXAMPLE_OUT}; ./${@:run-%=%}
 	@echo ==== Done ====
@@ -124,8 +125,6 @@ ${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
 	${CC_COMP} ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
 		${WASM_C_O} \
 		${LD_GROUP_START} \
-		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
-		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
 		${LD_GROUP_END} \
 		-ldl -pthread
@@ -136,13 +135,11 @@ ${EXAMPLE_OUT}/%-cc: ${EXAMPLE_OUT}/%-cc.o ${WASM_CC_O}
 		${WASM_CC_O} \
 		${LD_GROUP_START} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
-		${V8_ICU_LIBS:%=${V8_OUT}/obj/third_party/icu/libicu%.a} \
-		${V8_OTHER_LIBS:%=${V8_OUT}/obj/%.a} \
 		${LD_GROUP_END} \
 		-ldl -pthread
 
 # Installing V8 snapshots
-.PRECIOUS: ${V8_BIN:%=${EXAMPLE_OUT}/%.bin}
+.PRECIOUS: ${V8_BLOBS:%=${EXAMPLE_OUT}/%.bin}
 ${EXAMPLE_OUT}/%.bin: ${V8_OUT}/%.bin
 	cp $< $@
 
