@@ -105,7 +105,7 @@ void* run(void* args_abs) {
 
 int main(int argc, const char *argv[]) {
   // Initialize.
-  wasm_engine_t* engine = wasm_engine_new(argc, argv);
+  wasm_engine_t* engine = wasm_engine_new();
 
   // Load binary.
   FILE* file = fopen("threads.wasm", "r");

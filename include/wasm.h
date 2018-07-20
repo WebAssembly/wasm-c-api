@@ -120,9 +120,8 @@ own wasm_config_t* wasm_config_new();
 
 WASM_DECLARE_OWN(engine)
 
-own wasm_engine_t* wasm_engine_new(int argc, const char* const argv[]);
-own wasm_engine_t* wasm_engine_new_with_config(
-  int argc, const char* const argv[], own wasm_config_t*);
+own wasm_engine_t* wasm_engine_new();
+own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
 
 // Store

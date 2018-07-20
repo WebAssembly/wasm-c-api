@@ -249,9 +249,7 @@ public:
   ~Engine();
   void operator delete(void*);
 
-  static auto make(
-    int argc, const char* const argv[], own<Config*>&& = Config::make()
-  ) -> own<Engine*>;
+  static auto make(own<Config*>&& = Config::make()) -> own<Engine*>;
 };
 
 

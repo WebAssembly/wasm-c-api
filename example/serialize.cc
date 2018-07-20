@@ -15,10 +15,10 @@ auto hello_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
 }
 
 
-void run(int argc, const char* argv[]) {
+void run() {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
-  auto engine = wasm::Engine::make(argc, argv);
+  auto engine = wasm::Engine::make();
   auto store_ = wasm::Store::make(engine.get());
   auto store = store_.get();
 
@@ -91,7 +91,7 @@ void run(int argc, const char* argv[]) {
 
 
 int main(int argc, const char* argv[]) {
-  run(argc, argv);
+  run();
   std::cout << "Done." << std::endl;
   return 0;
 }
