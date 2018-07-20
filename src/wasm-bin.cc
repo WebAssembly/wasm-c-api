@@ -13,12 +13,42 @@ void encode_header(char*& ptr) {
   ptr += 8;
 }
 
-void encode_u32(char*& ptr, size_t n) {
+auto u64_size(uint64_t n) -> size_t {
+  bool done = false;
+  size_t size = 0;
+  do {
+    ++size;
+    done = n <= 0x7f;
+    n = n >> 7;
+  } while (!done);
+  return size;
+}
+
+auto u32_size(uint64_t n) -> size_t {
+  return u64_size(n);
+}
+
+void encode_u64(char*& ptr, uint64_t n) {
+  bool done = false;
+  do {
+    done = n <= 0x7f;
+    *ptr++ = (n & 0x7f) | (done ? 0x00 : 0x80);
+    n = n >> 7;
+  } while (!done);
+}
+
+void encode_u32(char*& ptr, uint32_t n) {
+  encode_u64(ptr, n);
+}
+
+void encode_size32(char*& ptr, size_t n) {
+  assert(n <= 0xffffffff);
   for (int i = 0; i < 5; ++i) {
     *ptr++ = (n & 0x7f) | (i == 4 ? 0x00 : 0x80);
     n = n >> 7;
   }
 }
+
 
 void encode_valtype(char*& ptr, const ValType* type) {
   switch (type->kind()) {
@@ -66,14 +96,14 @@ auto wrapper(const FuncType* type) -> vec<byte_t> {
   encode_header(ptr);
 
   *ptr++ = 0x01;  // type section
-  encode_u32(ptr, 12 + in_arity + out_arity);  // size
+  encode_size32(ptr, 12 + in_arity + out_arity);  // size
   *ptr++ = 1;  // length
   *ptr++ = 0x60;  // function
-  encode_u32(ptr, in_arity);
+  encode_size32(ptr, in_arity);
   for (size_t i = 0; i < in_arity; ++i) {
     encode_valtype(ptr, type->params()[i].get());
   }
-  encode_u32(ptr, out_arity);
+  encode_size32(ptr, out_arity);
   for (size_t i = 0; i < out_arity; ++i) {
     encode_valtype(ptr, type->results()[i].get());
   }
@@ -105,7 +135,7 @@ auto wrapper(const GlobalType* type) -> vec<byte_t> {
   encode_header(ptr);
 
   *ptr++ = 0x06;  // global section
-  encode_u32(ptr, 5 + zero_size(type->content()));  // size
+  encode_size32(ptr, 5 + zero_size(type->content()));  // size
   *ptr++ = 1;  // length
   encode_valtype(ptr, type->content());
   *ptr++ = (type->mutability() == VAR);
@@ -132,6 +162,18 @@ auto wrapper(const GlobalType* type) -> vec<byte_t> {
 auto u32(const byte_t*& pos) -> uint32_t {
   uint32_t n = 0;
   uint32_t shift = 0;
+  byte_t b;
+  do {
+    b = *pos++;
+    n += (b & 0x7f) << shift;
+    shift += 7;
+  } while ((b & 0x80) != 0);
+  return n;
+}
+
+auto u64(const byte_t*& pos) -> uint64_t {
+  uint64_t n = 0;
+  uint64_t shift = 0;
   byte_t b;
   do {
     b = *pos++;

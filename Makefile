@@ -14,7 +14,7 @@ LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
 C_COMP = clang
 
-WASM_INTERPRETER = ../spec.master/interpreter/wasm  # Adjust as needed.
+WASM_INTERPRETER = ../spec/interpreter/wasm  # Adjust as needed.
 
 # No need to change what follows.
 
@@ -26,7 +26,7 @@ OUT_DIR = out
 
 # Example config
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory threads
+EXAMPLES = hello callback trap reflect global table memory serialize threads
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include

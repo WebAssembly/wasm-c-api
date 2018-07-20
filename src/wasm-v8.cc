@@ -1342,13 +1342,33 @@ auto Module::exports() const -> vec<ExportType*> {
 }
 
 auto Module::serialize() const -> vec<byte_t> {
-  // TODO
-  UNIMPLEMENTED("Module::serialize");
+  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  auto module = impl(this)->v8_object();
+  auto binary_size = wasm_v8::module_binary_size(module);
+  auto serial_size = wasm_v8::module_serialize_size(module);
+  auto size_size = wasm::bin::u64_size(binary_size);
+  auto buffer = vec<byte_t>::make_uninitialized(
+    size_size + binary_size + serial_size);
+  auto ptr = buffer.get();
+  wasm::bin::encode_u64(ptr, binary_size);
+  std::memcpy(ptr, wasm_v8::module_binary(module), binary_size);
+  ptr += binary_size;
+  if (!wasm_v8::module_serialize(module, ptr, serial_size)) buffer.reset();
+  return std::move(buffer);
 }
 
-auto Module::deserialize(vec<byte_t>& serialized) -> own<Module*> {
-  // TODO
-  UNIMPLEMENTED("Module::deserialize");
+auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own<Module*> {
+  auto store = impl(store_abs);
+  auto isolate = store->isolate();
+  v8::HandleScope handle_scope(isolate);
+  auto ptr = serialized.get();
+  auto binary_size = wasm::bin::u64(ptr);
+  auto size_size = ptr - serialized.get();
+  auto serial_size = serialized.size() - size_size - binary_size;
+  auto maybe_obj = wasm_v8::module_deserialize(
+    isolate, ptr, binary_size, ptr + binary_size, serial_size);
+  if (maybe_obj.IsEmpty()) return nullptr;
+  return RefImpl<Module>::make(store, maybe_obj.ToLocalChecked());
 }
 
 

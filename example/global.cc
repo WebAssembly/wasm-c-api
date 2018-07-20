@@ -132,9 +132,8 @@ void run(int argc, const char* argv[]) {
 
   check(get_const_f32_import->call()[0].f32(), 1);
   check(get_const_i64_import->call()[0].f64(), f64_reinterpret_i64(2));
-  // TODO(v8): mutable imports don't work yet in 6.8
-  //check(get_var_f32_import->call()[0].f32(), 3);
-  //check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(4));
+  check(get_var_f32_import->call()[0].f32(), 3);
+  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(4));
   check(get_const_f32_export->call()[0].f32(), 5);
   check(get_const_i64_export->call()[0].f64(), f64_reinterpret_i64(6));
   check(get_var_f32_export->call()[0].f32(), 7);
@@ -151,28 +150,24 @@ void run(int argc, const char* argv[]) {
   check(var_f32_export->get().f32(), 37);
   check(var_i64_export->get().i64(), 38);
 
-  // TODO(v8): mutable imports don't work yet in 6.8
-  //check(get_var_f32_import->call()[0].f32(), 33);
-  //check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(34));
+  check(get_var_f32_import->call()[0].f32(), 33);
+  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(34));
   check(get_var_f32_export->call()[0].f32(), 37);
   check(get_var_i64_export->call()[0].f64(), f64_reinterpret_i64(38));
 
   // Modify variables through calls and check again.
-  // TODO(v8): mutable imports don't work yet in 6.8
-  //set_var_f32_import->call(wasm::Val::f32(73));
-  //set_var_i64_import->call(wasm::Val::f64(f64_reinterpret_i64(74)));
+  set_var_f32_import->call(wasm::Val::f32(73));
+  set_var_i64_import->call(wasm::Val::f64(f64_reinterpret_i64(74)));
   set_var_f32_export->call(wasm::Val::f32(77));
   set_var_i64_export->call(wasm::Val::f64(f64_reinterpret_i64(78)));
 
-  // TODO(v8): mutable imports don't work yet in 6.8
-  //check(var_f32_import->get().f32(), 73);
-  //check(var_i64_import->get().i64(), 74);
+  check(var_f32_import->get().f32(), 73);
+  check(var_i64_import->get().i64(), 74);
   check(var_f32_export->get().f32(), 77);
   check(var_i64_export->get().i64(), 78);
 
-  // TODO(v8): mutable imports don't work yet in 6.8
-  //check(get_var_f32_import->call()[0].f32(), 73);
-  //check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(74));
+  check(get_var_f32_import->call()[0].f32(), 73);
+  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(74));
   check(get_var_f32_export->call()[0].f32(), 77);
   check(get_var_i64_export->call()[0].f64(), f64_reinterpret_i64(78));
 
