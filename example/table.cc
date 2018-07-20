@@ -110,6 +110,8 @@ void run() {
   // Check initial table.
   std::cout << "Checking table..." << std::endl;
   check(table->size(), 2);
+  check(table->get(0) == nullptr);
+  check(table->get(1) != nullptr);
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(0)));
   check(call_indirect->call(wasm::Val::i32(7), wasm::Val::i32(1))[0].i32(), 7);
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(2)));
@@ -119,6 +121,8 @@ void run() {
   check(table->set(0, g));
   check(table->set(1, nullptr));
   check(! table->set(2, f));
+  check(table->get(0) != nullptr);
+  check(table->get(1) == nullptr);
   check(call_indirect->call(wasm::Val::i32(7), wasm::Val::i32(0))[0].i32(), 666);
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(1)));
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(2)));
@@ -130,6 +134,9 @@ void run() {
   check(table->set(2, f));
   check(table->set(3, h.get()));
   check(! table->set(5, nullptr));
+  check(table->get(2) != nullptr);
+  check(table->get(3) != nullptr);
+  check(table->get(4) == nullptr);
   check(call_indirect->call(wasm::Val::i32(5), wasm::Val::i32(2))[0].i32(), 5);
   check(call_indirect->call(wasm::Val::i32(6), wasm::Val::i32(3))[0].i32(), -6);
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(4)));

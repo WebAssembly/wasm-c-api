@@ -7,6 +7,106 @@
 
 #define own
 
+
+wasm_memory_t* get_export_memory(const wasm_extern_vec_t* exports, size_t i) {
+  if (exports->size <= i || !wasm_extern_as_memory(exports->data[i])) {
+    printf("> Error accessing memory export %zu!\n", i);
+    exit(1);
+  }
+  return wasm_extern_as_memory(exports->data[i]);
+}
+
+wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
+  if (exports->size <= i || !wasm_extern_as_func(exports->data[i])) {
+    printf("> Error accessing function export %zu!\n", i);
+    exit(1);
+  }
+  return wasm_extern_as_func(exports->data[i]);
+}
+
+
+void check(bool success) {
+  if (!success) {
+    printf("> Error, expected success\n");
+    exit(1);
+  }
+}
+
+void check_call(wasm_func_t* func, wasm_val_vec_t* args, int32_t expected) {
+  wasm_result_t result;
+  wasm_func_call(func, args, &result);
+  if (result.kind != WASM_RETURN || result.of.vals.size != 1 || result.of.vals.data[0].of.i32 != expected) {
+    printf("> Error on result\n");
+    exit(1);
+  }
+  wasm_result_delete(&result);
+}
+
+void check_call0(wasm_func_t* func, int32_t expected) {
+  wasm_val_vec_t args = {0, NULL};
+  check_call(func, &args, expected);
+}
+
+void check_call1(wasm_func_t* func, int32_t arg, int32_t expected) {
+  wasm_val_t val = {.kind = WASM_I32, .of = {.i32 = arg}};
+  wasm_val_vec_t args = {1, &val};
+  check_call(func, &args, expected);
+}
+
+void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
+  wasm_val_t vals[2] = {
+    {.kind = WASM_I32, .of = {.i32 = arg1}},
+    {.kind = WASM_I32, .of = {.i32 = arg2}}
+  };
+  wasm_val_vec_t args = {2, vals};
+  check_call(func, &args, expected);
+}
+
+void check_ok(wasm_func_t* func, wasm_val_vec_t* args) {
+  wasm_result_t result;
+  wasm_func_call(func, args, &result);
+  if (result.kind != WASM_RETURN || result.of.vals.size != 0) {
+    printf("> Error on result, expected empty\n");
+    exit(1);
+  }
+  wasm_result_delete(&result);
+}
+
+void check_ok2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
+  wasm_val_t vals[2] = {
+    {.kind = WASM_I32, .of = {.i32 = arg1}},
+    {.kind = WASM_I32, .of = {.i32 = arg2}}
+  };
+  wasm_val_vec_t args = {2, vals};
+  check_ok(func, &args);
+}
+
+void check_trap(wasm_func_t* func, wasm_val_vec_t* args) {
+  wasm_result_t result;
+  wasm_func_call(func, args, &result);
+  if (result.kind != WASM_TRAP) {
+    printf("> Error on result, expected trap\n");
+    exit(1);
+  }
+  wasm_result_delete(&result);
+}
+
+void check_trap1(wasm_func_t* func, int32_t arg) {
+  wasm_val_t val = {.kind = WASM_I32, .of = {.i32 = arg}};
+  wasm_val_vec_t args = {1, &val};
+  check_trap(func, &args);
+}
+
+void check_trap2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
+  wasm_val_t vals[2] = {
+    {.kind = WASM_I32, .of = {.i32 = arg1}},
+    {.kind = WASM_I32, .of = {.i32 = arg2}}
+  };
+  wasm_val_vec_t args = {2, vals};
+  check_trap(func, &args);
+}
+
+
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
@@ -15,7 +115,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("table.wasm", "r");
+  FILE* file = fopen("memory.wasm", "r");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -38,9 +138,66 @@ int main(int argc, const char* argv[]) {
 
   wasm_byte_vec_delete(&binary);
 
-  // TODO
+  // Instantiate.
+  printf("Instantiating module...\n");
+  wasm_extern_vec_t imports = { 0, NULL };
+  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+  if (!instance) {
+    printf("> Error instantiating module!\n");
+    return 1;
+  }
+
+  // Extract export.
+  printf("Extracting exports...\n");
+  own wasm_extern_vec_t exports;
+  wasm_instance_exports(instance, &exports);
+  size_t i = 0;
+  wasm_memory_t* memory = get_export_memory(&exports, i++);
+  wasm_func_t* size_func = get_export_func(&exports, i++);
+  wasm_func_t* load_func = get_export_func(&exports, i++);
+  wasm_func_t* store_func = get_export_func(&exports, i++);
 
   wasm_module_delete(module);
+
+  // Check initial memory.
+  printf("Checking memory...\n");
+  check(wasm_memory_size(memory) == 2);
+  check(wasm_memory_data_size(memory) == 0x20000);
+  check(wasm_memory_data(memory)[0] == 0);
+  check(wasm_memory_data(memory)[0x1000] == 1);
+  check(wasm_memory_data(memory)[0x1003] == 4);
+
+  check_call0(size_func, 2);
+  check_call1(load_func, 0, 0);
+  check_call1(load_func, 0x1000, 1);
+  check_call1(load_func, 0x1003, 4);
+  check_call1(load_func, 0x1ffff, 0);
+  check_trap1(load_func, 0x20000);
+
+  // Mutate memory.
+  printf("Mutating memory...\n");
+  wasm_memory_data(memory)[0x1003] = 5;
+  check_ok2(store_func, 0x1002, 6);
+  check_trap2(store_func, 0x20000, 0);
+
+  check(wasm_memory_data(memory)[0x1002] == 6);
+  check(wasm_memory_data(memory)[0x1003] == 5);
+  check_call1(load_func, 0x1002, 6);
+  check_call1(load_func, 0x1003, 5);
+
+  // Grow memory.
+  printf("Growing memory...\n");
+  check(wasm_memory_grow(memory, 1));
+  check(wasm_memory_size(memory) == 3);
+  check(wasm_memory_data_size(memory) == 0x30000);
+
+  check_call1(load_func, 0x20000, 0);
+  check_ok2(store_func, 0x20000, 0);
+  check_trap1(load_func, 0x30000);
+  check_trap2(store_func, 0x30000, 0);
+
+  wasm_extern_vec_delete(&exports);
+  wasm_instance_delete(instance);
 
   // Shut down.
   printf("Shutting down...\n");

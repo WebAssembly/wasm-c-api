@@ -328,8 +328,10 @@ WASM_DECLARE_VEC(val, )
 #define WASM_DECLARE_REF(name) \
   WASM_DECLARE_REF_BASE(name) \
   \
-  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t*); \
-  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t*);
+  wasm_ref_t* wasm_##name##_as_ref(wasm_##name##_t*); \
+  wasm_##name##_t* wasm_ref_as_##name(wasm_ref_t*); \
+  const wasm_ref_t* wasm_##name##_as_ref_const(const wasm_##name##_t*); \
+  const wasm_##name##_t* wasm_ref_as_##name##_const(const wasm_ref_t*);
 
 
 WASM_DECLARE_REF_BASE(ref)

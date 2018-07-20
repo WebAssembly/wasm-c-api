@@ -548,10 +548,17 @@ const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
 #define WASM_DEFINE_REF(name, Name) \
   WASM_DEFINE_REF_BASE(name, Name) \
   \
-  const wasm_ref_t* wasm_##name##_as_ref(const wasm_##name##_t* r) { \
+  wasm_ref_t* wasm_##name##_as_ref(wasm_##name##_t* r) { \
+    return hide(static_cast<Ref*>(reveal(r))); \
+  } \
+  wasm_##name##_t* wasm_ref_as_##name(wasm_ref_t* r) { \
+    return hide(static_cast<Name*>(reveal(r))); \
+  } \
+  \
+  const wasm_ref_t* wasm_##name##_as_ref_const(const wasm_##name##_t* r) { \
     return hide(static_cast<const Ref*>(reveal(r))); \
   } \
-  const wasm_##name##_t* wasm_ref_as_##name(const wasm_ref_t* r) { \
+  const wasm_##name##_t* wasm_ref_as_##name##_const(const wasm_ref_t* r) { \
     return hide(static_cast<const Name*>(reveal(r))); \
   }
 

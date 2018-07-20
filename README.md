@@ -50,10 +50,6 @@ V8 implementation:
 
 ### TODO
 
-Tests:
-
-  * Create C versions of table, memory test.
-
 V8 implementation:
 
   * Use reference counting and caching for types?

@@ -16,6 +16,7 @@ float64_t f64_reinterpret_i64(int64_t x) {
   return *(float64_t*)&x;
 }
 
+
 wasm_global_t* get_export_global(const wasm_extern_vec_t* exports, size_t i) {
   if (exports->size <= i || !wasm_extern_as_global(exports->data[i])) {
     printf("> Error accessing global export %zu!\n", i);
@@ -32,6 +33,7 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
   return wasm_extern_as_func(exports->data[i]);
 }
 
+
 #define check(val, type, expected) \
   if (val.of.type != expected) { \
     printf("> Error reading value\n"); \
@@ -45,7 +47,7 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
     check(val, type, expected); \
   }
 
-#define check_func(func, type, expected) \
+#define check_call(func, type, expected) \
   { \
     wasm_val_vec_t args = {0, NULL}; \
     wasm_result_t result; \
@@ -53,6 +55,7 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
     check(result.of.vals.data[0], type, expected); \
     wasm_result_delete(&result); \
   }
+
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -131,10 +134,6 @@ int main(int argc, const char* argv[]) {
   printf("Extracting exports...\n");
   own wasm_extern_vec_t exports;
   wasm_instance_exports(instance, &exports);
-  if (exports.size == 0) {
-    printf("> Error accessing exports!\n");
-    return 1;
-  }
   size_t i = 0;
   wasm_global_t* const_f32_export = get_export_global(&exports, i++);
   wasm_global_t* const_i64_export = get_export_global(&exports, i++);
@@ -166,14 +165,14 @@ int main(int argc, const char* argv[]) {
   check_global(var_f32_export, f32, 7);
   check_global(var_i64_export, i64, 8);
 
-  check_func(get_const_f32_import, f32, 1);
-  check_func(get_const_i64_import, f64, f64_reinterpret_i64(2));
-  check_func(get_var_f32_import, f32, 3);
-  check_func(get_var_i64_import, f64, f64_reinterpret_i64(4));
-  check_func(get_const_f32_export, f32, 5);
-  check_func(get_const_i64_export, f64, f64_reinterpret_i64(6));
-  check_func(get_var_f32_export, f32, 7);
-  check_func(get_var_i64_export, f64, f64_reinterpret_i64(8));
+  check_call(get_const_f32_import, f32, 1);
+  check_call(get_const_i64_import, f64, f64_reinterpret_i64(2));
+  check_call(get_var_f32_import, f32, 3);
+  check_call(get_var_i64_import, f64, f64_reinterpret_i64(4));
+  check_call(get_const_f32_export, f32, 5);
+  check_call(get_const_i64_export, f64, f64_reinterpret_i64(6));
+  check_call(get_var_f32_export, f32, 7);
+  check_call(get_var_i64_export, f64, f64_reinterpret_i64(8));
 
   // Modify variables through API and check again.
   wasm_val_t val33 = {.kind = WASM_F32, .of = {.f32 = 33}};
@@ -190,10 +189,10 @@ int main(int argc, const char* argv[]) {
   check_global(var_f32_export, f32, 37);
   check_global(var_i64_export, i64, 38);
 
-  check_func(get_var_f32_import, f32, 33);
-  check_func(get_var_i64_import, f64, f64_reinterpret_i64(34));
-  check_func(get_var_f32_export, f32, 37);
-  check_func(get_var_i64_export, f64, f64_reinterpret_i64(38));
+  check_call(get_var_f32_import, f32, 33);
+  check_call(get_var_i64_import, f64, f64_reinterpret_i64(34));
+  check_call(get_var_f32_export, f32, 37);
+  check_call(get_var_i64_export, f64, f64_reinterpret_i64(38));
 
   // Modify variables through calls and check again.
   wasm_result_t result;
@@ -219,10 +218,10 @@ int main(int argc, const char* argv[]) {
   check_global(var_f32_export, f32, 77);
   check_global(var_i64_export, i64, 78);
 
-  check_func(get_var_f32_import, f32, 73);
-  check_func(get_var_i64_import, f64, f64_reinterpret_i64(74));
-  check_func(get_var_f32_export, f32, 77);
-  check_func(get_var_i64_export, f64, f64_reinterpret_i64(78));
+  check_call(get_var_f32_import, f32, 73);
+  check_call(get_var_i64_import, f64, f64_reinterpret_i64(74));
+  check_call(get_var_f32_export, f32, 77);
+  check_call(get_var_i64_export, f64, f64_reinterpret_i64(78));
 
   wasm_global_delete(const_f32_import);
   wasm_global_delete(const_i64_import);
