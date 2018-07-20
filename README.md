@@ -52,9 +52,7 @@ V8 implementation:
 
 Tests:
 
-  * Create C versions of global, table, memory test.
-
-  * Create C++ version of threads test.
+  * Create C versions of table, memory test.
 
 V8 implementation:
 
