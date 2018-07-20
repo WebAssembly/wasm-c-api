@@ -14,6 +14,7 @@
 #include "api.h"
 #include "wasm/wasm-objects.h"
 #include "wasm/wasm-objects-inl.h"
+#include "wasm/wasm-serialization.h"
 
 
 namespace v8 {
@@ -195,6 +196,36 @@ auto module_binary(v8::Local<v8::Object> module) -> const char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
   return reinterpret_cast<const char*>(v8_module->native_module()->wire_bytes().start());
+}
+
+auto module_serialize_size(v8::Local<v8::Object> module) -> size_t {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
+  auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
+  return v8::internal::wasm::GetSerializedNativeModuleSize(
+    v8_object->GetIsolate(), v8_module->native_module());
+}
+
+auto module_serialize(v8::Local<v8::Object> module, char* buffer, size_t size) -> bool {
+  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
+  auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
+  return v8::internal::wasm::SerializeNativeModule(
+    v8_object->GetIsolate(), v8_module->native_module(),
+    {reinterpret_cast<uint8_t*>(buffer), size});
+}
+
+auto module_deserialize(
+  v8::Isolate* isolate,
+  const char* binary, size_t binary_size,
+  const char* buffer, size_t buffer_size
+) -> v8::MaybeLocal<v8::Object> {
+  auto v8_isolate = reinterpret_cast<v8::internal::Isolate*>(isolate);
+  auto maybe_v8_module =
+    v8::internal::wasm::DeserializeNativeModule(v8_isolate,
+      {reinterpret_cast<const uint8_t*>(buffer), buffer_size},
+      {reinterpret_cast<const uint8_t*>(binary), binary_size});
+  if (maybe_v8_module.is_null()) return v8::MaybeLocal<v8::Object>();
+  auto v8_module = v8::internal::Handle<v8::internal::JSObject>::cast(maybe_v8_module.ToHandleChecked());
+  return v8::MaybeLocal<v8::Object>(v8::Utils::ToLocal(v8_module));
 }
 
 

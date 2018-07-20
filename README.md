@@ -58,9 +58,7 @@ Tests:
 
 V8 implementation:
 
-  * Implement Module::serialize, Module::deserialize
-
-  * Use reference counting and caching for types
+  * Use reference counting and caching for types?
 
 Possible API tweaks:
 

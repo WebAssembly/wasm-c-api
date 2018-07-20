@@ -731,9 +731,12 @@ void wasm_module_serialize(const wasm_module_t* module, wasm_byte_vec_t* out) {
   *out = release(reveal(module)->serialize());
 }
 
-wasm_module_t* wasm_module_deserialize(const wasm_byte_vec_t* binary) {
+wasm_module_t* wasm_module_deserialize(
+  wasm_store_t* store, const wasm_byte_vec_t* binary
+) {
+  auto store_ = borrow(store);
   auto binary_ = borrow(binary);
-  return release(Module::deserialize(binary_.it));
+  return release(Module::deserialize(store_.it, binary_.it));
 }
 
 

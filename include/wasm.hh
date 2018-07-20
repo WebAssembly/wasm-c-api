@@ -156,10 +156,16 @@ public:
     return data_.release();
   }
 
-  void reset(vec& that = vec(0)) {
-    size_ = that.size_;
+  void reset() {
     if (data_) vec_traits<T>::destruct(size_, data_.get());
     free_data();
+    size_ = 0;
+    data_.reset();
+  }
+
+  void reset(vec& that) {
+    reset();
+    size_ = that.size_;
     data_.reset(that.data_.release());
   }
 
@@ -623,7 +629,7 @@ public:
   auto exports() const -> vec<ExportType*>;
 
   auto serialize() const -> vec<byte_t>;
-  static auto deserialize(vec<byte_t>&) -> own<Module*>;
+  static auto deserialize(Store*, const vec<byte_t>&) -> own<Module*>;
 };
 
 
