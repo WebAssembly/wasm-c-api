@@ -21,7 +21,7 @@ void fail_callback(void* env, const wasm_val_vec_t* args, own wasm_result_t* res
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_engine_t* engine = wasm_engine_new(argc, argv);
+  wasm_engine_t* engine = wasm_engine_new();
   wasm_store_t* store = wasm_store_new(engine);
 
   // Load binary.

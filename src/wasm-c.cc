@@ -239,14 +239,12 @@ wasm_config_t* wasm_config_new() {
 
 WASM_DEFINE_OWN(engine, Engine)
 
-wasm_engine_t* wasm_engine_new(int argc, const char *const argv[]) {
-  return release(Engine::make(argc, argv));
+wasm_engine_t* wasm_engine_new() {
+  return release(Engine::make());
 }
 
-wasm_engine_t* wasm_engine_new_with_config(
-  int argc, const char *const argv[], wasm_config_t* config
-) {
-  return release(Engine::make(argc, argv, adopt(config)));
+wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config) {
+  return release(Engine::make(adopt(config)));
 }
 
 

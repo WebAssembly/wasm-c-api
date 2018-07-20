@@ -274,16 +274,14 @@ void Engine::operator delete(void *p) {
   ::operator delete(p);
 }
 
-auto Engine::make(
-  int argc, const char *const argv[], own<Config*>&& config
-) -> own<Engine*> {
+auto Engine::make(own<Config*>&& config) -> own<Engine*> {
   v8::internal::FLAG_expose_gc = true;
   v8::internal::FLAG_experimental_wasm_mut_global = true;
-  v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char**>(argv), false);
+  // v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char**>(argv), false);
   auto engine = new(std::nothrow) EngineImpl;
   if (!engine) return own<Engine*>();
   // v8::V8::InitializeICUDefaultLocation(argv[0]);
-  v8::V8::InitializeExternalStartupData(argv[0]);
+  // v8::V8::InitializeExternalStartupData(argv[0]);
   engine->platform = v8::platform::NewDefaultPlatform();
   v8::V8::InitializePlatform(engine->platform.get());
   v8::V8::Initialize();
