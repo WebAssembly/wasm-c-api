@@ -19,15 +19,15 @@ auto callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
 
 
 void run(
-  wasm::Engine* engine, const wasm::vec<byte_t>* binary,
+  wasm::Engine* engine, const wasm::vec<byte_t>* serialized,
   std::mutex* mutex, int id
 ) {
   // Create store.
   auto store_ = wasm::Store::make(engine);
   auto store = store_.get();
 
-  // Compile.
-  auto module = wasm::Module::make(store, *binary);
+  // Deserialize.
+  auto module = wasm::Module::deserialize(store, *serialized);
   if (!module) {
     std::lock_guard<std::mutex>(*mutex);
     std::cout << "> Error compiling module!" << std::endl;
@@ -92,6 +92,12 @@ int main(int argc, const char *argv[]) {
     return 1;
   }
 
+  // Compile and serialize.
+  std::cout << "Compiling and serializing module..." << std::endl;
+  auto store = wasm::Store::make(engine.get());
+  auto module = wasm::Module::make(store.get(), binary);
+  auto serialized = module->serialize();
+
   // Spawn threads.
   std::cout << "Spawning threads..." << std::endl;
   std::mutex mutex;
@@ -101,7 +107,7 @@ int main(int argc, const char *argv[]) {
       std::lock_guard<std::mutex>(*mutex);
       std::cout << "Initializing thread " << i << "..." << std::endl;
     }
-    threads[i] = std::thread(run, engine.get(), &binary, &mutex, i);
+    threads[i] = std::thread(run, engine.get(), &serialized, &mutex, i);
   }
 
   for (int i = 0; i < N_THREADS; ++i) {
