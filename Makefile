@@ -270,6 +270,12 @@ v8-clean:
 	echo >${V8_OUT}/version ${V8_VERSION}
 
 
+# Display V8 build configuration
+.PHONY: v8-gn-args
+v8-gn-args:
+	@echo ${V8_GN_ARGS}
+
+
 ###############################################################################
 # Docker
 #
