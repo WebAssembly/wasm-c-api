@@ -333,6 +333,13 @@ WASM_DECLARE_VEC(val, )
   const wasm_ref_t* wasm_##name##_as_ref_const(const wasm_##name##_t*); \
   const wasm_##name##_t* wasm_ref_as_##name##_const(const wasm_ref_t*);
 
+#define WASM_DECLARE_SHARABLE_REF(name) \
+  WASM_DECLARE_REF(name) \
+  WASM_DECLARE_OWN(shared_##name) \
+  \
+  own wasm_shared_##name##_t* wasm_##name##_share(const wasm_##name##_t*); \
+  own wasm_##name##_t* wasm_##name##_obtain(wasm_store_t*, const wasm_shared_##name##_t*);
+
 
 WASM_DECLARE_REF_BASE(ref)
 
@@ -357,7 +364,7 @@ own wasm_foreign_t* wasm_foreign_new(wasm_store_t*);
 
 // Modules
 
-WASM_DECLARE_REF(module)
+WASM_DECLARE_SHARABLE_REF(module)
 
 own wasm_module_t* wasm_module_new(
   wasm_store_t*, const wasm_byte_vec_t* binary);

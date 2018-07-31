@@ -22,22 +22,16 @@ void callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
 
 typedef struct {
   wasm_engine_t* engine;
-  wasm_byte_vec_t binary;
+  wasm_shared_module_t* module;
   int id;
 } thread_args;
 
 void* run(void* args_abs) {
   thread_args* args = (thread_args*)args_abs;
 
-  // Create store.
-  wasm_store_t* store = wasm_store_new(args->engine);
-
-  // Compile.
-  own wasm_module_t* module = wasm_module_new(store, &args->binary);
-  if (!module) {
-    printf("> Error compiling module!\n");
-    return NULL;
-  }
+  // Rereate store and module.
+  own wasm_store_t* store = wasm_store_new(args->engine);
+  own wasm_module_t* module = wasm_module_obtain(store, args->module);
 
   // Run the example N times.
   for (int i = 0; i < N_REPS; ++i) {
@@ -121,12 +115,28 @@ int main(int argc, const char *argv[]) {
   fread(binary.data, file_size, 1, file);
   fclose(file);
 
+  // Compile and share.
+  own wasm_store_t* store = wasm_store_new(engine);
+  own wasm_module_t* module = wasm_module_new(store, &binary);
+  if (!module) {
+    printf("> Error compiling module!\n");
+    return 1;
+  }
+
+  wasm_byte_vec_delete(&binary);
+
+  own wasm_shared_module_t* shared = wasm_module_share(module);
+
+  wasm_module_delete(module);
+  wasm_store_delete(store);
+
+  // Spawn threads.
   pthread_t threads[N_THREADS];
   for (int i = 0; i < N_THREADS; i++) {
     thread_args* args = malloc(sizeof(thread_args));
     args->id = i;
     args->engine = engine;
-    args->binary = binary;
+    args->module = shared;
     printf("Initializing thread %d...\n", i);
     pthread_create(&threads[i], NULL, &run, args);
   }
@@ -136,7 +146,7 @@ int main(int argc, const char *argv[]) {
     pthread_join(threads[i], NULL);
   }
 
-  wasm_byte_vec_delete(&binary);
+  wasm_shared_module_delete(shared);
   wasm_engine_delete(engine);
 
   return 0;
