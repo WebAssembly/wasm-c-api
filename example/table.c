@@ -77,6 +77,20 @@ void check_trap(wasm_func_t* func, int32_t arg1, int32_t arg2) {
   wasm_result_delete(&result);
 }
 
+void test_table_grow_beyond_max_limit(wasm_store_t *store, wasm_func_t *f) {
+  printf("Growing table beyond max limit...\n");
+  wasm_limits_t l = { .min = 1, .max = 2 };
+  wasm_tabletype_t *tt = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &l);
+  wasm_table_t *t = wasm_table_new(store, tt, wasm_func_as_ref(f));
+  check(!wasm_table_grow(t, 3));
+}
+
+void test_table_new_null_ref(wasm_store_t *store) {
+  printf("Creating table with NULL ref...\n");
+  wasm_limits_t l = { .min = 1, .max = 2 };
+  wasm_tabletype_t *tt = wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &l);
+  wasm_table_t *t = wasm_table_new(store, tt, NULL);
+}
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -171,6 +185,9 @@ int main(int argc, const char* argv[]) {
   check_call(call_indirect, 6, 3, -6);
   check_trap(call_indirect, 0, 4);
   check_trap(call_indirect, 0, 5);
+
+  test_table_grow_beyond_max_limit(store, f);
+  test_table_new_null_ref(store);
 
   wasm_func_delete(h);
   wasm_extern_vec_delete(&exports);
