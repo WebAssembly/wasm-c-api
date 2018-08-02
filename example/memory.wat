@@ -1,5 +1,5 @@
 (module
-  (memory (export "memory") 2)
+  (memory (export "memory") 2 3)
 
   (func (export "size") (result i32) (memory.size))
   (func (export "load") (param i32) (result i32) (i32.load8_s (get_local 0)))

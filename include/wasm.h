@@ -457,7 +457,7 @@ WASM_DECLARE_REF(table)
 typedef uint32_t wasm_table_size_t;
 
 own wasm_table_t* wasm_table_new(
-  wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t*);
+  wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t* init);
 
 own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
@@ -465,7 +465,7 @@ own wasm_ref_t* wasm_table_get(const wasm_table_t*, wasm_table_size_t index);
 bool wasm_table_set(wasm_table_t*, wasm_table_size_t index, wasm_ref_t*);
 
 wasm_table_size_t wasm_table_size(const wasm_table_t*);
-bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta);
+bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta, wasm_ref_t* init);
 
 
 // Memory Instances

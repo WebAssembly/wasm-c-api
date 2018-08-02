@@ -396,12 +396,14 @@ auto table_size(v8::Local<v8::Object> table) -> size_t {
   return v8_table->current_length();
 }
 
-auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool {
+auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::MaybeLocal<v8::Function> init) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
   if (delta > 0xfffffffflu) return false;
   auto old_size = v8_table->current_length();
   auto new_size = old_size + static_cast<uint32_t>(delta);
+  // TODO(v8): This should happen in WasmTableObject::Grow.
+  if (new_size > table_type_max(table)) return false;
 
   { v8::TryCatch handler(table->GetIsolate());
     v8_table->Grow(v8_table->GetIsolate(), static_cast<uint32_t>(delta));
@@ -415,8 +417,9 @@ auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool {
     auto new_array = isolate->factory()->NewFixedArray(static_cast<int>(new_size));
     assert(static_cast<uint32_t>(old_array->length()) == old_size);
     for (int i = 0; i < static_cast<int>(old_size); ++i) new_array->set(i, old_array->get(i));
-    auto null = isolate->factory()->null_value();
-    for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, *null);
+    v8::internal::Handle<v8::internal::Object> val = isolate->factory()->null_value();
+    if (!init.IsEmpty()) val = v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(init.ToLocalChecked());
+    for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, *val);
     v8_table->set_functions(*new_array);
   }
 

@@ -894,8 +894,11 @@ wasm_table_size_t wasm_table_size(const wasm_table_t* table) {
   return table->size();
 }
 
-bool wasm_table_grow(wasm_table_t* table, wasm_table_size_t delta) {
-  return table->grow(delta);
+bool wasm_table_grow(
+  wasm_table_t* table, wasm_table_size_t delta, wasm_ref_t* ref
+) {
+  auto ref_ = borrow(ref);
+  return table->grow(delta, ref_.it);
 }
 
 

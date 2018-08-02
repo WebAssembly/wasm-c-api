@@ -136,6 +136,18 @@ void run() {
   check_trap(load_func->call(wasm::Val::i32(0x30000)));
   check_trap(store_func->call(wasm::Val::i32(0x30000), wasm::Val::i32(0)));
 
+  check(! memory->grow(1));
+  check(memory->grow(0));
+
+  // Create stand-alone memory.
+  // TODO(wasm+): Once Wasm allows multiple memories, turn this into import.
+  std::cout << "Creating stand-alone memory..." << std::endl;
+  auto memorytype = wasm::MemoryType::make(wasm::Limits(5, 5));
+  auto memory2 = wasm::Memory::make(store, memorytype.get());
+  check(memory2->size() == 5);
+  check(! memory2->grow(1));
+  check(memory2->grow(0));
+
   // Shut down.
   std::cout << "Shutting down..." << std::endl;
 }

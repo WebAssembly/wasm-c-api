@@ -142,6 +142,25 @@ void run() {
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(4)));
   check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(5)));
 
+  check(table->grow(2, f));
+  check(table->size(), 7);
+  check(table->get(5) != nullptr);
+  check(table->get(6) != nullptr);
+
+  check(! table->grow(5));
+  check(table->grow(3));
+  check(table->grow(0));
+
+  // Create stand-alone table.
+  // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
+  std::cout << "Creating stand-alone table..." << std::endl;
+  auto tabletype = wasm::TableType::make(
+    wasm::ValType::make(wasm::FUNCREF), wasm::Limits(5, 5));
+  auto table2 = wasm::Table::make(store, tabletype.get());
+  check(table2->size() == 5);
+  check(! table2->grow(1));
+  check(table2->grow(0));
+
   // Shut down.
   std::cout << "Shutting down..." << std::endl;
 }
@@ -152,4 +171,3 @@ int main(int argc, const char* argv[]) {
   std::cout << "Done." << std::endl;
   return 0;
 }
-
