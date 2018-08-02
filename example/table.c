@@ -159,7 +159,7 @@ int main(int argc, const char* argv[]) {
 
   // Grow table.
   printf("Growing table...\n");
-  check(wasm_table_grow(table, 3));
+  check(wasm_table_grow(table, 3, NULL));
   check(wasm_table_size(table) == 5);
   check(wasm_table_set(table, 2, wasm_func_as_ref(f)));
   check(wasm_table_set(table, 3, wasm_func_as_ref(h)));
@@ -172,9 +172,32 @@ int main(int argc, const char* argv[]) {
   check_trap(call_indirect, 0, 4);
   check_trap(call_indirect, 0, 5);
 
+  check(wasm_table_grow(table, 2, wasm_func_as_ref(f)));
+  check(wasm_table_size(table) == 7);
+  check_table(table, 5, true);
+  check_table(table, 6, true);
+
+  check(! wasm_table_grow(table, 5, NULL));
+  check(wasm_table_grow(table, 3, NULL));
+  check(wasm_table_grow(table, 0, NULL));
+
   wasm_func_delete(h);
   wasm_extern_vec_delete(&exports);
   wasm_instance_delete(instance);
+
+  // Create stand-alone table.
+  // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
+  printf("Creating stand-alone table...\n");
+  wasm_limits_t limits = {5, 5};
+  own wasm_tabletype_t* tabletype =
+    wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &limits);
+  own wasm_table_t* table2 = wasm_table_new(store, tabletype, NULL);
+  check(wasm_table_size(table2) == 5);
+  check(! wasm_table_grow(table2, 1, NULL));
+  check(wasm_table_grow(table2, 0, NULL));
+
+  wasm_tabletype_delete(tabletype);
+  wasm_table_delete(table2);
 
   // Shut down.
   printf("Shutting down...\n");

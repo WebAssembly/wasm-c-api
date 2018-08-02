@@ -196,8 +196,24 @@ int main(int argc, const char* argv[]) {
   check_trap1(load_func, 0x30000);
   check_trap2(store_func, 0x30000, 0);
 
+  check(! wasm_memory_grow(memory, 1));
+  check(wasm_memory_grow(memory, 0));
+
   wasm_extern_vec_delete(&exports);
   wasm_instance_delete(instance);
+
+  // Create stand-alone memory.
+  // TODO(wasm+): Once Wasm allows multiple memories, turn this into import.
+  printf("Creating stand-alone memory...\n");
+  wasm_limits_t limits = {5, 5};
+  own wasm_memorytype_t* memorytype = wasm_memorytype_new(&limits);
+  own wasm_memory_t* memory2 = wasm_memory_new(store, memorytype);
+  check(wasm_memory_size(memory2) == 5);
+  check(! wasm_memory_grow(memory2, 1));
+  check(wasm_memory_grow(memory2, 0));
+
+  wasm_memorytype_delete(memorytype);
+  wasm_memory_delete(memory2);
 
   // Shut down.
   printf("Shutting down...\n");

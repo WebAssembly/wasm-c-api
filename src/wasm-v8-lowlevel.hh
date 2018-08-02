@@ -61,7 +61,7 @@ void global_set_f64(v8::Local<v8::Object> global, double);
 auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Function>;
 auto table_set(v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Function>) -> bool;
 auto table_size(v8::Local<v8::Object> table) -> size_t;
-auto table_grow(v8::Local<v8::Object> table, size_t delta) -> bool;
+auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::MaybeLocal<v8::Function>) -> bool;
 
 auto memory_data(v8::Local<v8::Object> memory) -> char*;
 auto memory_data_size(v8::Local<v8::Object> memory)-> size_t;

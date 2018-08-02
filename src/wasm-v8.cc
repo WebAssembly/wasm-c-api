@@ -1799,15 +1799,24 @@ auto Table::make(
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
-  // TODO(wasm+): handle reference initialiser
-  v8::Local<v8::Value> args[] = {
-    tabletype_to_v8(store, type),
-    impl(ref)->v8_object()
-  };
+  v8::Local<v8::Value> init = v8::Null(isolate);
+  if (ref) init = impl(ref)->v8_object();
+  v8::Local<v8::Value> args[] = {tabletype_to_v8(store, type), init};
   auto maybe_obj =
     store->v8_function(V8_F_TABLE)->NewInstance(context, 2, args);
   if (maybe_obj.IsEmpty()) return own<Table*>();
-  return RefImpl<Table>::make(store, maybe_obj.ToLocalChecked());
+  auto table = RefImpl<Table>::make(store, maybe_obj.ToLocalChecked());
+  // TODO(wasm+): pass reference initialiser as parameter
+  if (table && ref) {
+    auto size = type->limits().min;
+    auto obj = maybe_obj.ToLocalChecked();
+    auto maybe_func = v8::MaybeLocal<v8::Function>(
+      v8::Local<v8::Function>::Cast(init));
+    for (size_t i = 0; i < size; ++i) {
+      wasm_v8::table_set(obj, i, maybe_func);
+    }
+  }
+  return table;
 }
 
 auto Table::type() const -> own<TableType*> {
@@ -1848,9 +1857,13 @@ auto Table::size() const -> size_t {
   return wasm_v8::table_size(impl(this)->v8_object());
 }
 
-auto Table::grow(size_t delta) -> bool {
+auto Table::grow(size_t delta, const Ref* ref) -> bool {
   v8::HandleScope handle_scope(impl(this)->store()->isolate());
-  return wasm_v8::table_grow(impl(this)->v8_object(), delta);
+  auto obj = ref
+    ? v8::MaybeLocal<v8::Function>(
+        v8::Local<v8::Function>::Cast(impl(ref)->v8_object()))
+    : v8::MaybeLocal<v8::Function>();
+  return wasm_v8::table_grow(impl(this)->v8_object(), delta, obj);
 }
 
 
