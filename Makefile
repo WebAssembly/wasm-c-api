@@ -7,7 +7,7 @@ V8_VERSION = branch-heads/6.9
 V8_ARCH = x64
 V8_MODE = release
 
-WASM_FLAGS = -DDEBUG
+WASM_FLAGS = -DDEBUG  # -DDEBUG_LOG
 C_FLAGS = ${WASM_FLAGS} -ggdb -O0 -fsanitize=address
 CC_FLAGS = ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
@@ -170,6 +170,9 @@ wasm-cc: ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
 	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+
+${WASM_SRC}/wasm-c.cc: ${WASM_SRC}/wasm-v8.cc
+	touch $@
 
 
 ###############################################################################

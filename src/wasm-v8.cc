@@ -121,14 +121,26 @@ struct Stats {
   }
 #endif
 
-  void make(category_t i, cardinality_t j = OWN, size_t n = 1) {
+  void make(category_t i, void* ptr, cardinality_t j = OWN, size_t n = 1) {
 #ifdef DEBUG
+#ifdef DEBUG_LOG
+    if (ptr) {
+      std::clog << "[make] " << ptr
+        << " wasm::" << left[j] << name[i] << right[j] << std::endl;
+    }
+#endif
     made[i][j] += n;
 #endif
   }
 
-  void free(category_t i, cardinality_t j = OWN, size_t n = 1) {
+  void free(category_t i, void* ptr, cardinality_t j = OWN, size_t n = 1) {
 #ifdef DEBUG
+#ifdef DEBUG_LOG
+    if (ptr) {
+      std::clog << "[free] " << ptr
+        << " wasm::" << left[j] << name[i] << right[j] << std::endl;
+    }
+#endif
     freed[i][j] += n;
     if (freed[i][j] > made[i][j]) {
       std::cerr << "Deleting instance of wasm::"
@@ -185,11 +197,11 @@ Stats stats;
 
 #define DEFINE_VEC(type, STAT) \
   template<> void vec<type>::make_data() { \
-    if (data_) stats.make(Stats::STAT, Stats::VEC); \
+    if (data_) stats.make(Stats::STAT, data_.get(), Stats::VEC); \
   } \
   \
   template<> void vec<type>::free_data() { \
-    if (data_) stats.free(Stats::STAT, Stats::VEC); \
+    if (data_) stats.free(Stats::STAT, data_.get(), Stats::VEC); \
   }
 
 DEFINE_VEC(byte_t, BYTE)
@@ -221,8 +233,8 @@ DEFINE_VEC(Val, VAL)
 // Configuration
 
 struct ConfigImpl {
-  ConfigImpl() { stats.make(Stats::CONFIG); }
-  ~ConfigImpl() { stats.free(Stats::CONFIG); }
+  ConfigImpl() { stats.make(Stats::CONFIG, this); }
+  ~ConfigImpl() { stats.free(Stats::CONFIG, this); }
 };
 
 template<> struct implement<Config> { using type = ConfigImpl; };
@@ -251,13 +263,13 @@ struct EngineImpl {
   EngineImpl() {
     assert(!created);
     created = true;
-    stats.make(Stats::ENGINE);
+    stats.make(Stats::ENGINE, this);
   }
 
   ~EngineImpl() {
     v8::V8::Dispose();
     v8::V8::ShutdownPlatform();
-    stats.free(Stats::ENGINE);
+    stats.free(Stats::ENGINE, this);
   }
 };
 
@@ -324,7 +336,7 @@ class StoreImpl {
 
 public:
   StoreImpl() {
-    stats.make(Stats::STORE);
+    stats.make(Stats::STORE, this);
   }
 
   ~StoreImpl() {
@@ -336,7 +348,7 @@ public:
     isolate_->Exit();
     isolate_->Dispose();
     delete create_params_.array_buffer_allocator;
-    stats.free(Stats::STORE);
+    stats.free(Stats::STORE, this);
   }
 
   auto isolate() const -> v8::Isolate* {
@@ -503,14 +515,15 @@ ValTypeImpl* valtypes[] = {
 
 
 ValType::~ValType() {
-  stats.free(Stats::VALTYPE);
+  stats.free(Stats::VALTYPE, this);
 }
 
 void ValType::operator delete(void*) {}
 
 auto ValType::make(ValKind k) -> own<ValType*> {
-  stats.make(Stats::VALTYPE);
-  return own<ValType*>(seal<ValType>(valtypes[k]));
+  auto result = seal<ValType>(valtypes[k]);
+  stats.make(Stats::VALTYPE, result);
+  return own<ValType*>(result);
 }
 
 auto ValType::copy() const -> own<ValType*> {
@@ -566,11 +579,11 @@ struct FuncTypeImpl : ExternTypeImpl {
     ExternTypeImpl(EXTERN_FUNC),
     params(std::move(params)), results(std::move(results))
   {
-    stats.make(Stats::FUNCTYPE);
+    stats.make(Stats::FUNCTYPE, this);
   }
 
   ~FuncTypeImpl() {
-    stats.free(Stats::FUNCTYPE);
+    stats.free(Stats::FUNCTYPE, this);
   }
 };
 
@@ -623,11 +636,11 @@ struct GlobalTypeImpl : ExternTypeImpl {
     ExternTypeImpl(EXTERN_GLOBAL),
     content(std::move(content)), mutability(mutability)
   {
-    stats.make(Stats::GLOBALTYPE);
+    stats.make(Stats::GLOBALTYPE, this);
   }
 
   ~GlobalTypeImpl() {
-    stats.free(Stats::GLOBALTYPE);
+    stats.free(Stats::GLOBALTYPE, this);
   }
 };
 
@@ -680,11 +693,11 @@ struct TableTypeImpl : ExternTypeImpl {
   TableTypeImpl(own<ValType*>& element, Limits limits) :
     ExternTypeImpl(EXTERN_TABLE), element(std::move(element)), limits(limits)
   {
-    stats.make(Stats::TABLETYPE);
+    stats.make(Stats::TABLETYPE, this);
   }
 
   ~TableTypeImpl() {
-    stats.free(Stats::TABLETYPE);
+    stats.free(Stats::TABLETYPE, this);
   }
 };
 
@@ -734,11 +747,11 @@ struct MemoryTypeImpl : ExternTypeImpl {
   MemoryTypeImpl(Limits limits) :
     ExternTypeImpl(EXTERN_MEMORY), limits(limits)
   {
-    stats.make(Stats::MEMORYTYPE);
+    stats.make(Stats::MEMORYTYPE, this);
   }
 
   ~MemoryTypeImpl() {
-    stats.free(Stats::MEMORYTYPE);
+    stats.free(Stats::MEMORYTYPE, this);
   }
 };
 
@@ -784,11 +797,11 @@ struct ImportTypeImpl {
   ImportTypeImpl(Name& module, Name& name, own<ExternType*>& type) :
     module(std::move(module)), name(std::move(name)), type(std::move(type))
   {
-    stats.make(Stats::IMPORTTYPE);
+    stats.make(Stats::IMPORTTYPE, this);
   }
 
   ~ImportTypeImpl() {
-    stats.free(Stats::IMPORTTYPE);
+    stats.free(Stats::IMPORTTYPE, this);
   }
 };
 
@@ -838,11 +851,11 @@ struct ExportTypeImpl {
   ExportTypeImpl(Name& name, own<ExternType*>& type) :
     name(std::move(name)), type(std::move(type))
   {
-    stats.make(Stats::EXPORTTYPE);
+    stats.make(Stats::EXPORTTYPE, this);
   }
 
   ~ExportTypeImpl() {
-    stats.free(Stats::EXPORTTYPE);
+    stats.free(Stats::EXPORTTYPE, this);
   }
 };
 
@@ -1101,7 +1114,7 @@ public:
   }
 
   ~RefImpl() {
-    stats.free(Stats::categorize(v8_object_));
+    stats.free(Stats::categorize(v8_object_), this);
   }
 
 private:
@@ -1110,7 +1123,7 @@ private:
   RefImpl(StoreImpl* store, v8::Local<v8::Object> obj) :
     v8_object_(store->isolate(), obj)
   {
-    stats.make(Stats::categorize(v8_object_));
+    stats.make(Stats::categorize(v8_object_), this);
   }
 
   struct HostData {
@@ -1255,7 +1268,7 @@ auto Module::make(Store* store_abs, const vec<byte_t>& binary) -> own<Module*> {
 }
 
 auto Module::imports() const -> vec<ImportType*> {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto module = impl(this)->v8_object();
   auto binary = vec<byte_t>::adopt(
     wasm_v8::module_binary_size(module),
@@ -1299,7 +1312,7 @@ auto Module::imports() const -> vec<ImportType*> {
 }
 
 auto Module::exports() const -> vec<ExportType*> {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto module = impl(this)->v8_object();
   auto binary = vec<byte_t>::adopt(
     wasm_v8::module_binary_size(module),
@@ -1340,7 +1353,7 @@ auto Module::exports() const -> vec<ExportType*> {
 }
 
 auto Module::serialize() const -> vec<byte_t> {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto module = impl(this)->v8_object();
   auto binary_size = wasm_v8::module_binary_size(module);
   auto serial_size = wasm_v8::module_serialize_size(module);
@@ -1382,7 +1395,7 @@ auto Extern::copy() const -> own<Extern*> {
 }
 
 auto Extern::kind() const -> ExternKind {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return static_cast<ExternKind>(wasm_v8::extern_kind(impl(this)->v8_object()));
 }
 
@@ -1456,19 +1469,19 @@ struct FuncData {
   FuncData(Store* store, const FuncType* type, Kind kind) :
     store(store), type(type->copy()), kind(kind)
   {
-    stats.make(Stats::FUNCDATA_FUNCTYPE);
-    stats.make(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->params().size());
-    stats.make(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->results().size());
-    if (type->params().get()) stats.make(Stats::FUNCDATA_VALTYPE, Stats::VEC);
-    if (type->results().get()) stats.make(Stats::FUNCDATA_VALTYPE, Stats::VEC);
+    stats.make(Stats::FUNCDATA_FUNCTYPE, nullptr);
+    stats.make(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->params().size());
+    stats.make(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->results().size());
+    if (type->params().get()) stats.make(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
+    if (type->results().get()) stats.make(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
   }
 
   ~FuncData() {
-    stats.free(Stats::FUNCDATA_FUNCTYPE);
-    stats.free(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->params().size());
-    stats.free(Stats::FUNCDATA_VALTYPE, Stats::OWN, type->results().size());
-    if (type->params().get()) stats.free(Stats::FUNCDATA_VALTYPE, Stats::VEC);
-    if (type->results().get()) stats.free(Stats::FUNCDATA_VALTYPE, Stats::VEC);
+    stats.free(Stats::FUNCDATA_FUNCTYPE, nullptr);
+    stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->params().size());
+    stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->results().size());
+    if (type->params().get()) stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
+    if (type->results().get()) stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
   }
 
   static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
@@ -1562,7 +1575,7 @@ auto Func::make(
 
 auto Func::type() const -> own<FuncType*> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return func_type(impl(this)->v8_object());
 }
 
@@ -1701,7 +1714,7 @@ auto Global::make(
 
 auto Global::type() const -> own<GlobalType*> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   auto kind = static_cast<ValKind>(wasm_v8::global_type_content(v8_global));
   auto mutability = wasm_v8::global_type_mutable(v8_global) ? VAR : CONST;
@@ -1709,7 +1722,7 @@ auto Global::type() const -> own<GlobalType*> {
 }
 
 auto Global::get() const -> Val {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   switch (type()->content()->kind()) {
     case I32: return Val(wasm_v8::global_get_i32(v8_global));
@@ -1745,7 +1758,7 @@ auto Global::get() const -> Val {
 }
 
 void Global::set(const Val& val) {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   switch (val.kind()) {
     case I32: return wasm_v8::global_set_i32(v8_global, val.i32());
@@ -1821,7 +1834,7 @@ auto Table::make(
 
 auto Table::type() const -> own<TableType*> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_table = impl(this)->v8_object();
   uint32_t min = wasm_v8::table_type_min(v8_table);
   uint32_t max = wasm_v8::table_type_max(v8_table);
@@ -1830,7 +1843,7 @@ auto Table::type() const -> own<TableType*> {
 }
 
 auto Table::get(size_t index) const -> own<Ref*> {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto maybe = wasm_v8::table_get(impl(this)->v8_object(), index);
   if (maybe.IsEmpty() || maybe.ToLocalChecked()->IsNull()) return own<Ref*>();
   // TODO(wasm+): other references
@@ -1840,7 +1853,7 @@ auto Table::get(size_t index) const -> own<Ref*> {
 }
 
 auto Table::set(size_t index, const Ref* ref) -> bool {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   if (ref && !impl(ref)->v8_object()->IsFunction()) {
     UNIMPLEMENTED("non-function table elements");
     exit(1);
@@ -1853,12 +1866,12 @@ auto Table::set(size_t index, const Ref* ref) -> bool {
 }
 
 auto Table::size() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::table_size(impl(this)->v8_object());
 }
 
 auto Table::grow(size_t delta, const Ref* ref) -> bool {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto obj = ref
     ? v8::MaybeLocal<v8::Function>(
         v8::Local<v8::Function>::Cast(impl(ref)->v8_object()))
@@ -1893,7 +1906,7 @@ auto Memory::make(Store* store_abs, const MemoryType* type) -> own<Memory*> {
 
 auto Memory::type() const -> own<MemoryType*> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_memory = impl(this)->v8_object();
   uint32_t min = wasm_v8::memory_type_min(v8_memory);
   uint32_t max = wasm_v8::memory_type_max(v8_memory);
@@ -1901,22 +1914,22 @@ auto Memory::type() const -> own<MemoryType*> {
 }
 
 auto Memory::data() const -> byte_t* {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::memory_data(impl(this)->v8_object());
 }
 
 auto Memory::data_size() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::memory_data_size(impl(this)->v8_object());
 }
 
 auto Memory::size() const -> pages_t {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::memory_size(impl(this)->v8_object());
 }
 
 auto Memory::grow(pages_t delta) -> bool {
-  v8::HandleScope handle_scope(impl(this)->store()->isolate());
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::memory_grow(impl(this)->v8_object(), delta);
 }
 
