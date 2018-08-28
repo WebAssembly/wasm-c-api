@@ -39,7 +39,7 @@ typedef double float64_t;
 // The qualifier `own` is used to indicate ownership of data in this API.
 // It is intended to be interpreted similar to a `const` qualifier:
 //
-// - `own wasm_xxx_*` owns the pointed-to data
+// - `own wasm_xxx_t*` owns the pointed-to data
 // - `own wasm_xxx_t` distributes to all fields of a struct or union `xxx`
 // - `own wasm_xxx_vec_t` owns the vector as well as its elements(!)
 // - an `own` function parameter passes ownership from caller to callee
