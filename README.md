@@ -5,27 +5,27 @@ Work in progress! No docs yet.
 
 ### Design Goals
 
-* Provide a "black box" API for embedding a Wasm engine in other applications.
+* Provide a "black box" API for embedding a Wasm engine in other C/C++ applications.
 
   * Be completely agnostic to VM specifics.
 
-  * "White box" interoperability with environment (such as combined GC) is not a current goal (and *much* more difficult to achieve).
+  * Non-goal: "white box" interoperability with embedder (such as combined GC instead of mere finalisation) -- *much* more difficult to achieve.
 
-* Allow creation of bindings for other languages through their foreign function interfaces.
+* Allow creation of bindings for other languages through typical C foreign function interfaces.
 
-  * Support a pure C API.
+  * Support a plain C API.
 
-  * Mostly manual memory management.
+  * Stick to mostly manual memory management of interface objects.
 
-* Avoid language features raising barriers to use.
+* Avoid language features that raise barrier to use.
 
-  * No exceptions or post-C++11 features in C++ API.
+  * E.g., no exceptions or post-C++11 features in C++ API.
 
-  * No passing of structs by-value or post-C99 features in C API.
+  * E.g., no passing of structs by-value or post-C99 features in C API.
 
 * Achieve link-time compatibility between different implementations.
 
-  * All classes can be instantiated through factory methods only and have completely abstract implementations.
+  * All implementation-dependent API classes are abstract and can be instantiated through factory methods only.
 
 
 ### Interfaces
@@ -44,7 +44,7 @@ Work in progress! No docs yet.
 
 Some random explanations:
 
-* The VM must be initialised by creating an instance of an *engine* (`wasm::Engine`/`wasm_engine_t`) and is shut down by deleting it. An instance may only be created once per a process.
+* The VM must be initialised by creating an instance of an *engine* (`wasm::Engine`/`wasm_engine_t`) and is shut down by deleting it. Such an instance may only be created once per process.
 
 * All runtime objects are tied to a specific *store* (`wasm::Store`/`wasm_store_t`). Multiple stores can be created, but their objects cannot interact. Every store and its objects must only be accessed in a single thread.
 
