@@ -75,7 +75,7 @@ struct Stats {
     CATEGORY_COUNT
   };
   enum cardinality_t {
-    OWN, VEC, CARDINALITY_COUNT
+    OWN, VEC, SHARED, CARDINALITY_COUNT
   };
 
 #ifdef DEBUG
@@ -102,6 +102,8 @@ struct Stats {
       made[FUNCDATA_VALTYPE][OWN] - freed[FUNCDATA_VALTYPE][OWN];
     freed[VALTYPE][VEC] +=
       made[FUNCDATA_VALTYPE][VEC] - freed[FUNCDATA_VALTYPE][VEC];
+    // Hack for shared modules.
+    freed[BYTE][VEC] += made[MODULE][SHARED] - freed[MODULE][SHARED];
 
     bool leak = false;
     for (int i = 0; i < STRONG_COUNT; ++i) {
@@ -179,11 +181,11 @@ const char* Stats::name[STRONG_COUNT] = {
 };
 
 const char* Stats::left[CARDINALITY_COUNT] = {
-  "", "vec<"
+  "", "vec<", "Shared<"
 };
 
 const char* Stats::right[CARDINALITY_COUNT] = {
-  "", ">"
+  "", ">", ">"
 };
 #endif
 
@@ -1383,6 +1385,32 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
 }
 
 
+// TODO(wasm+): do better when V8 can do better.
+template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
+
+template<>
+Shared<Module>::~Shared() {
+  stats.free(Stats::MODULE, Stats::SHARED);
+  impl(this)->~vec();
+}
+
+template<>
+void Shared<Module>::operator delete(void* p) {
+  ::operator delete(p);
+}
+
+auto Module::share() const -> own<Shared<Module>*> {
+  stats.make(Stats::MODULE, Stats::SHARED);
+  return make_own(seal<Shared<Module>>(new vec<byte_t>(std::move(serialize()))));
+}
+
+auto Module::obtain(Store* store, const Shared<Module>* shared) -> own<Module*> {
+  return Module::deserialize(store, *impl(shared));
+}
+
+
+
+
 // Externals
 
 template<> struct implement<Extern> { using type = RefImpl<Extern>; };
@@ -1953,6 +1981,8 @@ auto Instance::make(
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
+
+  assert(wasm_v8::object_isolate(module->v8_object()) == isolate);
 
   auto import_types = module_abs->imports();
   auto imports_obj = v8::Object::New(isolate);

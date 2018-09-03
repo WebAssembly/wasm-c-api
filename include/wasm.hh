@@ -612,6 +612,17 @@ public:
 };
 
 
+// Shared objects
+
+template<class T>
+class Shared {
+public:
+  Shared() = delete;
+  ~Shared();
+  void operator delete(void*);
+};
+
+
 // Modules
 
 class Module : public Ref {
@@ -625,6 +636,9 @@ public:
 
   auto imports() const -> vec<ImportType*>;
   auto exports() const -> vec<ExportType*>;
+
+  auto share() const -> own<Shared<Module>*>;
+  static auto obtain(Store*, const Shared<Module>*) -> own<Module*>;
 
   auto serialize() const -> vec<byte_t>;
   static auto deserialize(Store*, const vec<byte_t>&) -> own<Module*>;

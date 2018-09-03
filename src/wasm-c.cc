@@ -562,6 +562,10 @@ const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
     return hide(static_cast<const Name*>(reveal(r))); \
   }
 
+#define WASM_DEFINE_SHARABLE_REF(name, Name) \
+  WASM_DEFINE_REF(name, Name) \
+  WASM_DEFINE_OWN(shared_##name, Shared<Name>)
+
 
 WASM_DEFINE_REF_BASE(ref, Ref)
 
@@ -703,7 +707,7 @@ wasm_foreign_t* wasm_foreign_new(wasm_store_t* store) {
 
 // Modules
 
-WASM_DEFINE_REF(module, Module)
+WASM_DEFINE_SHARABLE_REF(module, Module)
 
 bool wasm_module_validate(wasm_store_t* store, const wasm_byte_vec_t* binary) {
   auto store_ = borrow(store);
@@ -742,6 +746,16 @@ wasm_module_t* wasm_module_deserialize(
   auto store_ = borrow(store);
   auto binary_ = borrow(binary);
   return release(Module::deserialize(store_.it, binary_.it));
+}
+
+wasm_shared_module_t* wasm_module_share(const wasm_module_t* module) {
+  return release(reveal(module)->share());
+}
+
+wasm_module_t* wasm_module_obtain(wasm_store_t* store, const wasm_shared_module_t* shared) {
+  auto store_ = borrow(store);
+  auto shared_ = borrow(shared);
+  return release(Module::obtain(store_.it, shared_.it));
 }
 
 
