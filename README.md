@@ -86,6 +86,8 @@ V8 implementation:
 
 * Host functions and host globals are created through auxiliary modules constructed on the fly, to work around limitations in JS API.
 
+* `Shared<Module>` is currently implemented via serialisation, since V8 does not currently have direct support for cross-isolate sharing.
+
 
 ### TODO
 
