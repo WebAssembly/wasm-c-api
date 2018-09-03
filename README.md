@@ -52,9 +52,9 @@ Some random explanations:
 
 * *Vector* structures (`wasm::vec<X>`/`wasm_x_vec_t`) are lightweight abstractions of a pair of a plain array and its length. The C++ API does not use `std::vector` because that does not support adopting pre-existing arrays.
 
-* *References* may be implemented by indirections, which may or may not be cached. Thus, pointer equality cannot be used to check reference equality. However, `nullptr`/`NULL` represents null references.
+* *References* point to runtime objects, but may involve internal indirections, which may or may not be cached. Thus, pointer equality on `Ref*` or subclasses cannot be used to compare identity of the underlying objects (`Ref::eq` may be added later). However, `nullptr`/`NULL` uniquely represents null references.
 
-* The API already encompasses current proposals like [multiple return values](https://github.com/WebAssembly/multi-value/blob/master/proposals/multi-value/Overview.md) and [reference types](https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md), but not [threads](https://github.com/WebAssembly/threads/blob/master/proposals/threads/Overview.md).
+* The API already encompasses current proposals like [multiple return values](https://github.com/WebAssembly/multi-value/blob/master/proposals/multi-value/Overview.md) and [reference types](https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md), but not yet [threads](https://github.com/WebAssembly/threads/blob/master/proposals/threads/Overview.md).
 
 
 ### Implementation
