@@ -34,31 +34,29 @@ void wasm_val_print(wasm_val_t val) {
 }
 
 // A function to be called from Wasm code.
-void print_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
-  printf("Calling back...\n>");
-  for (size_t i = 0; i < args->size; ++i) {
-    printf(" ");
-    wasm_val_print(args->data[i]);
-  }
+own wasm_trap_t* print_callback(
+  const wasm_val_t args[], wasm_val_t results[]
+) {
+  printf("Calling back...\n> ");
+  wasm_val_print(args[0]);
   printf("\n");
 
-  wasm_val_t vals[1];
-  vals[0].kind = WASM_I32;
-  vals[0].of.i32 = (int32_t)args->size;
-  wasm_result_new_vals(result, 1, vals);
+  wasm_val_copy(&results[0], &args[0]);
+  return NULL;
 }
 
 
 // A function closure.
-void closure_callback(void* env, const wasm_val_vec_t* args, own wasm_result_t* result) {
+own wasm_trap_t* closure_callback(
+  void* env, const wasm_val_t args[], wasm_val_t results[]
+) {
   int i = *(int*)env;
   printf("Calling back closure...\n");
   printf("> %d\n", i);
 
-  wasm_val_t vals[1];
-  vals[0].kind = WASM_I32;
-  vals[0].of.i32 = (int32_t)i;
-  wasm_result_new_vals(result, 1, vals);
+  results[0].kind = WASM_I32;
+  results[0].of.i32 = (int32_t)i;
+  return NULL;
 }
 
 
@@ -94,36 +92,29 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_delete(&binary);
 
   // Create external print functions.
-  printf("Creating callbacks...\n");
-  own wasm_functype_t* print_type1 = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func1 = wasm_func_new(store, print_type1, print_callback);
-
-  own wasm_functype_t* print_type2 = wasm_functype_new_2_1(wasm_valtype_new_i32(), wasm_valtype_new_i32(), wasm_valtype_new_i32());
-  own wasm_func_t* print_func2 = wasm_func_new(store, print_type2, print_callback);
+  printf("Creating callback...\n");
+  own wasm_functype_t* print_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
+  own wasm_func_t* print_func = wasm_func_new(store, print_type, print_callback);
 
   int i = 42;
   own wasm_functype_t* closure_type = wasm_functype_new_0_1(wasm_valtype_new_i32());
   own wasm_func_t* closure_func = wasm_func_new_with_env(store, closure_type, closure_callback, &i, NULL);
 
-  wasm_functype_delete(print_type1);
-  wasm_functype_delete(print_type2);
+  wasm_functype_delete(print_type);
   wasm_functype_delete(closure_type);
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = {
-    wasm_func_as_extern(print_func1), wasm_func_as_extern(print_func2),
-    wasm_func_as_extern(closure_func)
+  const wasm_extern_t* imports[] = {
+    wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
   };
-  wasm_extern_vec_t imports = { 3, externs };
-  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+  own wasm_instance_t* instance = wasm_instance_new(store, module, imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
   }
 
-  wasm_func_delete(print_func1);
-  wasm_func_delete(print_func2);
+  wasm_func_delete(print_func);
   wasm_func_delete(closure_func);
 
   // Extract export.
@@ -145,15 +136,13 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t vals[2];
-  vals[0].kind = WASM_I32;
-  vals[0].of.i32 = 3;
-  vals[1].kind = WASM_I32;
-  vals[1].of.i32 = 4;
-  wasm_val_vec_t args = { 2, vals };
-  own wasm_result_t result;
-  wasm_func_call(run_func, &args, &result);
-  if (result.kind != WASM_RETURN) {
+  wasm_val_t args[2];
+  args[0].kind = WASM_I32;
+  args[0].of.i32 = 3;
+  args[1].kind = WASM_I32;
+  args[1].of.i32 = 4;
+  wasm_val_t results[1];
+  if (wasm_func_call(run_func, args, results)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -162,9 +151,7 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %u\n", result.of.vals.data[0].of.i32);
-
-  wasm_result_delete(&result);
+  printf("> %u\n", results[0].of.i32);
 
   // Shut down.
   printf("Shutting down...\n");

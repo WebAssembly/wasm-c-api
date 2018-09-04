@@ -378,59 +378,14 @@ void wasm_module_serialize(const wasm_module_t*, own wasm_byte_vec_t* out);
 own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const wasm_byte_vec_t*);
 
 
-// Results
-
-typedef enum wasm_result_kind_t {
-  WASM_RETURN,
-  WASM_TRAP
-} wasm_result_kind_t;
-
-typedef struct wasm_result_t {
-  wasm_result_kind_t kind;
-  union {
-    own wasm_val_vec_t vals;
-    own wasm_trap_t* trap;
-  } of;
-} wasm_result_t;
-
-
-static inline void wasm_result_new_empty(own wasm_result_t* out) {
-  out->kind = WASM_RETURN;
-  wasm_val_vec_new_empty(&out->of.vals);
-}
-
-static inline void wasm_result_new_vals(
-  own wasm_result_t* out,
-  size_t size,
-  own wasm_val_t const vals[]
-) {
-  out->kind = WASM_RETURN;
-  wasm_val_vec_new(&out->of.vals, size, vals);
-}
-
-static inline void wasm_result_new_trap(
-  own wasm_result_t* out, own wasm_trap_t* trap
-) {
-  out->kind = WASM_TRAP;
-  out->of.trap = trap;
-}
-
-static inline void wasm_result_delete(own wasm_result_t* result) {
-  switch (result->kind) {
-    case WASM_RETURN: wasm_val_vec_delete(&result->of.vals); return;
-    case WASM_TRAP: wasm_trap_delete(result->of.trap); return;
-  }
-}
-
-
 // Function Instances
 
 WASM_DECLARE_REF(func)
 
-typedef void (*wasm_func_callback_t)(
-  const wasm_val_vec_t*, own wasm_result_t* out);
-typedef void (*wasm_func_callback_with_env_t)(
-  void*, const wasm_val_vec_t*, own wasm_result_t* out);
+typedef own wasm_trap_t* (*wasm_func_callback_t)(
+  const wasm_val_t args[], wasm_val_t results[]);
+typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(
+  void* env, const wasm_val_t args[], wasm_val_t results[]);
 
 own wasm_func_t* wasm_func_new(
   wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
@@ -439,9 +394,11 @@ own wasm_func_t* wasm_func_new_with_env(
   void* env, void (*finalizer)(void*));
 
 own wasm_functype_t* wasm_func_type(const wasm_func_t*);
+size_t wasm_func_param_arity(const wasm_func_t*);
+size_t wasm_func_result_arity(const wasm_func_t*);
 
-void wasm_func_call(
-  const wasm_func_t*, const wasm_val_vec_t*, own wasm_result_t* out);
+own wasm_trap_t* wasm_func_call(
+  const wasm_func_t*, const wasm_val_t args[], wasm_val_t results[]);
 
 
 // Global Instances
@@ -528,7 +485,7 @@ const wasm_memory_t* wasm_extern_as_memory_const(const wasm_extern_t*);
 WASM_DECLARE_REF(instance)
 
 own wasm_instance_t* wasm_instance_new(
-  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t* imports);
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_t* const imports[]);
 
 void wasm_instance_exports(const wasm_instance_t*, own wasm_extern_vec_t* out);
 

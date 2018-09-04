@@ -13,10 +13,10 @@ const int N_THREADS = 10;
 const int N_REPS = 3;
 
 // A function to be called from Wasm code.
-void callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
-  assert(args->data[0].kind == WASM_I32);
-  printf("> Thread %d running\n", args->data[0].of.i32);
-  wasm_result_new_empty(result);
+own wasm_trap_t* callback(const wasm_val_t args[], wasm_val_t results[]) {
+  assert(args[0].kind == WASM_I32);
+  printf("> Thread %d running\n", args[0].of.i32);
+  return NULL;
 }
 
 
@@ -49,12 +49,10 @@ void* run(void* args_abs) {
     wasm_globaltype_delete(global_type);
 
     // Instantiate.
-    wasm_extern_t* externs[] = {
-      wasm_func_as_extern(func),
-      wasm_global_as_extern(global),
+    const wasm_extern_t* imports[] = {
+      wasm_func_as_extern(func), wasm_global_as_extern(global),
     };
-    wasm_extern_vec_t imports = {2, externs};
-    own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+    own wasm_instance_t* instance = wasm_instance_new(store, module, imports);
     if (!instance) {
       printf("> Error instantiating module!\n");
       return NULL;
@@ -79,16 +77,12 @@ void* run(void* args_abs) {
     wasm_instance_delete(instance);
 
     // Call.
-    wasm_val_vec_t args = {0, NULL};
-    own wasm_result_t result;
-    wasm_func_call(run_func, &args, &result);
-    if (result.kind != WASM_RETURN) {
+    if (wasm_func_call(run_func, NULL, NULL)) {
       printf("> Error calling function!\n");
       return NULL;
     }
 
     wasm_extern_vec_delete(&exports);
-    wasm_result_delete(&result);
   }
 
   wasm_module_delete(module);

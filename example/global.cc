@@ -40,6 +40,24 @@ void check(T actual, U expected) {
   }
 }
 
+auto call(const wasm::Func* func) -> wasm::Val {
+  wasm::Val results[1];
+  if (func->call(nullptr, results)) {
+    std::cout << "> Error calling function!" << std::endl;
+    exit(1);
+  }
+  return results[0].copy();
+}
+
+void call(const wasm::Func* func, wasm::Val&& arg) {
+  wasm::Val args[1] = {std::move(arg)};
+  if (func->call(args)) {
+    std::cout << "> Error calling function!" << std::endl;
+    exit(1);
+  }
+}
+
+
 void run() {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
@@ -86,10 +104,10 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make(
-    const_f32_import->copy(), const_i64_import->copy(),
-    var_f32_import->copy(), var_i64_import->copy()
-  );
+  wasm::Extern* imports[] = {
+    const_f32_import.get(), const_i64_import.get(),
+    var_f32_import.get(), var_i64_import.get()
+  };
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -130,14 +148,14 @@ void run() {
   check(var_f32_export->get().f32(), 7);
   check(var_i64_export->get().i64(), 8);
 
-  check(get_const_f32_import->call()[0].f32(), 1);
-  check(get_const_i64_import->call()[0].f64(), f64_reinterpret_i64(2));
-  check(get_var_f32_import->call()[0].f32(), 3);
-  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(4));
-  check(get_const_f32_export->call()[0].f32(), 5);
-  check(get_const_i64_export->call()[0].f64(), f64_reinterpret_i64(6));
-  check(get_var_f32_export->call()[0].f32(), 7);
-  check(get_var_i64_export->call()[0].f64(), f64_reinterpret_i64(8));
+  check(call(get_const_f32_import).f32(), 1);
+  check(call(get_const_i64_import).f64(), f64_reinterpret_i64(2));
+  check(call(get_var_f32_import).f32(), 3);
+  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(4));
+  check(call(get_const_f32_export).f32(), 5);
+  check(call(get_const_i64_export).f64(), f64_reinterpret_i64(6));
+  check(call(get_var_f32_export).f32(), 7);
+  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(8));
 
   // Modify variables through API and check again.
   var_f32_import->set(wasm::Val::f32(33));
@@ -150,26 +168,26 @@ void run() {
   check(var_f32_export->get().f32(), 37);
   check(var_i64_export->get().i64(), 38);
 
-  check(get_var_f32_import->call()[0].f32(), 33);
-  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(34));
-  check(get_var_f32_export->call()[0].f32(), 37);
-  check(get_var_i64_export->call()[0].f64(), f64_reinterpret_i64(38));
+  check(call(get_var_f32_import).f32(), 33);
+  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(34));
+  check(call(get_var_f32_export).f32(), 37);
+  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(38));
 
   // Modify variables through calls and check again.
-  set_var_f32_import->call(wasm::Val::f32(73));
-  set_var_i64_import->call(wasm::Val::f64(f64_reinterpret_i64(74)));
-  set_var_f32_export->call(wasm::Val::f32(77));
-  set_var_i64_export->call(wasm::Val::f64(f64_reinterpret_i64(78)));
+  call(set_var_f32_import, wasm::Val::f32(73));
+  call(set_var_i64_import, wasm::Val::f64(f64_reinterpret_i64(74)));
+  call(set_var_f32_export, wasm::Val::f32(77));
+  call(set_var_i64_export, wasm::Val::f64(f64_reinterpret_i64(78)));
 
   check(var_f32_import->get().f32(), 73);
   check(var_i64_import->get().i64(), 74);
   check(var_f32_export->get().f32(), 77);
   check(var_i64_export->get().i64(), 78);
 
-  check(get_var_f32_import->call()[0].f32(), 73);
-  check(get_var_i64_import->call()[0].f64(), f64_reinterpret_i64(74));
-  check(get_var_f32_export->call()[0].f32(), 77);
-  check(get_var_i64_export->call()[0].f64(), f64_reinterpret_i64(78));
+  check(call(get_var_f32_import).f32(), 73);
+  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(74));
+  check(call(get_var_f32_export).f32(), 77);
+  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(78));
 
   // Shut down.
   std::cout << "Shutting down..." << std::endl;

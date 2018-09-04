@@ -8,12 +8,13 @@
 #define own
 
 // A function to be called from Wasm code.
-void neg_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
+own wasm_trap_t* neg_callback(
+  const wasm_val_t args[], wasm_val_t results[]
+) {
   printf("Calling back...\n");
-  wasm_val_t vals[1];
-  vals[0].kind = WASM_I32;
-  vals[0].of.i32 = -args->data[0].of.i32;
-  wasm_result_new_vals(result, 1, vals);
+  results[0].kind = WASM_I32;
+  results[0].of.i32 = -args[0].of.i32;
+  return NULL;
 }
 
 
@@ -48,33 +49,28 @@ void check_table(wasm_table_t* table, int32_t i, bool expect_set) {
 }
 
 void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
-  wasm_val_t vals[2] = {
+  wasm_val_t args[2] = {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  wasm_val_vec_t args = {2, vals};
-  wasm_result_t result;
-  wasm_func_call(func, &args, &result);
-  if (result.kind != WASM_RETURN || result.of.vals.size != 1 || result.of.vals.data[0].of.i32 != expected) {
+  wasm_val_t results[1];
+  if (wasm_func_call(func, args, results) || results[0].of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
-  wasm_result_delete(&result);
 }
 
 void check_trap(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t vals[2] = {
+  wasm_val_t args[2] = {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  wasm_val_vec_t args = {2, vals};
-  wasm_result_t result;
-  wasm_func_call(func, &args, &result);
-  if (result.kind != WASM_TRAP) {
+  own wasm_trap_t* trap = wasm_func_call(func, args, NULL);
+  if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
   }
-  wasm_result_delete(&result);
+  wasm_trap_delete(trap);
 }
 
 
@@ -111,8 +107,7 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_vec_t imports = { 0, NULL };
-  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

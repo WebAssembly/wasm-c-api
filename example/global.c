@@ -49,11 +49,9 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
 
 #define check_call(func, type, expected) \
   { \
-    wasm_val_vec_t args = {0, NULL}; \
-    wasm_result_t result; \
-    wasm_func_call(func, &args, &result); \
-    check(result.of.vals.data[0], type, expected); \
-    wasm_result_delete(&result); \
+    wasm_val_t results[1]; \
+    wasm_func_call(func, NULL, results); \
+    check(results[0], type, expected); \
   }
 
 
@@ -115,14 +113,13 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = {
+  const wasm_extern_t* imports[] = {
     wasm_global_as_extern(const_f32_import),
     wasm_global_as_extern(const_i64_import),
     wasm_global_as_extern(var_f32_import),
     wasm_global_as_extern(var_i64_import)
   };
-  wasm_extern_vec_t imports = {4, externs};
-  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+  own wasm_instance_t* instance = wasm_instance_new(store, module, imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -195,23 +192,14 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_i64_export, f64, f64_reinterpret_i64(38));
 
   // Modify variables through calls and check again.
-  wasm_result_t result;
-  wasm_val_t val73 = {.kind = WASM_F32, .of = {.f32 = 73}};
-  wasm_val_vec_t args73 = { 1, &val73 };
-  wasm_func_call(set_var_f32_import, &args73, &result);
-  wasm_result_delete(&result);
-  wasm_val_t val74 = {.kind = WASM_F64, .of = {.f64 = f64_reinterpret_i64(74)}};
-  wasm_val_vec_t args74 = { 1, &val74 };
-  wasm_func_call(set_var_i64_import, &args74, &result);
-  wasm_result_delete(&result);
-  wasm_val_t val77 = {.kind = WASM_F32, .of = {.f32 = 77}};
-  wasm_val_vec_t args77 = { 1, &val77 };
-  wasm_func_call(set_var_f32_export, &args77, &result);
-  wasm_result_delete(&result);
-  wasm_val_t val78 = {.kind = WASM_F64, .of = {.f64 = f64_reinterpret_i64(78)}};
-  wasm_val_vec_t args78 = { 1, &val78 };
-  wasm_func_call(set_var_i64_export, &args78, &result);
-  wasm_result_delete(&result);
+  wasm_val_t args73[] = { {.kind = WASM_F32, .of = {.f32 = 73}} };
+  wasm_func_call(set_var_f32_import, args73, NULL);
+  wasm_val_t args74[] = { {.kind = WASM_F64, .of = {.f64 = f64_reinterpret_i64(74)}} };
+  wasm_func_call(set_var_i64_import, args74, NULL);
+  wasm_val_t args77[] = { {.kind = WASM_F32, .of = {.f32 = 77}} };
+  wasm_func_call(set_var_f32_export, args77, NULL);
+  wasm_val_t args78[] = { {.kind = WASM_F64, .of = {.f64 = f64_reinterpret_i64(78)}} };
+  wasm_func_call(set_var_i64_export, args78, NULL);
 
   check_global(var_f32_import, f32, 73);
   check_global(var_i64_import, i64, 74);

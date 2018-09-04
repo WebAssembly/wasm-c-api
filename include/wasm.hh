@@ -587,31 +587,6 @@ public:
 };
 
 
-// Results
-
-class Result {
-  vec<Val> vals_;
-  own<Trap*> trap_;
-
-public:
-  Result(vec<Val>&& vals) : vals_(std::move(vals)) {}
-  Result(own<Trap*> trap) : vals_(vec<Val>::invalid()), trap_(std::move(trap)) {}
-  Result(Result&& that) :
-    vals_(std::move(that.vals_)), trap_(std::move(that.trap_)) {}
-
-  template<class... Ts> explicit
-  Result(Ts&&... vals) : Result(vec<Val>::make<Ts...>(std::move(vals)...)) {}
-
-  enum Kind { RETURN, TRAP };
-  auto kind() const -> Kind { return vals_ ? RETURN : TRAP; }
-  auto vals() -> vec<Val>& { assert(kind() == RETURN); return vals_; }
-  auto trap() -> Trap* { assert (kind() == TRAP); return trap_.get(); }
-  auto release_trap() -> Trap* { assert (kind() == TRAP); return trap_.release(); }
-
-  auto operator[](size_t i) -> Val& { assert (kind() == RETURN); return vals_[i]; }
-};
-
-
 // Shared objects
 
 template<class T>
@@ -693,8 +668,8 @@ public:
   Func() = delete;
   ~Func();
 
-  using callback = auto (*)(const vec<Val>&) -> Result;
-  using callback_with_env = auto (*)(void*, const vec<Val>&) -> Result;
+  using callback = auto (*)(const Val[], Val[]) -> own<Trap*>;
+  using callback_with_env = auto (*)(void*, const Val[], Val[]) -> own<Trap*>;
 
   static auto make(Store*, const FuncType*, callback) -> own<Func*>;
   static auto make(Store*, const FuncType*, callback_with_env,
@@ -702,12 +677,10 @@ public:
   auto copy() const -> own<Func*>;
 
   auto type() const -> own<FuncType*>;
-  auto call(const vec<Val>&) const -> Result;
+  auto param_arity() const -> size_t;
+  auto result_arity() const -> size_t;
 
-  template<class... Args>
-  auto call(const Args&... vals) const -> Result {
-    return call(vec<Val>::make(vals.copy()...));
-  }
+  auto call(const Val[] = nullptr, Val[] = nullptr) const -> own<Trap*>;
 };
 
 
@@ -777,8 +750,8 @@ public:
   Instance() = delete;
   ~Instance();
 
-  static auto make(Store*, const Module*, const vec<Extern*>&) ->
-    own<Instance*>;
+  static auto make(
+    Store*, const Module*, const Extern* const[]) -> own<Instance*>;
   auto copy() const -> own<Instance*>;
 
   auto exports() const -> vec<Extern*>;

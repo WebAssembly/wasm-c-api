@@ -34,24 +34,24 @@ auto operator<<(std::ostream& out, const wasm::Val& val) -> std::ostream& {
 }
 
 // A function to be called from Wasm code.
-auto print_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
-  std::cout << "Calling back..." << std::endl << ">";
-  for (size_t i = 0; i < args.size(); ++i) {
-    std::cout << " " << args[i];
-  }
-  std::cout << std::endl;
-
-  int32_t n = args.size();
-  return wasm::Result(wasm::Val(n));
+auto print_callback(
+  const wasm::Val args[], wasm::Val results[]
+) -> wasm::own<wasm::Trap*> {
+  std::cout << "Calling back..." << std::endl << "> " << args[0] << std::endl;
+  results[0] = args[0].copy();
+  return nullptr;
 }
 
 
 // A function closure.
-auto closure_callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
+auto closure_callback(
+  void* env, const wasm::Val args[], wasm::Val results[]
+) -> wasm::own<wasm::Trap*> {
   auto i = *reinterpret_cast<int*>(env);
   std::cout << "Calling back closure..." << std::endl;
   std::cout << "> " << i << std::endl;
-  return wasm::Result(wasm::Val::i32(static_cast<int32_t>(i)));
+  results[0] = wasm::Val::i32(static_cast<int32_t>(i));
+  return nullptr;
 }
 
 
@@ -85,18 +85,12 @@ void run() {
   }
 
   // Create external print functions.
-  std::cout << "Creating callbacks..." << std::endl;
-  auto print_type1 = wasm::FuncType::make(
+  std::cout << "Creating callback..." << std::endl;
+  auto print_type = wasm::FuncType::make(
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32)),
     wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
   );
-  auto print_func1 = wasm::Func::make(store, print_type1.get(), print_callback);
-
-  auto print_type2 = wasm::FuncType::make(
-    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32), wasm::ValType::make(wasm::I32)),
-    wasm::vec<wasm::ValType*>::make(wasm::ValType::make(wasm::I32))
-  );
-  auto print_func2 = wasm::Func::make(store, print_type2.get(), print_callback);
+  auto print_func = wasm::Func::make(store, print_type.get(), print_callback);
 
   // Creating closure.
   std::cout << "Creating closure..." << std::endl;
@@ -109,9 +103,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make(
-    print_func1, print_func2, closure_func
-  );
+  wasm::Extern* imports[] = {print_func.get(), closure_func.get()};
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -129,15 +121,16 @@ void run() {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  auto result = run_func->call(wasm::Val::i32(3), wasm::Val::i32(4));
-  if (result.kind() != wasm::Result::RETURN) {
+  wasm::Val args[] = {wasm::Val::i32(3), wasm::Val::i32(4)};
+  wasm::Val results[1];
+  if (run_func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     return;
   }
 
   // Print result.
   std::cout << "Printing result..." << std::endl;
-  std::cout << "> " << result[0].i32() << std::endl;
+  std::cout << "> " << results[0].i32() << std::endl;
 
   // Shut down.
   std::cout << "Shutting down..." << std::endl;

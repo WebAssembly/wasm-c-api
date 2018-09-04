@@ -101,8 +101,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make();
-  auto instance = wasm::Instance::make(store, module.get(), imports);
+  auto instance = wasm::Instance::make(store, module.get(), nullptr);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;

@@ -736,40 +736,15 @@ wasm_module_t* wasm_module_obtain(wasm_store_t* store, const wasm_shared_module_
 }
 
 
-// Results
-
-extern "C++" {
-
-wasm_result_t release(Result result) {
-  wasm_result_t r = { static_cast<wasm_result_kind_t>(result.kind()) };
-  switch (result.kind()) {
-    case Result::RETURN: r.of.vals = release(std::move(result.vals())); break;
-    case Result::TRAP: r.of.trap = hide(result.release_trap()); break;
-  }
-  return r;
-}
-
-Result adopt(wasm_result_t result) {
-  switch (result.kind) {
-    case WASM_RETURN: return Result(adopt(&result.of.vals));
-    case WASM_TRAP: return Result(adopt(result.of.trap));
-  }
-}
-
-}  // extern "C++"
-
-
 // Function Instances
 
 WASM_DEFINE_REF(func, Func)
 
 extern "C++" {
 
-Result wasm_callback(void* env, const vec<Val>& args) {
+auto wasm_callback(void* env, const Val args[], Val results[]) -> own<Trap*> {
   auto f = reinterpret_cast<wasm_func_callback_t>(env);
-  wasm_result_t result;
-  f(hide(args), &result);
-  return adopt(result);
+  return adopt(f(hide(args), hide(results)));
 }
 
 struct wasm_callback_env_t {
@@ -778,11 +753,11 @@ struct wasm_callback_env_t {
   void (*finalizer)(void*);
 };
 
-Result wasm_callback_with_env(void* env, const vec<Val>& args) {
+auto wasm_callback_with_env(
+  void* env, const Val args[], Val results[]
+) -> own<Trap*> {
   auto t = static_cast<wasm_callback_env_t*>(env);
-  wasm_result_t result;
-  t->callback(t->env, hide(args), &result);
-  return adopt(result);
+  return adopt(t->callback(t->env, hide(args), hide(results)));
 }
 
 void wasm_callback_env_finalizer(void* env) {
@@ -813,11 +788,18 @@ wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
   return release(func->type());
 }
 
-void wasm_func_call(
-  const wasm_func_t* func, const wasm_val_vec_t* args, wasm_result_t* out
+size_t wasm_func_param_arity(const wasm_func_t* func) {
+  return func->param_arity();
+}
+
+size_t wasm_func_result_arity(const wasm_func_t* func) {
+  return func->result_arity();
+}
+
+wasm_trap_t* wasm_func_call(
+  const wasm_func_t* func, const wasm_val_t args[], wasm_val_t results[]
 ) {
-  auto args_ = borrow(args);
-  *out = release(func->call(args_.it));
+  return release(func->call(reveal(args), reveal(results)));
 }
 
 
@@ -984,10 +966,10 @@ WASM_DEFINE_REF(instance, Instance)
 wasm_instance_t* wasm_instance_new(
   wasm_store_t* store,
   const wasm_module_t* module,
-  const wasm_extern_vec_t* imports
+  const wasm_extern_t* const imports[]
 ) {
-  auto imports_ = borrow(imports);
-  return release(Instance::make(store, module, imports_.it));
+  return release(Instance::make(store, module,
+    reinterpret_cast<const Extern* const*>(imports)));
 }
 
 void wasm_instance_exports(
