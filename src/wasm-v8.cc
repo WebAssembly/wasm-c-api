@@ -1390,7 +1390,7 @@ template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
 
 template<>
 Shared<Module>::~Shared() {
-  stats.free(Stats::MODULE, Stats::SHARED);
+  stats.free(Stats::MODULE, this, Stats::SHARED);
   impl(this)->~vec();
 }
 
@@ -1400,8 +1400,9 @@ void Shared<Module>::operator delete(void* p) {
 }
 
 auto Module::share() const -> own<Shared<Module>*> {
-  stats.make(Stats::MODULE, Stats::SHARED);
-  return make_own(seal<Shared<Module>>(new vec<byte_t>(std::move(serialize()))));
+  auto shared = seal<Shared<Module>>(new vec<byte_t>(std::move(serialize())));
+  stats.make(Stats::MODULE, shared, Stats::SHARED);
+  return make_own(shared);
 }
 
 auto Module::obtain(Store* store, const Shared<Module>* shared) -> own<Module*> {

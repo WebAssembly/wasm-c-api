@@ -15,14 +15,6 @@ extern "C" {
 extern "C++" {
 
 template<class T>
-struct borrowed {
-  T it;
-  borrowed(T x) : it(x) {}
-  borrowed(borrowed<T>&& that) : it(that.it) {}
-  borrowed(const borrowed<T>&& that) : it(const_cast<T>(that.it)) {}
-};
-
-template<class T>
 struct borrowed_vec {
   vec<T> it;
   borrowed_vec(vec<T>&& v) : it(std::move(v)) {}
@@ -63,13 +55,6 @@ struct borrowed_vec {
   } \
   extern "C++" inline auto adopt(wasm_##name##_t* x) -> own<Name*> { \
     return make_own(x); \
-  } \
-  extern "C++" inline auto borrow(wasm_##name##_t* x) -> borrowed<Name*> { \
-    return borrowed<Name*>(x); \
-  } \
-  extern "C++" inline auto borrow(const wasm_##name##_t* x) -> const borrowed<Name*> { \
-    /* TODO: fishy? */ \
-    return borrowed<Name*>(const_cast<wasm_##name##_t*>(x)); \
   }
 
 
@@ -253,8 +238,7 @@ wasm_engine_t* wasm_engine_new_with_config(wasm_config_t* config) {
 WASM_DEFINE_OWN(store, Store)
 
 wasm_store_t* wasm_store_new(wasm_engine_t* engine) {
-  auto engine_ = borrow(engine);
-  return release(Store::make(engine_.it));
+  return release(Store::make(engine));
 };
 
 
@@ -685,9 +669,8 @@ void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
 WASM_DEFINE_REF(trap, Trap)
 
 wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t* message) {
-  auto store_ = borrow(store);
   auto message_ = borrow(message);
-  return release(Trap::make(store_.it, message_.it));
+  return release(Trap::make(store, message_.it));
 }
 
 void wasm_trap_message(const wasm_trap_t* trap, wasm_message_t* out) {
@@ -700,8 +683,7 @@ void wasm_trap_message(const wasm_trap_t* trap, wasm_message_t* out) {
 WASM_DEFINE_REF(foreign, Foreign)
 
 wasm_foreign_t* wasm_foreign_new(wasm_store_t* store) {
-  auto store_ = borrow(store);
-  return release(Foreign::make(store_.it));
+  return release(Foreign::make(store));
 }
 
 
@@ -710,17 +692,15 @@ wasm_foreign_t* wasm_foreign_new(wasm_store_t* store) {
 WASM_DEFINE_SHARABLE_REF(module, Module)
 
 bool wasm_module_validate(wasm_store_t* store, const wasm_byte_vec_t* binary) {
-  auto store_ = borrow(store);
   auto binary_ = borrow(binary);
-  return Module::validate(store_.it, binary_.it);
+  return Module::validate(store, binary_.it);
 }
 
 wasm_module_t* wasm_module_new(
   wasm_store_t* store, const wasm_byte_vec_t* binary
 ) {
-  auto store_ = borrow(store);
   auto binary_ = borrow(binary);
-  return release(Module::make(store_.it, binary_.it));
+  return release(Module::make(store, binary_.it));
 }
 
 
@@ -743,9 +723,8 @@ void wasm_module_serialize(const wasm_module_t* module, wasm_byte_vec_t* out) {
 wasm_module_t* wasm_module_deserialize(
   wasm_store_t* store, const wasm_byte_vec_t* binary
 ) {
-  auto store_ = borrow(store);
   auto binary_ = borrow(binary);
-  return release(Module::deserialize(store_.it, binary_.it));
+  return release(Module::deserialize(store, binary_.it));
 }
 
 wasm_shared_module_t* wasm_module_share(const wasm_module_t* module) {
@@ -753,9 +732,7 @@ wasm_shared_module_t* wasm_module_share(const wasm_module_t* module) {
 }
 
 wasm_module_t* wasm_module_obtain(wasm_store_t* store, const wasm_shared_module_t* shared) {
-  auto store_ = borrow(store);
-  auto shared_ = borrow(shared);
-  return release(Module::obtain(store_.it, shared_.it));
+  return release(Module::obtain(store, shared));
 }
 
 
@@ -820,20 +797,16 @@ wasm_func_t* wasm_func_new(
   wasm_store_t* store, const wasm_functype_t* type,
   wasm_func_callback_t callback
 ) {
-  auto store_ = borrow(store);
-  auto type_ = borrow(type);
   return release(Func::make(
-    store_.it, type_.it, wasm_callback, reinterpret_cast<void*>(callback)));
+    store, type, wasm_callback, reinterpret_cast<void*>(callback)));
 }
 
 wasm_func_t *wasm_func_new_with_env(
   wasm_store_t* store, const wasm_functype_t* type,
   wasm_func_callback_with_env_t callback, void *env, void (*finalizer)(void*)
 ) {
-  auto store_ = borrow(store);
-  auto type_ = borrow(type);
   auto env2 = new wasm_callback_env_t{callback, env, finalizer};
-  return release(Func::make(store_.it, type_.it, wasm_callback_with_env, env2));
+  return release(Func::make(store, type, wasm_callback_with_env, env2));
 }
 
 wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
@@ -843,9 +816,8 @@ wasm_functype_t* wasm_func_type(const wasm_func_t* func) {
 void wasm_func_call(
   const wasm_func_t* func, const wasm_val_vec_t* args, wasm_result_t* out
 ) {
-  auto func_ = borrow(func);
   auto args_ = borrow(args);
-  *out = release(func_.it->call(args_.it));
+  *out = release(func->call(args_.it));
 }
 
 
@@ -856,10 +828,8 @@ WASM_DEFINE_REF(global, Global)
 wasm_global_t* wasm_global_new(
   wasm_store_t* store, const wasm_globaltype_t* type, const wasm_val_t* val
 ) {
-  auto store_ = borrow(store);
-  auto type_ = borrow(type);
   auto val_ = borrow(val);
-  return release(Global::make(store_.it, type_.it, val_.it));
+  return release(Global::make(store, type, val_.it));
 }
 
 wasm_globaltype_t* wasm_global_type(const wasm_global_t* global) {
@@ -883,10 +853,7 @@ WASM_DEFINE_REF(table, Table)
 wasm_table_t* wasm_table_new(
   wasm_store_t* store, const wasm_tabletype_t* type, wasm_ref_t* ref
 ) {
-  auto store_ = borrow(store);
-  auto type_ = borrow(type);
-  auto ref_ = borrow(ref);
-  return release(Table::make(store_.it, type_.it, ref_.it));
+  return release(Table::make(store, type, ref));
 }
 
 wasm_tabletype_t* wasm_table_type(const wasm_table_t* table) {
@@ -900,8 +867,7 @@ wasm_ref_t* wasm_table_get(const wasm_table_t* table, wasm_table_size_t index) {
 bool wasm_table_set(
   wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* ref
 ) {
-  auto ref_ = borrow(ref);
-  return table->set(index, ref_.it);
+  return table->set(index, ref);
 }
 
 wasm_table_size_t wasm_table_size(const wasm_table_t* table) {
@@ -911,8 +877,7 @@ wasm_table_size_t wasm_table_size(const wasm_table_t* table) {
 bool wasm_table_grow(
   wasm_table_t* table, wasm_table_size_t delta, wasm_ref_t* ref
 ) {
-  auto ref_ = borrow(ref);
-  return table->grow(delta, ref_.it);
+  return table->grow(delta, ref);
 }
 
 
@@ -923,9 +888,7 @@ WASM_DEFINE_REF(memory, Memory)
 wasm_memory_t* wasm_memory_new(
   wasm_store_t* store, const wasm_memorytype_t* type
 ) {
-  auto store_ = borrow(store);
-  auto type_ = borrow(type);
-  return release(Memory::make(store_.it, type_.it));
+  return release(Memory::make(store, type));
 }
 
 wasm_memorytype_t* wasm_memory_type(const wasm_memory_t* memory) {
@@ -1023,10 +986,8 @@ wasm_instance_t* wasm_instance_new(
   const wasm_module_t* module,
   const wasm_extern_vec_t* imports
 ) {
-  auto store_ = borrow(store);
-  auto module_ = borrow(module);
   auto imports_ = borrow(imports);
-  return release(Instance::make(store_.it, module_.it, imports_.it));
+  return release(Instance::make(store, module, imports_.it));
 }
 
 void wasm_instance_exports(
