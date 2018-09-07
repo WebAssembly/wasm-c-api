@@ -211,10 +211,8 @@ v8-build:
 v8-patch:
 	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
 	  cp ${V8_V8}/BUILD.gn ${V8_V8}/BUILD.gn.save; \
-	  sed 's:"include/v8.h":\"include/v8.h", "include/${WASM_V8_PATCH}.hh":g' ${V8_V8}/BUILD.gn >B && \
-	  sed 's:"src/api.cc":\"src/api.cc", "src/${WASM_V8_PATCH}.cc":g' B >B2 && \
-	  mv -f B2 ${V8_V8}/BUILD.gn && \
-	  rm B; \
+	  cd ${V8_V8}; \
+	  patch < ../../patch/BUILD.gn-add-wasm-v8-lowlevel.patch; \
 	fi
 
 .PHONY: v8-unpatch
