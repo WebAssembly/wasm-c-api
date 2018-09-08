@@ -335,6 +335,7 @@ class StoreImpl {
   v8::Eternal<v8::Function> functions_[V8_F_COUNT];
   v8::Eternal<v8::Object> host_data_map_;
   v8::Eternal<v8::Symbol> callback_symbol_;
+  v8::Persistent<v8::Object>* handle_pool_ = nullptr;  // TODO: use v8::Value
 
 public:
   StoreImpl() {
@@ -377,6 +378,30 @@ public:
 
   static auto get(v8::Isolate* isolate) -> StoreImpl* {
     return static_cast<StoreImpl*>(isolate->GetData(0));
+  }
+
+  auto make_handle() -> v8::Persistent<v8::Object>* {
+    if (handle_pool_ == nullptr) {
+      static const size_t n = 100;
+      handle_pool_ = new(std::nothrow) v8::Persistent<v8::Object>[n];
+      if (!handle_pool_) return nullptr;
+      for (size_t i = 0; i < n; ++i) {
+        auto next = i == n - 1 ? nullptr : &handle_pool_[i + 1];
+        auto v8_next = wasm_v8::foreign_new(isolate_, next);
+        handle_pool_[i].Reset(isolate_, v8::Local<v8::Object>::Cast(v8_next));
+      }
+    }
+    auto handle = handle_pool_;
+    handle_pool_ = reinterpret_cast<v8::Persistent<v8::Object>*>(
+      wasm_v8::foreign_get(handle->Get(isolate_)));
+    return handle;
+  }
+
+  void free_handle(v8::Persistent<v8::Object>* handle) {
+    // TODO: shrink pool?
+    auto next = wasm_v8::foreign_new(isolate_, handle_pool_);
+    handle->Reset(isolate_, v8::Local<v8::Object>::Cast(next));
+    handle_pool_ = handle;
   }
 };
 
@@ -1063,10 +1088,14 @@ auto v8_to_val(
 // References
 
 template<class Ref>
-class RefImpl {
+class RefImpl : public v8::Persistent<v8::Object> {
 public:
   static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref*> {
-    return make_own(seal<Ref>(new(std::nothrow) RefImpl(store, obj)));
+    auto self = static_cast<RefImpl*>(store->make_handle());
+    if (!self) return nullptr;
+    self->Reset(store->isolate(), obj);
+    stats.make(Stats::categorize(*self), self);
+    return make_own(seal<Ref>(self));
   }
 
   auto copy() const -> own<Ref*> {
@@ -1079,11 +1108,11 @@ public:
   }
 
   auto isolate() const -> v8::Isolate* {
-    return wasm_v8::object_isolate(v8_object_);
+    return wasm_v8::object_isolate(*this);
   }
 
   auto v8_object() const -> v8::Local<v8::Object> {
-    return v8_object_.Get(isolate());
+    return Get(isolate());
   }
 
   auto get_host_info() const -> void* {
@@ -1102,7 +1131,7 @@ public:
   void set_host_info(void* info, void (*finalizer)(void*)) {
     v8::HandleScope handle_scope(isolate());
     auto store = this->store();
-    auto previous = this->v8_object_.template ClearWeak<HostData>();
+    auto previous = this->template ClearWeak<HostData>();
 
     auto data = new HostData{info, finalizer, previous};
     auto foreign = wasm_v8::foreign_new(store->isolate(), data);
@@ -1111,21 +1140,15 @@ public:
       store->context(), store->host_data_map(), 2, args);
     if (maybe_result.IsEmpty()) return;
 
-    this->v8_object_.template SetWeak<HostData>(
+    this->template SetWeak<HostData>(
       data, &v8_finalizer, v8::WeakCallbackType::kParameter);
   }
 
-  ~RefImpl() {
-    stats.free(Stats::categorize(v8_object_), this);
-  }
-
 private:
-  v8::Persistent<v8::Object> v8_object_;
-
   RefImpl(StoreImpl* store, v8::Local<v8::Object> obj) :
-    v8_object_(store->isolate(), obj)
+    v8::Persistent<v8::Object>(store->isolate(), obj)
   {
-    stats.make(Stats::categorize(v8_object_), this);
+    stats.make(Stats::categorize(*this), this);
   }
 
   struct HostData {
@@ -1149,12 +1172,10 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 
 Ref::~Ref() {
-  impl(this)->~RefImpl();
+  stats.free(Stats::categorize(*impl(this)), this);
 }
 
-void Ref::operator delete(void *p) {
-  ::operator delete(p);
-}
+void Ref::operator delete(void *p) {}
 
 auto Ref::copy() const -> own<Ref*> {
   return impl(this)->copy();
@@ -1469,7 +1490,7 @@ auto Extern::memory() const -> const Memory* {
   return kind() == EXTERN_MEMORY ? static_cast<const Memory*>(this) : nullptr;
 }
 
-auto extern_to_v8(const Extern* ex) -> v8::Local<v8::Object> {
+auto extern_to_v8(const Extern* ex) -> v8::Local<v8::Value> {
   return impl(ex)->v8_object();
 }
 
