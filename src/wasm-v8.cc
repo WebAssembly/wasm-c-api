@@ -1090,7 +1090,12 @@ auto v8_to_val(
 template<class Ref>
 class RefImpl : public v8::Persistent<v8::Object> {
 public:
+  RefImpl() = delete;
+  ~RefImpl() = delete;
+
   static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref*> {
+    static_assert(sizeof(RefImpl) == sizeof(v8::Persistent<v8::Object>),
+      "incompatible object layout");
     auto self = static_cast<RefImpl*>(store->make_handle());
     if (!self) return nullptr;
     self->Reset(store->isolate(), obj);
@@ -1145,12 +1150,6 @@ public:
   }
 
 private:
-  RefImpl(StoreImpl* store, v8::Local<v8::Object> obj) :
-    v8::Persistent<v8::Object>(store->isolate(), obj)
-  {
-    stats.make(Stats::categorize(*this), this);
-  }
-
   struct HostData {
     void* info;
     void (*finalizer)(void*);
