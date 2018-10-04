@@ -417,8 +417,8 @@ static inline void wasm_result_new_trap(
 
 static inline void wasm_result_delete(own wasm_result_t* result) {
   switch (result->kind) {
-    case WASM_RETURN: return wasm_val_vec_delete(&result->of.vals);
-    case WASM_TRAP: return wasm_trap_delete(result->of.trap);
+    case WASM_RETURN: wasm_val_vec_delete(&result->of.vals); return;
+    case WASM_TRAP: wasm_trap_delete(result->of.trap); return;
   }
 }
 
