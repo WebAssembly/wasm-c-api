@@ -714,7 +714,7 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #undef own
 
 #ifdef __cplusplus
-};  // extern "C"
+}  // extern "C"
 #endif
 
 #endif  // #ifdef __WASM_H
