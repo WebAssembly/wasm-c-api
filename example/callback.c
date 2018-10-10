@@ -11,16 +11,16 @@
 void wasm_val_print(wasm_val_t val) {
   switch (val.kind) {
     case WASM_I32: {
-      printf("%" PRIu32, val.of.i32);
+      printf("%" PRIu32, wasm_val_i32(&val));
     } break;
     case WASM_I64: {
-      printf("%" PRIu64, val.of.i64);
+      printf("%" PRIu64, wasm_val_i64(&val));
     } break;
     case WASM_F32: {
-      printf("%f", val.of.f32);
+      printf("%f", wasm_val_f32(&val));
     } break;
     case WASM_F64: {
-      printf("%g", val.of.f64);
+      printf("%g", wasm_val_f64(&val));
     } break;
     case WASM_ANYREF:
     case WASM_FUNCREF: {

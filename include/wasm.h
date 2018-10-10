@@ -301,8 +301,6 @@ typedef struct wasm_val_t {
   union {
     int32_t i32;
     int64_t i64;
-    float32_t f32;
-    float64_t f64;
     struct wasm_ref_t* ref;
   } of;
 } wasm_val_t;
@@ -702,10 +700,76 @@ static inline void wasm_val_init_ptr(own wasm_val_t* out, void* p) {
 
 static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #if UINTPTR_MAX == UINT32_MAX
+  assert(val->kind == WASM_I32);
   return (void*)(intptr_t)val->of.i32;
 #elif UINTPTR_MAX == UINT64_MAX
+  assert(val->kind == WASM_I64);
   return (void*)(intptr_t)val->of.i64;
 #endif
+}
+
+static inline void wasm_val_init_i32(own wasm_val_t* out, int32_t i) {
+  out->kind = WASM_I32;
+  out->of.i32 = i;
+}
+
+static inline int32_t wasm_val_i32(const wasm_val_t* val) {
+  assert(val->kind == WASM_I32);
+  return val->of.i32;
+}
+
+static inline void wasm_val_init_i64(own wasm_val_t* out, int64_t i) {
+  out->kind = WASM_I64;
+  out->of.i64 = i;
+}
+
+static inline int64_t wasm_val_i64(const wasm_val_t* val) {
+  assert(val->kind == WASM_I64);
+  return val->of.i64;
+}
+
+static inline void wasm_val_init_f32(own wasm_val_t* out, float32_t f) {
+  out->kind = WASM_F32;
+  memcpy(&out->of.i32, &f, sizeof(float32_t));
+}
+
+static inline float32_t wasm_val_f32(const wasm_val_t* val) {
+  assert(val->kind == WASM_F32);
+  float32_t f;
+  memcpy(&f, &val->of.i32, sizeof(float32_t));
+  return f;
+}
+
+static inline void wasm_val_init_f64(own wasm_val_t* out, float64_t f) {
+  out->kind = WASM_F64;
+  memcpy(&out->of.i64, &f, sizeof(float64_t));
+}
+
+static inline float64_t wasm_val_f64(const wasm_val_t* val) {
+  assert(val->kind == WASM_F64);
+  float64_t f;
+  memcpy(&f, &val->of.i64, sizeof(float64_t));
+  return f;
+}
+
+static inline void wasm_val_init_f32_bits(own wasm_val_t* out, int32_t i) {
+  out->kind = WASM_F32;
+  out->of.i32 = i;
+}
+
+static inline int32_t wasm_val_f32_bits(const wasm_val_t* val) {
+  assert(val->kind == WASM_F32);
+  return val->of.i32;
+}
+
+static inline void wasm_val_init_f64_bits(own wasm_val_t* out, int64_t i) {
+  out->kind = WASM_F64;
+  out->of.i64 = i;
+}
+
+static inline int64_t wasm_val_f64_bits(const wasm_val_t* val) {
+  assert(val->kind == WASM_F64);
+  return val->of.i64;
 }
 
 

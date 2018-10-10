@@ -567,8 +567,8 @@ inline auto hide(Val v) -> wasm_val_t {
   switch (v.kind()) {
     case I32: v2.of.i32 = v.i32(); break;
     case I64: v2.of.i64 = v.i64(); break;
-    case F32: v2.of.f32 = v.f32(); break;
-    case F64: v2.of.f64 = v.f64(); break;
+    case F32: v2.of.i32 = v.f32_bits(); break;
+    case F64: v2.of.i64 = v.f64_bits(); break;
     case ANYREF:
     case FUNCREF: v2.of.ref = hide(v.ref()); break;
     default: assert(false);
@@ -581,8 +581,8 @@ inline auto release(Val v) -> wasm_val_t {
   switch (v.kind()) {
     case I32: v2.of.i32 = v.i32(); break;
     case I64: v2.of.i64 = v.i64(); break;
-    case F32: v2.of.f32 = v.f32(); break;
-    case F64: v2.of.f64 = v.f64(); break;
+    case F32: v2.of.i32 = v.f32_bits(); break;
+    case F64: v2.of.i64 = v.f64_bits(); break;
     case ANYREF:
     case FUNCREF: v2.of.ref = release(v.release_ref()); break;
     default: assert(false);
@@ -594,8 +594,8 @@ inline auto adopt(wasm_val_t v) -> Val {
   switch (reveal(v.kind)) {
     case I32: return Val(v.of.i32);
     case I64: return Val(v.of.i64);
-    case F32: return Val(v.of.f32);
-    case F64: return Val(v.of.f64);
+    case F32: return Val::f32_bits(v.of.i32);
+    case F64: return Val::f64_bits(v.of.i64);
     case ANYREF:
     case FUNCREF: return Val(adopt(v.of.ref));
     default: assert(false);
@@ -614,8 +614,8 @@ inline auto borrow(const wasm_val_t* v) -> borrowed_val {
   switch (reveal(v->kind)) {
     case I32: v2 = Val(v->of.i32); break;
     case I64: v2 = Val(v->of.i64); break;
-    case F32: v2 = Val(v->of.f32); break;
-    case F64: v2 = Val(v->of.f64); break;
+    case F32: v2 = Val::f32_bits(v->of.i32); break;
+    case F64: v2 = Val::f64_bits(v->of.i64); break;
     case ANYREF:
     case FUNCREF: v2 = Val(adopt(v->of.ref)); break;
     default: assert(false);

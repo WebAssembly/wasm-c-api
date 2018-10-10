@@ -463,8 +463,6 @@ class Val {
   union impl {
     int32_t i32;
     int64_t i64;
-    float32_t f32;
-    float64_t f64;
     Ref* ref;
   } impl_;
 
@@ -474,8 +472,8 @@ public:
   Val() : kind_(ANYREF) { impl_.ref = nullptr; }
   Val(int32_t i) : kind_(I32) { impl_.i32 = i; }
   Val(int64_t i) : kind_(I64) { impl_.i64 = i; }
-  Val(float32_t z) : kind_(F32) { impl_.f32 = z; }
-  Val(float64_t z) : kind_(F64) { impl_.f64 = z; }
+  Val(float32_t z) : kind_(F32) { memcpy(&impl_.i32, &z, sizeof(float32_t)); }
+  Val(float64_t z) : kind_(F64) { memcpy(&impl_.i64, &z, sizeof(float64_t)); }
   Val(own<Ref*>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
 
   Val(Val&& that) : kind_(that.kind_), impl_(that.impl_) {
@@ -493,6 +491,16 @@ public:
   static auto i64(int64_t x) -> Val { return Val(x); }
   static auto f32(float32_t x) -> Val { return Val(x); }
   static auto f64(float64_t x) -> Val { return Val(x); }
+  static auto f32_bits(int32_t x) -> Val {
+    auto t = Val(x);
+    t.kind_ = F32;
+    return t;
+  }
+  static auto f64_bits(int64_t x) -> Val {
+    auto t = Val(x);
+    t.kind_ = F64;
+    return t;
+  }
   static auto ref(own<Ref*>&& x) -> Val { return Val(std::move(x)); }
   template<class T> inline static auto make(T x) -> Val;
   template<class T> inline static auto make(own<T>&& x) -> Val;
@@ -519,8 +527,20 @@ public:
   auto kind() const -> ValKind { return kind_; }
   auto i32() const -> int32_t { assert(kind_ == I32); return impl_.i32; }
   auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
-  auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
-  auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
+  auto f32() const -> float32_t {
+    assert(kind_ == F32);
+    float32_t f;
+    memcpy(&f, &impl_.i32, sizeof(float32_t));
+    return f;
+  }
+  auto f64() const -> float64_t {
+    assert(kind_ == F64);
+    float64_t f;
+    memcpy(&f, &impl_.i64, sizeof(float64_t));
+    return f;
+  }
+  auto f32_bits() const -> int32_t { assert(kind_ == F32); return impl_.i32; }
+  auto f64_bits() const -> int64_t { assert(kind_ == F64); return impl_.i64; }
   auto ref() const -> Ref* { assert(is_ref()); return impl_.ref; }
   template<class T> inline auto get() const -> T;
 
