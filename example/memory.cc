@@ -31,26 +31,35 @@ void check(T actual, U expected) {
   }
 }
 
-void check_ok(const wasm::Result& result) {
-  if (result.kind() != wasm::Result::RETURN) {
+template<class... Args>
+void check_ok(const wasm::Func* func, Args... xs) {
+  wasm::Val args[] = {wasm::Val::i32(xs)...};
+  if (func->call(args)) {
     std::cout << "> Error on result, expected return" << std::endl;
     exit(1);
   }
 }
 
-void check_trap(const wasm::Result& result) {
-  if (result.kind() != wasm::Result::TRAP) {
+template<class... Args>
+void check_trap(const wasm::Func* func, Args... xs) {
+  wasm::Val args[] = {wasm::Val::i32(xs)...};
+  if (! func->call(args)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
   }
 }
 
-void check(bool success) {
-  if (!success) {
-    std::cout << "> Error, expected success" << std::endl;
+template<class... Args>
+auto call(const wasm::Func* func, Args... xs) -> int32_t {
+  wasm::Val args[] = {wasm::Val::i32(xs)...};
+  wasm::Val results[1];
+  if (func->call(args, results)) {
+    std::cout << "> Error on result, expected return" << std::endl;
     exit(1);
   }
+  return results[0].i32();
 }
+
 
 void run() {
   // Initialize.
@@ -83,8 +92,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make();
-  auto instance = wasm::Instance::make(store, module.get(), imports);
+  auto instance = wasm::Instance::make(store, module.get(), nullptr);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;
@@ -107,46 +115,46 @@ void run() {
   check(memory->data()[0x1000], 1);
   check(memory->data()[0x1003], 4);
 
-  check(size_func->call()[0].i32(), 2);
-  check(load_func->call(wasm::Val::i32(0))[0].i32(), 0);
-  check(load_func->call(wasm::Val::i32(0x1000))[0].i32(), 1);
-  check(load_func->call(wasm::Val::i32(0x1003))[0].i32(), 4);
-  check(load_func->call(wasm::Val::i32(0x1ffff))[0].i32(), 0);
-  check_trap(load_func->call(wasm::Val::i32(0x20000)));
+  check(call(size_func), 2);
+  check(call(load_func, 0), 0);
+  check(call(load_func, 0x1000), 1);
+  check(call(load_func, 0x1003), 4);
+  check(call(load_func, 0x1ffff), 0);
+  check_trap(load_func, 0x20000);
 
   // Mutate memory.
   std::cout << "Mutating memory..." << std::endl;
   memory->data()[0x1003] = 5;
-  check_ok(store_func->call(wasm::Val::i32(0x1002), wasm::Val::i32(6)));
-  check_trap(store_func->call(wasm::Val::i32(0x20000), wasm::Val::i32(0)));
+  check_ok(store_func, 0x1002, 6);
+  check_trap(store_func, 0x20000, 0);
 
   check(memory->data()[0x1002], 6);
   check(memory->data()[0x1003], 5);
-  check(load_func->call(wasm::Val::i32(0x1002))[0].i32(), 6);
-  check(load_func->call(wasm::Val::i32(0x1003))[0].i32(), 5);
+  check(call(load_func, 0x1002), 6);
+  check(call(load_func, 0x1003), 5);
 
   // Grow memory.
   std::cout << "Growing memory..." << std::endl;
-  check(memory->grow(1));
+  check(memory->grow(1), true);
   check(memory->size(), 3);
   check(memory->data_size(), 0x30000);
 
-  check_ok(load_func->call(wasm::Val::i32(0x20000)));
-  check_ok(store_func->call(wasm::Val::i32(0x20000), wasm::Val::i32(0)));
-  check_trap(load_func->call(wasm::Val::i32(0x30000)));
-  check_trap(store_func->call(wasm::Val::i32(0x30000), wasm::Val::i32(0)));
+  check(call(load_func, 0x20000), 0);
+  check_ok(store_func, 0x20000, 0);
+  check_trap(load_func, 0x30000);
+  check_trap(store_func, 0x30000, 0);
 
-  check(! memory->grow(1));
-  check(memory->grow(0));
+  check(memory->grow(1), false);
+  check(memory->grow(0), true);
 
   // Create stand-alone memory.
   // TODO(wasm+): Once Wasm allows multiple memories, turn this into import.
   std::cout << "Creating stand-alone memory..." << std::endl;
   auto memorytype = wasm::MemoryType::make(wasm::Limits(5, 5));
   auto memory2 = wasm::Memory::make(store, memorytype.get());
-  check(memory2->size() == 5);
-  check(! memory2->grow(1));
-  check(memory2->grow(0));
+  check(memory2->size(), 5);
+  check(memory2->grow(1), false);
+  check(memory2->grow(0), true);
 
   // Shut down.
   std::cout << "Shutting down..." << std::endl;

@@ -1405,7 +1405,7 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
 }
 
 
-// TODO(wasm+): do better when V8 can do better.
+// TODO(v8): do better when V8 can do better.
 template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
 
 template<>
@@ -1628,7 +1628,15 @@ auto Func::type() const -> own<FuncType*> {
   return func_type(impl(this)->v8_object());
 }
 
-auto Func::call(const vec<Val>& args) const -> Result {
+auto Func::param_arity() const -> size_t {
+  return wasm_v8::func_type_param_arity(impl(this)->v8_object());
+}
+
+auto Func::result_arity() const -> size_t {
+  return wasm_v8::func_type_result_arity(impl(this)->v8_object());
+}
+
+auto Func::call(const Val args[], Val results[]) const -> own<Trap*> {
   auto func = impl(this);
   auto store = func->store();
   auto isolate = store->isolate();
@@ -1636,22 +1644,21 @@ auto Func::call(const vec<Val>& args) const -> Result {
 
   auto context = store->context();
   auto type = this->type();
-  auto& type_params = type->params();
-  auto& type_results = type->results();
+  auto& param_types = type->params();
+  auto& result_types = type->results();
 
-  assert(type_params.size() == args.size());
-
+  // TODO: cache v8_args array per thread.
   auto v8_args = std::unique_ptr<v8::Local<v8::Value>[]>(
-    new(std::nothrow) v8::Local<v8::Value>[type_params.size()]);
-  for (size_t i = 0; i < type_params.size(); ++i) {
-    assert(args[i].kind() == type_params[i]->kind());
+    new(std::nothrow) v8::Local<v8::Value>[param_types.size()]);
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    assert(args[i].kind() == param_types[i]->kind());
     v8_args[i] = val_to_v8(store, args[i]);
   }
 
   v8::TryCatch handler(isolate);
   auto v8_function = v8::Local<v8::Function>::Cast(func->v8_object());
-  auto maybe_result = v8_function->Call(
-    context, v8::Undefined(isolate), args.size(), v8_args.get());
+  auto maybe_val = v8_function->Call(
+    context, v8::Undefined(isolate), param_types.size(), v8_args.get());
 
   if (handler.HasCaught()) {
     auto exception = handler.Exception();
@@ -1661,20 +1668,20 @@ auto Func::call(const vec<Val>& args) const -> Result {
         ? store->v8_string(V8_S_EMPTY) : maybe_string.ToLocalChecked();
       exception = v8::Exception::Error(string);
     }
-    return Result(RefImpl<Trap>::make(
-      store, v8::Handle<v8::Object>::Cast(exception)));
+    return RefImpl<Trap>::make(
+      store, v8::Handle<v8::Object>::Cast(exception));
   }
 
-  auto result = maybe_result.ToLocalChecked();
-  if (type_results.size() == 0) {
-    assert(result->IsUndefined());
-    return Result();
-  } else if (type_results.size() == 1) {
-    assert(!result->IsUndefined());
-    return Result(v8_to_val(store, result, type_results[0]));
+  auto val = maybe_val.ToLocalChecked();
+  if (result_types.size() == 0) {
+    assert(val->IsUndefined());
+  } else if (result_types.size() == 1) {
+    assert(!val->IsUndefined());
+    new (&results[0]) Val(v8_to_val(store, val, result_types[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }
+  return nullptr;
 }
 
 void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -1685,33 +1692,36 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::HandleScope handle_scope(isolate);
 
   auto context = store->context();
-  auto& type_params = self->type->params();
-  auto& type_results = self->type->results();
+  auto& param_types = self->type->params();
+  auto& result_types = self->type->results();
 
-  assert(type_params.size() == info.Length());
+  assert(param_types.size() == info.Length());
 
-  auto args = vec<Val>::make_uninitialized(type_params.size());
-  for (size_t i = 0; i < type_params.size(); ++i) {
-    args[i] = v8_to_val(store, info[i], type_params[i]);
+  // TODO: cache params and result arrays per thread.
+  auto args = new Val[param_types.size()];
+  auto results = new Val[result_types.size()];
+  for (size_t i = 0; i < param_types.size(); ++i) {
+    args[i] = v8_to_val(store, info[i], param_types[i]);
   }
 
-  auto result = self->kind == CALLBACK_WITH_ENV
-    ? self->callback_with_env(self->env, args)
-    : self->callback(args);
+  own<Trap*> trap;
+  if (self->kind == CALLBACK_WITH_ENV) {
+    trap = self->callback_with_env(self->env, args, results);
+  } else {
+    trap = self->callback(args, results);
+  }
 
-  if (result.kind() == Result::TRAP) {
-    isolate->ThrowException(impl(result.trap())->v8_object());
+  if (trap) {
+    isolate->ThrowException(impl(trap.get())->v8_object());
     return;
   }
 
-  assert(type_results.size() == result.vals().size());
-
   auto ret = info.GetReturnValue();
-  if (type_results.size() == 0) {
+  if (result_types.size() == 0) {
     ret.SetUndefined();
-  } else if (type_results.size() == 1) {
-    assert(result[0].kind() == type_results[0]->kind());
-    ret.Set(val_to_v8(store, result[0]));
+  } else if (result_types.size() == 1) {
+    assert(results[0].kind() == result_types[0]->kind());
+    ret.Set(val_to_v8(store, results[0]));
   } else {
     UNIMPLEMENTED("multiple results");
   }
@@ -1995,7 +2005,7 @@ auto Instance::copy() const -> own<Instance*> {
 }
 
 auto Instance::make(
-  Store* store_abs, const Module* module_abs, const vec<Extern*>& imports
+  Store* store_abs, const Module* module_abs, const Extern* const imports[]
 ) -> own<Instance*> {
   auto store = impl(store_abs);
   auto module = impl(module_abs);

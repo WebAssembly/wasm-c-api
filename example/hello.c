@@ -8,10 +8,12 @@
 #define own
 
 // A function to be called from Wasm code.
-void hello_callback(const wasm_val_vec_t* args, own wasm_result_t* result) {
+own wasm_trap_t* hello_callback(
+  const wasm_val_t args[], wasm_val_t results[]
+) {
   printf("Calling back...\n");
   printf("> Hello World!\n");
-  wasm_result_new_empty(result);
+  return NULL;
 }
 
 
@@ -56,9 +58,8 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
-  wasm_extern_vec_t imports = { 1, externs };
-  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports);
+  const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
+  own wasm_instance_t* instance = wasm_instance_new(store, module, imports);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -85,16 +86,12 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_vec_t args = { 0, NULL };
-  own wasm_result_t result;
-  wasm_func_call(run_func, &args, &result);
-  if (result.kind != WASM_RETURN) {
+  if (wasm_func_call(run_func, NULL, NULL)) {
     printf("> Error calling function!\n");
     return 1;
   }
 
   wasm_extern_vec_delete(&exports);
-  wasm_result_delete(&result);
 
   // Shut down.
   printf("Shutting down...\n");

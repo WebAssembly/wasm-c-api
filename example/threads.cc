@@ -9,12 +9,14 @@ const int N_THREADS = 10;
 const int N_REPS = 3;
 
 // A function to be called from Wasm code.
-auto callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
-  assert(args.size() == 1 && args[0].kind() == wasm::I32);
+auto callback(
+  void* env, const wasm::Val args[], wasm::Val results[]
+) -> wasm::own<wasm::Trap*> {
+  assert(args[0].kind() == wasm::I32);
   std::lock_guard<std::mutex>(*reinterpret_cast<std::mutex*>(env));
   std::cout << "Thread " << args[0].i32() << " running..." << std::endl;
   std::cout.flush();
-  return wasm::Result();
+  return nullptr;
 }
 
 
@@ -51,7 +53,7 @@ void run(
       store, global_type.get(), wasm::Val::i32(i));
 
     // Instantiate.
-    auto imports = wasm::vec<wasm::Extern*>::make(func, global);
+    wasm::Extern* imports[] = {func.get(), global.get()};
     auto instance = wasm::Instance::make(store, module.get(), imports);
     if (!instance) {
       std::lock_guard<std::mutex>(*mutex);

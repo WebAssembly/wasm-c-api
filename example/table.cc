@@ -8,9 +8,12 @@
 
 
 // A function to be called from Wasm code.
-auto neg_callback(const wasm::vec<wasm::Val>& args) -> wasm::Result {
+auto neg_callback(
+  const wasm::Val args[], wasm::Val results[]
+) -> wasm::own<wasm::Trap*> {
   std::cout << "Calling back..." << std::endl;
-  return wasm::Result(wasm::Val(-args[0].i32()));
+  results[0] = wasm::Val(-args[0].i32());
+  return nullptr;
 }
 
 
@@ -38,16 +41,30 @@ void check(T actual, U expected) {
   }
 }
 
-void check_trap(const wasm::Result& result) {
-  if (result.kind() != wasm::Result::TRAP) {
-    std::cout << "> Error on result, expected trap" << std::endl;
+void check(bool success) {
+  if (! success) {
+    std::cout << "> Error, expected success" << std::endl;
     exit(1);
   }
 }
 
-void check(bool success) {
-  if (!success) {
-    std::cout << "> Error, expected success" << std::endl;
+auto call(
+  const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2
+) -> wasm::Val {
+  wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
+  wasm::Val results[1];
+  if (func->call(args, results)) {
+    std::cout << "> Error on result, expected return" << std::endl;
+    exit(1);
+  }
+  return results[0].copy();
+}
+
+void check_trap(const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2) {
+  wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
+  wasm::Val results[1];
+  if (! func->call(args, results)) {
+    std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
   }
 }
@@ -83,8 +100,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make();
-  auto instance = wasm::Instance::make(store, module.get(), imports);
+  auto instance = wasm::Instance::make(store, module.get(), nullptr);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     return;
@@ -112,9 +128,9 @@ void run() {
   check(table->size(), 2);
   check(table->get(0) == nullptr);
   check(table->get(1) != nullptr);
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(0)));
-  check(call_indirect->call(wasm::Val::i32(7), wasm::Val::i32(1))[0].i32(), 7);
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(2)));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(0));
+  check(call(call_indirect, wasm::Val::i32(7), wasm::Val::i32(1)).i32(), 7);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(2));
 
   // Mutate table.
   std::cout << "Mutating table..." << std::endl;
@@ -123,9 +139,9 @@ void run() {
   check(! table->set(2, f));
   check(table->get(0) != nullptr);
   check(table->get(1) == nullptr);
-  check(call_indirect->call(wasm::Val::i32(7), wasm::Val::i32(0))[0].i32(), 666);
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(1)));
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(2)));
+  check(call(call_indirect, wasm::Val::i32(7), wasm::Val::i32(0)).i32(), 666);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(1));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(2));
 
   // Grow table.
   std::cout << "Growing table..." << std::endl;
@@ -137,10 +153,10 @@ void run() {
   check(table->get(2) != nullptr);
   check(table->get(3) != nullptr);
   check(table->get(4) == nullptr);
-  check(call_indirect->call(wasm::Val::i32(5), wasm::Val::i32(2))[0].i32(), 5);
-  check(call_indirect->call(wasm::Val::i32(6), wasm::Val::i32(3))[0].i32(), -6);
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(4)));
-  check_trap(call_indirect->call(wasm::Val::i32(0), wasm::Val::i32(5)));
+  check(call(call_indirect, wasm::Val::i32(5), wasm::Val::i32(2)).i32(), 5);
+  check(call(call_indirect, wasm::Val::i32(6), wasm::Val::i32(3)).i32(), -6);
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(4));
+  check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(5));
 
   check(table->grow(2, f));
   check(table->size(), 7);

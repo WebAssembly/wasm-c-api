@@ -7,11 +7,13 @@
 #include "wasm.hh"
 
 // A function to be called from Wasm code.
-auto fail_callback(void* env, const wasm::vec<wasm::Val>& args) -> wasm::Result {
+auto fail_callback(
+  void* env, const wasm::Val args[], wasm::Val results[]
+) -> wasm::own<wasm::Trap*> {
   std::cout << "Calling back..." << std::endl;
   auto store = reinterpret_cast<wasm::Store*>(env);
   auto message = wasm::Name::make(std::string("callback abort"));
-  return wasm::Result(wasm::Trap::make(store, message));
+  return wasm::Trap::make(store, message);
 }
 
 
@@ -55,7 +57,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::vec<wasm::Extern*>::make(fail_func);
+  wasm::Extern* imports[] = {fail_func.get()};
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -75,14 +77,14 @@ void run() {
   // Call.
   for (size_t i = 0; i < 2; ++i) {
     std::cout << "Calling export " << i << "..." << std::endl;
-    auto result = exports[i]->func()->call();
-    if (result.kind() != wasm::Result::TRAP) {
+    auto trap = exports[i]->func()->call();
+    if (!trap) {
       std::cout << "> Error calling function!" << std::endl;
       return;
     }
 
     std::cout << "Printing message..." << std::endl;
-    std::cout << "> " << result.trap()->message().get() << std::endl;
+    std::cout << "> " << trap->message().get() << std::endl;
   }
 
   // Shut down.
