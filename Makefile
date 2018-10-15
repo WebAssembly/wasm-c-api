@@ -212,7 +212,7 @@ v8-patch:
 	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
 	  cp ${V8_V8}/BUILD.gn ${V8_V8}/BUILD.gn.save; \
 	  cd ${V8_V8}; \
-	  patch < ../../patch/BUILD.gn-add-wasm-v8-lowlevel.patch; \
+	  patch < ../../patch/0001-BUILD.gn-add-wasm-v8-lowlevel.patch; \
 	fi
 
 .PHONY: v8-unpatch
