@@ -26,7 +26,7 @@ OUT_DIR = out
 
 # Example config
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory serialize threads
+EXAMPLES = hello callback trap reflect global table memory serialize threads func_arity
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
