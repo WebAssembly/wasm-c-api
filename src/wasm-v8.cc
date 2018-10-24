@@ -1629,10 +1629,12 @@ auto Func::type() const -> own<FuncType*> {
 }
 
 auto Func::param_arity() const -> size_t {
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::func_type_param_arity(impl(this)->v8_object());
 }
 
 auto Func::result_arity() const -> size_t {
+  v8::HandleScope handle_scope(impl(this)->isolate());
   return wasm_v8::func_type_result_arity(impl(this)->v8_object());
 }
 
