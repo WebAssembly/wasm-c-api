@@ -16,6 +16,8 @@ int main(int argc, const char* argv[]) {
         << " result_arity="
         << run_func->result_arity()
         << std::endl;
+    assert(run_func->param_arity() == 1);
+    assert(run_func->result_arity() == 0);
   });
 
   std::cout << "Done." << std::endl;

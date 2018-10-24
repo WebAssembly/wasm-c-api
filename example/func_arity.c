@@ -8,6 +8,8 @@ void run(own wasm_instance_t *instance) {
   size_t nParams = wasm_func_param_arity(run_func);
   size_t nResults = wasm_func_result_arity(run_func);
   printf("func_arity.wasm run param_arity=%zu result_arity=%zu\n", nParams, nResults);
+  assert(nParams == 1);
+  assert(nResults == 0);
   wasm_extern_vec_delete(&exports);
 }
 
