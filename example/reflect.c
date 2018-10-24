@@ -138,6 +138,11 @@ int main(int argc, const char* argv[]) {
     print_externtype(current);
     wasm_externtype_delete(current);
     printf("\n");
+    if (wasm_extern_kind(exports.data[i]) == WASM_EXTERN_FUNC) {
+      wasm_func_t* func = wasm_extern_as_func(exports.data[i]);
+      printf(">> in-arity: %zu", wasm_func_param_arity(func));
+      printf(", out-arity: %zu\n", wasm_func_result_arity(func));
+    }
   }
 
   wasm_module_delete(module);

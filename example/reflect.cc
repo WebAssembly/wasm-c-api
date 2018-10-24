@@ -118,6 +118,11 @@ void run() {
     std::cout << "> export " << i << " " << export_types[i]->name() << std::endl;
     std::cout << ">> initial: " << *export_types[i]->type() << std::endl;
     std::cout << ">> current: " << *exports[i]->type() << std::endl;
+    if (exports[i]->kind() == wasm::EXTERN_FUNC) {
+      auto func = exports[i]->func();
+      std::cout << ">> in-arity: " << func->param_arity();
+      std::cout << ", out-arity: " << func->result_arity() << std::endl;
+    }
   }
 
   // Shut down.
