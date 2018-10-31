@@ -1419,7 +1419,7 @@ void Shared<Module>::operator delete(void* p) {
 }
 
 auto Module::share() const -> own<Shared<Module>*> {
-  auto shared = seal<Shared<Module>>(new vec<byte_t>(std::move(serialize())));
+  auto shared = seal<Shared<Module>>(new vec<byte_t>(serialize()));
   stats.make(Stats::MODULE, shared, Stats::SHARED);
   return make_own(shared);
 }
