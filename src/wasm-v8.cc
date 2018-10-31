@@ -988,7 +988,6 @@ auto memorytype_to_v8(
   StoreImpl* store, const MemoryType* type
 ) -> v8::Local<v8::Object> {
   auto isolate = store->isolate();
-  auto context = store->context();
   auto desc = v8::Object::New(isolate);
   limits_to_v8(store, type->limits(), desc);
   return desc;
@@ -1693,7 +1692,6 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
-  auto context = store->context();
   auto& param_types = self->type->params();
   auto& result_types = self->type->results();
 
