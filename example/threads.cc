@@ -31,7 +31,7 @@ void run(
   // Obtain.
   auto module = wasm::Module::obtain(store, shared);
   if (!module) {
-    std::lock_guard<std::mutex>(*mutex);
+    std::lock_guard<std::mutex> lock(*mutex);
     std::cout << "> Error compiling module!" << std::endl;
     return;
   }
@@ -56,7 +56,7 @@ void run(
     wasm::Extern* imports[] = {func.get(), global.get()};
     auto instance = wasm::Instance::make(store, module.get(), imports);
     if (!instance) {
-      std::lock_guard<std::mutex>(*mutex);
+      std::lock_guard<std::mutex> lock(*mutex);
       std::cout << "> Error instantiating module!" << std::endl;
       return;
     }
@@ -64,7 +64,7 @@ void run(
     // Extract export.
     auto exports = instance->exports();
     if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
-      std::lock_guard<std::mutex>(*mutex);
+      std::lock_guard<std::mutex> lock(*mutex);
       std::cout << "> Error accessing export!" << std::endl;
       return;
     }
@@ -106,7 +106,7 @@ int main(int argc, const char *argv[]) {
   std::thread threads[N_THREADS];
   for (int i = 0; i < N_THREADS; ++i) {
     {
-      std::lock_guard<std::mutex>(*mutex);
+      std::lock_guard<std::mutex> lock(mutex);
       std::cout << "Initializing thread " << i << "..." << std::endl;
     }
     threads[i] = std::thread(run, engine.get(), shared.get(), &mutex, i);
@@ -114,7 +114,7 @@ int main(int argc, const char *argv[]) {
 
   for (int i = 0; i < N_THREADS; ++i) {
     {
-      std::lock_guard<std::mutex>(*mutex);
+      std::lock_guard<std::mutex> lock(mutex);
       std::cout << "Waiting for thread " << i << "..." << std::endl;
     }
     threads[i].join();

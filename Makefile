@@ -8,7 +8,7 @@ V8_ARCH = x64
 V8_MODE = release
 
 WASM_FLAGS = -DDEBUG  # -DDEBUG_LOG
-C_FLAGS = ${WASM_FLAGS} -ggdb -O0 -fsanitize=address
+C_FLAGS = ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
 CC_FLAGS = ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
@@ -113,7 +113,7 @@ run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/
 # Compiling C / C++ example
 ${EXAMPLE_OUT}/%-c.o: ${EXAMPLE_DIR}/%.c ${WASM_INCLUDE}/wasm.h
 	mkdir -p ${EXAMPLE_OUT}
-	${C_COMP} -c -std=c11 ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${C_COMP} -c ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
