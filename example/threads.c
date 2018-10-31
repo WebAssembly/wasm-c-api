@@ -106,7 +106,7 @@ int main(int argc, const char *argv[]) {
   fseek(file, 0L, SEEK_SET);
   wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
-  if(fread(binary.data, file_size, 1, file) != 1) {
+  if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
     return 1;
   }
