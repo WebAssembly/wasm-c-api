@@ -1110,7 +1110,7 @@ public:
   }
 
   auto store() const -> StoreImpl* {
-    return reinterpret_cast<StoreImpl*>(isolate()->GetData(0));
+    return StoreImpl::get(isolate());
   }
 
   auto isolate() const -> v8::Isolate* {
@@ -1137,34 +1137,36 @@ public:
   void set_host_info(void* info, void (*finalizer)(void*)) {
     v8::HandleScope handle_scope(isolate());
     auto store = this->store();
-    auto previous = this->template ClearWeak<HostData>();
 
-    auto data = new HostData{info, finalizer, previous};
+    // V8 attaches finalizers to handles instead of objects, and such handles
+    // cannot be reused after the finalizer has been invoked.
+    // So we need to create them separately from the pool.
+    auto data = new HostData(store->isolate(), v8_object(), info, finalizer);
+    data->handle.template SetWeak<HostData>(
+      data, &v8_finalizer, v8::WeakCallbackType::kParameter);
     auto foreign = wasm_v8::foreign_new(store->isolate(), data);
     v8::Local<v8::Value> args[] = { v8_object(), foreign };
     auto maybe_result = store->v8_function(V8_F_WEAKMAP_SET)->Call(
       store->context(), store->host_data_map(), 2, args);
     if (maybe_result.IsEmpty()) return;
-
-    this->template SetWeak<HostData>(
-      data, &v8_finalizer, v8::WeakCallbackType::kParameter);
   }
 
 private:
   struct HostData {
+    HostData(
+      v8::Isolate* isolate, v8::Local<v8::Object> object,
+      void* info, void (*finalizer)(void*)) :
+      handle(isolate, object), info(info), finalizer(finalizer) {}
+    v8::Persistent<v8::Object> handle;
     void* info;
     void (*finalizer)(void*);
-    HostData* other;
   };
 
   static void v8_finalizer(const v8::WeakCallbackInfo<HostData>& info) {
     auto data = info.GetParameter();
-    while (data) {
-      if (data->finalizer) (*data->finalizer)(data->info);
-      auto next = data->other;
-      delete data;
-      data = next;
-    }
+    data->handle.Reset();  // Must reset weak handle before deleting it!
+    if (data->finalizer) (*data->finalizer)(data->info);
+    delete data;
   }
 };
 
@@ -1173,6 +1175,10 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 Ref::~Ref() {
   stats.free(Stats::categorize(*impl(this)), this);
+  if (!impl(this)->IsWeak()) {
+    v8::HandleScope handle_scope(impl(this)->isolate());
+    impl(this)->store()->free_handle(impl(this));
+  }
 }
 
 void Ref::operator delete(void *p) {}
