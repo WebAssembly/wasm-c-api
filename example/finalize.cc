@@ -56,7 +56,6 @@ void run() {
       return;
     }
     instance->set_host_info(nullptr, &finalize);
-//    auto instance2 = instance->copy();
   }
 
   // Shut down.
