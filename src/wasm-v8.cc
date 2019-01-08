@@ -20,6 +20,7 @@ namespace v8 {
   namespace internal {
     extern bool FLAG_expose_gc;
     extern bool FLAG_experimental_wasm_mut_global;
+    extern bool FLAG_experimental_wasm_mv;
   }
 }
 
@@ -291,6 +292,7 @@ void Engine::operator delete(void *p) {
 auto Engine::make(own<Config*>&& config) -> own<Engine*> {
   v8::internal::FLAG_expose_gc = true;
   v8::internal::FLAG_experimental_wasm_mut_global = true;
+  v8::internal::FLAG_experimental_wasm_mv = true;
   // v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char**>(argv), false);
   auto engine = new(std::nothrow) EngineImpl;
   if (!engine) return own<Engine*>();
