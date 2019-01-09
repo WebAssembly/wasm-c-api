@@ -10,9 +10,8 @@
 const int iterations = 100000;
 
 void finalize(void* data) {
-  static int count = 0;
-  ++count;
-  if (count % (iterations / 10) == 0) printf("Finalizing %dth...\n", count);
+  int i = (int)data;
+  if (i % (iterations / 10) == 0) printf("Finalizing #%d...\n", i);
 }
 
 int main(int argc, const char* argv[]) {
@@ -58,7 +57,8 @@ int main(int argc, const char* argv[]) {
       printf("> Error instantiating module %d!\n", i);
       return 1;
     }
-    wasm_instance_set_host_info_with_finalizer(instance, NULL, &finalize);
+    void* data = (void*)(intptr_t)i;
+    wasm_instance_set_host_info_with_finalizer(instance, data, &finalize);
     wasm_instance_delete(instance);
   }
 

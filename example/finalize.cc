@@ -9,11 +9,10 @@
 
 const int iterations = 100000;
 
-void finalize(void*) {
-  static int count = 0;
-  ++count;
-  if (count % (iterations / 10) == 0) {
-    std::cout << "Finalizing " << count << "th..." << std::endl;
+void finalize(void* data) {
+  intptr_t i = reinterpret_cast<intptr_t>(data);
+  if (i % (iterations / 10) == 0) {
+    std::cout << "Finalizing #" << i << "..." << std::endl;
   }
 }
 
@@ -55,7 +54,7 @@ void run() {
       std::cout << "> Error instantiating module " << i << "!" << std::endl;
       return;
     }
-    instance->set_host_info(nullptr, &finalize);
+    instance->set_host_info(reinterpret_cast<void*>(i), &finalize);
   }
 
   // Shut down.
