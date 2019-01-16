@@ -1175,10 +1175,8 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 Ref::~Ref() {
   stats.free(Stats::categorize(*impl(this)), this);
-  if (!impl(this)->IsWeak()) {
-    v8::HandleScope handle_scope(impl(this)->isolate());
-    impl(this)->store()->free_handle(impl(this));
-  }
+  v8::HandleScope handle_scope(impl(this)->isolate());
+  impl(this)->store()->free_handle(impl(this));
 }
 
 void Ref::operator delete(void *p) {}
