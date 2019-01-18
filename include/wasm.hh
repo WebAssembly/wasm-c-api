@@ -573,7 +573,7 @@ template<> inline auto Val::get<uint64_t>() const -> uint64_t {
 
 // Traps
 
-using Message = vec<byte_t>;
+using Message = vec<byte_t>;  // null terminated
 
 class Trap : public Ref {
 public:

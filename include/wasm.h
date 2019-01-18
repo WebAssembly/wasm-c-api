@@ -346,7 +346,7 @@ WASM_DECLARE_REF_BASE(ref)
 
 // Traps
 
-typedef wasm_name_t wasm_message_t;
+typedef wasm_name_t wasm_message_t;  // null terminated
 
 WASM_DECLARE_REF(trap)
 
