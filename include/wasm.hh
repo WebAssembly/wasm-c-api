@@ -268,7 +268,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 // Type Representations
 
-// Tyoe atributes
+// Type attributes
 
 enum Mutability { CONST, VAR };
 
