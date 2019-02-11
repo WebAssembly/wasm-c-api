@@ -171,8 +171,8 @@ ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
 	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
-${WASM_SRC}/wasm-c.cc: ${WASM_SRC}/wasm-v8.cc
-	touch $@
+# wasm-c.cc includes wasm-v8.cc, so set up a side dependency
+${WASM_OUT}/wasm-c.o: ${WASM_SRC}/wasm-v8.cc
 
 
 ###############################################################################
