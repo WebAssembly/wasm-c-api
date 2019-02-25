@@ -434,8 +434,7 @@ auto memory_data(v8::Local<v8::Object> memory) -> char* {
 auto memory_data_size(v8::Local<v8::Object> memory)-> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
-  uint32_t size;
-  return v8_memory->array_buffer()->byte_length()->ToUint32(&size) ? size : 0;
+  return v8_memory->array_buffer()->byte_length();
 }
 
 auto memory_size(v8::Local<v8::Object> memory) -> uint32_t {

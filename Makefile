@@ -3,7 +3,7 @@
 
 # Change these as you see fit.
 
-V8_VERSION = branch-heads/7.0
+V8_VERSION = branch-heads/7.1
 V8_ARCH = x64
 V8_MODE = release
 
@@ -233,7 +233,8 @@ ${V8_SRC}/${WASM_V8_PATCH}.cc: ${WASM_SRC}/${WASM_V8_PATCH}.cc
 # Check out set version
 .PHONY: v8-checkout
 v8-checkout: v8-checkout-banner ${V8_DEPOT_TOOLS} ${V8_V8}
-	(cd ${V8_V8}; git pull origin ${V8_VERSION})
+	(cd ${V8_V8}; git checkout -f master)
+	(cd ${V8_V8}; git pull)
 	(cd ${V8_V8}; git checkout ${V8_VERSION})
 	(cd ${V8_V8}; PATH=${V8_PATH} gclient sync)
 	mkdir -p ${V8_OUT}
