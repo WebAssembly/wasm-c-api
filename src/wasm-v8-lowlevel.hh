@@ -6,7 +6,7 @@
 namespace v8 {
 namespace wasm {
 
-auto object_isolate(v8::Handle<v8::Object>) -> v8::Isolate*;
+auto object_isolate(v8::Local<v8::Object>) -> v8::Isolate*;
 auto object_isolate(const v8::Persistent<v8::Object>&) -> v8::Isolate*;
 
 auto object_is_module(v8::Local<v8::Object>) -> bool;

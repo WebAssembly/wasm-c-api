@@ -3,7 +3,7 @@
 
 # Change these as you see fit.
 
-V8_VERSION = branch-heads/6.9
+V8_VERSION = branch-heads/7.0
 V8_ARCH = x64
 V8_MODE = release
 

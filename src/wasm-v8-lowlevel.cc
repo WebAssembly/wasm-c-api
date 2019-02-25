@@ -12,6 +12,7 @@
 #include "objects/js-collection.h"
 
 #include "api.h"
+#include "api-inl.h"
 #include "wasm/wasm-objects.h"
 #include "wasm/wasm-objects-inl.h"
 #include "wasm/wasm-serialization.h"
@@ -23,11 +24,7 @@ namespace wasm {
 
 // Objects
 
-auto object_isolate(v8::internal::HeapObject* v8_obj) -> v8::Isolate* {
-  return reinterpret_cast<v8::Isolate*>(v8_obj->GetIsolate());
-}
-
-auto object_isolate(v8::Handle<v8::Object> obj) -> v8::Isolate* {
+auto object_isolate(v8::Local<v8::Object> obj) -> v8::Isolate* {
   auto v8_obj = v8::Utils::OpenHandle(*obj);
   return reinterpret_cast<v8::Isolate*>(v8_obj->GetIsolate());
 }
@@ -201,16 +198,15 @@ auto module_binary(v8::Local<v8::Object> module) -> const char* {
 auto module_serialize_size(v8::Local<v8::Object> module) -> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return v8::internal::wasm::GetSerializedNativeModuleSize(
-    v8_object->GetIsolate(), v8_module->native_module());
+  v8::internal::wasm::WasmSerializer serializer(v8_module->GetIsolate(), v8_module->native_module());
+  return serializer.GetSerializedNativeModuleSize();
 }
 
 auto module_serialize(v8::Local<v8::Object> module, char* buffer, size_t size) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  return v8::internal::wasm::SerializeNativeModule(
-    v8_object->GetIsolate(), v8_module->native_module(),
-    {reinterpret_cast<uint8_t*>(buffer), size});
+  v8::internal::wasm::WasmSerializer serializer(v8_module->GetIsolate(), v8_module->native_module());
+  return serializer.SerializeNativeModule({reinterpret_cast<uint8_t*>(buffer), size});
 }
 
 auto module_deserialize(
