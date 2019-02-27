@@ -169,9 +169,7 @@ auto table_type_max(v8::Local<v8::Object> table) -> uint32_t {
 }
 
 auto memory_type_min(v8::Local<v8::Object> memory) -> uint32_t {
-  auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
-  auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
-  return v8_memory->current_pages();
+  return memory_size(memory);
 }
 
 auto memory_type_max(v8::Local<v8::Object> memory) -> uint32_t {
@@ -225,7 +223,7 @@ auto module_deserialize(
 }
 
 
-// Instance
+// Instances
 
 auto instance_module(v8::Local<v8::Object> instance) -> v8::Local<v8::Object> {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(instance);
@@ -440,7 +438,8 @@ auto memory_data_size(v8::Local<v8::Object> memory)-> size_t {
 auto memory_size(v8::Local<v8::Object> memory) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
-  return v8_memory->current_pages();
+  return static_cast<uint32_t>(
+    v8_memory->array_buffer()->byte_length() / v8::internal::wasm::kWasmPageSize);
 }
 
 auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool {

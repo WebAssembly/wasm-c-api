@@ -1227,7 +1227,7 @@ auto Trap::make(Store* store_abs, const Message& message) -> own<Trap*> {
     v8::NewStringType::kNormal, message.size());
   if (maybe_string.IsEmpty()) return own<Trap*>();
   auto exception = v8::Exception::Error(maybe_string.ToLocalChecked());
-  return RefImpl<Trap>::make(store, v8::Handle<v8::Object>::Cast(exception));
+  return RefImpl<Trap>::make(store, v8::Local<v8::Object>::Cast(exception));
 }
 
 auto Trap::message() const -> Message {
@@ -1600,7 +1600,7 @@ auto make_func(Store* store_abs, FuncData* data) -> own<Func*> {
   return func;
 }
 
-auto func_type(v8::Handle<v8::Object> v8_func) -> own<FuncType*> {
+auto func_type(v8::Local<v8::Object> v8_func) -> own<FuncType*> {
   // return impl(this)->data->type->copy();
   auto param_arity = wasm_v8::func_type_param_arity(v8_func);
   auto result_arity = wasm_v8::func_type_result_arity(v8_func);
@@ -1688,8 +1688,7 @@ auto Func::call(const Val args[], Val results[]) const -> own<Trap*> {
         ? store->v8_string(V8_S_EMPTY) : maybe_string.ToLocalChecked();
       exception = v8::Exception::Error(string);
     }
-    return RefImpl<Trap>::make(
-      store, v8::Handle<v8::Object>::Cast(exception));
+    return RefImpl<Trap>::make(store, v8::Local<v8::Object>::Cast(exception));
   }
 
   auto val = maybe_val.ToLocalChecked();
