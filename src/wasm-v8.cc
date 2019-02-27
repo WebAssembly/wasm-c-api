@@ -351,6 +351,15 @@ public:
     isolate_->RequestGarbageCollectionForTesting(
       v8::Isolate::kFullGarbageCollection);
 #endif
+    {
+      v8::HandleScope scope(isolate_);
+      while (handle_pool_ != nullptr) {
+        auto handle = handle_pool_;
+        handle_pool_ = reinterpret_cast<v8::Persistent<v8::Object>*>(
+          wasm_v8::foreign_get(handle->Get(isolate_)));
+        delete handle;
+      }
+    }
     context()->Exit();
     isolate_->Exit();
     isolate_->Dispose();
@@ -387,12 +396,13 @@ public:
   auto make_handle() -> v8::Persistent<v8::Object>* {
     if (handle_pool_ == nullptr) {
       static const size_t n = 100;
-      handle_pool_ = new(std::nothrow) v8::Persistent<v8::Object>[n];
-      if (!handle_pool_) return nullptr;
       for (size_t i = 0; i < n; ++i) {
-        auto next = i == n - 1 ? nullptr : &handle_pool_[i + 1];
-        auto v8_next = wasm_v8::foreign_new(isolate_, next);
-        handle_pool_[i].Reset(isolate_, v8::Local<v8::Object>::Cast(v8_next));
+        auto v8_next = wasm_v8::foreign_new(isolate_, handle_pool_);
+        handle_pool_ = new(std::nothrow) v8::Persistent<v8::Object>();
+        if (!handle_pool_) {
+          return nullptr;
+        }
+        handle_pool_->Reset(isolate_, v8::Local<v8::Object>::Cast(v8_next));
       }
     }
     auto handle = handle_pool_;
@@ -1520,10 +1530,11 @@ struct FuncData {
     Func::callback callback;
     Func::callback_with_env callback_with_env;
   };
+  void (*finalizer)(void*);
   void* env;
 
   FuncData(Store* store, const FuncType* type, Kind kind) :
-    store(store), type(type->copy()), kind(kind)
+    store(store), type(type->copy()), kind(kind), finalizer(nullptr)
   {
     stats.make(Stats::FUNCDATA_FUNCTYPE, nullptr);
     stats.make(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->params().size());
@@ -1538,6 +1549,7 @@ struct FuncData {
     stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::OWN, type->results().size());
     if (type->params().get()) stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
     if (type->results().get()) stats.free(Stats::FUNCDATA_VALTYPE, nullptr, Stats::VEC);
+    if (finalizer) (*finalizer)(env);
   }
 
   static void v8_callback(const v8::FunctionCallbackInfo<v8::Value>&);
@@ -1626,6 +1638,7 @@ auto Func::make(
   auto data = new FuncData(store, type, FuncData::CALLBACK_WITH_ENV);
   data->callback_with_env = callback;
   data->env = env;
+  data->finalizer = finalizer;
   return make_func(store, data);
 }
 
@@ -1706,17 +1719,17 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   assert(param_types.size() == info.Length());
 
   // TODO: cache params and result arrays per thread.
-  auto args = new Val[param_types.size()];
-  auto results = new Val[result_types.size()];
+  auto args = std::unique_ptr<Val[]>(new Val[param_types.size()]);
+  auto results = std::unique_ptr<Val[]>(new Val[result_types.size()]);
   for (size_t i = 0; i < param_types.size(); ++i) {
     args[i] = v8_to_val(store, info[i], param_types[i]);
   }
 
   own<Trap*> trap;
   if (self->kind == CALLBACK_WITH_ENV) {
-    trap = self->callback_with_env(self->env, args, results);
+    trap = self->callback_with_env(self->env, args.get(), results.get());
   } else {
-    trap = self->callback(args, results);
+    trap = self->callback(args.get(), results.get());
   }
 
   if (trap) {
