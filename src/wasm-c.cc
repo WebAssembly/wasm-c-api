@@ -762,7 +762,7 @@ auto wasm_callback_with_env(
 
 void wasm_callback_env_finalizer(void* env) {
   auto t = static_cast<wasm_callback_env_t*>(env);
-  t->finalizer(t->env);
+  if (t->finalizer) t->finalizer(t->env);
   delete t;
 }
 
@@ -781,7 +781,7 @@ wasm_func_t *wasm_func_new_with_env(
   wasm_func_callback_with_env_t callback, void *env, void (*finalizer)(void*)
 ) {
   auto env2 = new wasm_callback_env_t{callback, env, finalizer};
-  return release(Func::make(store, type, wasm_callback_with_env, env2));
+  return release(Func::make(store, type, wasm_callback_with_env, env2, wasm_callback_env_finalizer));
 }
 
 wasm_functype_t* wasm_func_type(const wasm_func_t* func) {

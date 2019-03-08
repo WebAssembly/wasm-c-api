@@ -88,6 +88,8 @@ void* run(void* args_abs) {
   wasm_module_delete(module);
   wasm_store_delete(store);
 
+  free(args_abs);
+
   return NULL;
 }
 
