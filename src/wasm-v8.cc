@@ -399,9 +399,7 @@ public:
       for (size_t i = 0; i < n; ++i) {
         auto v8_next = wasm_v8::foreign_new(isolate_, handle_pool_);
         handle_pool_ = new(std::nothrow) v8::Persistent<v8::Object>();
-        if (!handle_pool_) {
-          return nullptr;
-        }
+        if (!handle_pool_) return nullptr;
         handle_pool_->Reset(isolate_, v8::Local<v8::Object>::Cast(v8_next));
       }
     }
