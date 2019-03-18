@@ -36,7 +36,7 @@ auto object_isolate(const v8::Persistent<v8::Object>& obj) -> v8::Isolate* {
 }
 
 template<class T>
-auto object_handle(T* v8_obj) -> v8::internal::Handle<T> {
+auto object_handle(T v8_obj) -> v8::internal::Handle<T> {
   return handle(v8_obj, v8_obj->GetIsolate());
 }
 
@@ -196,14 +196,14 @@ auto module_binary(v8::Local<v8::Object> module) -> const char* {
 auto module_serialize_size(v8::Local<v8::Object> module) -> size_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  v8::internal::wasm::WasmSerializer serializer(v8_module->GetIsolate(), v8_module->native_module());
+  v8::internal::wasm::WasmSerializer serializer(v8_module->native_module());
   return serializer.GetSerializedNativeModuleSize();
 }
 
 auto module_serialize(v8::Local<v8::Object> module, char* buffer, size_t size) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(module);
   auto v8_module = v8::internal::Handle<v8::internal::WasmModuleObject>::cast(v8_object);
-  v8::internal::wasm::WasmSerializer serializer(v8_module->GetIsolate(), v8_module->native_module());
+  v8::internal::wasm::WasmSerializer serializer(v8_module->native_module());
   return serializer.SerializeNativeModule({reinterpret_cast<uint8_t*>(buffer), size});
 }
 
@@ -359,7 +359,7 @@ auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
   if (index > v8_table->current_length()) return v8::Local<v8::Function>();
   v8::internal::Handle<v8::internal::Object> v8_value(
-    v8_table->functions()->get(static_cast<int>(index)), v8_table->GetIsolate());
+    v8_table->elements()->get(static_cast<int>(index)), v8_table->GetIsolate());
   return v8_value->IsNull(v8_table->GetIsolate())
     ? v8::MaybeLocal<v8::Function>()
     : v8::MaybeLocal<v8::Function>(
@@ -407,14 +407,14 @@ auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::MaybeLocal<v8::Fu
   // TODO(v8): This should happen in WasmTableObject::Grow.
   if (new_size != old_size) {
     auto isolate = v8_table->GetIsolate();
-    v8::internal::Handle<v8::internal::FixedArray> old_array(v8_table->functions(), isolate);
+    v8::internal::Handle<v8::internal::FixedArray> old_array(v8_table->elements(), isolate);
     auto new_array = isolate->factory()->NewFixedArray(static_cast<int>(new_size));
     assert(static_cast<uint32_t>(old_array->length()) == old_size);
     for (int i = 0; i < static_cast<int>(old_size); ++i) new_array->set(i, old_array->get(i));
     v8::internal::Handle<v8::internal::Object> val = isolate->factory()->null_value();
     if (!init.IsEmpty()) val = v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(init.ToLocalChecked());
     for (int i = old_size; i < static_cast<int>(new_size); ++i) new_array->set(i, *val);
-    v8_table->set_functions(*new_array);
+    v8_table->set_elements(*new_array);
   }
 
   return true;

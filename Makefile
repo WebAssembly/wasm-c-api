@@ -3,7 +3,7 @@
 
 # Change these as you see fit.
 
-V8_VERSION = branch-heads/7.2
+V8_VERSION = branch-heads/7.4
 V8_ARCH = x64
 V8_MODE = release
 
@@ -270,6 +270,12 @@ v8-clean:
 	rm -rf ${V8_OUT}
 	mkdir -p ${V8_OUT}
 	echo >${V8_OUT}/version ${V8_VERSION}
+
+
+# Show current V8 version
+.PHONY: v8-version
+v8-version:
+	@echo Checked out V8 version: ${V8_CURRENT}
 
 
 # Display V8 build configuration
