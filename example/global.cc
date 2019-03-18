@@ -7,15 +7,6 @@
 #include "wasm.hh"
 
 
-// TODO(wasm+): use these until V8/JS can handle i64 paramaeters and results.
-auto i64_reinterpret_f64(float64_t x) -> int64_t {
-  return *reinterpret_cast<int64_t*>(&x);
-}
-
-auto f64_reinterpret_i64(int64_t x) -> float64_t {
-  return *reinterpret_cast<float64_t*>(&x);
-}
-
 auto get_export_global(wasm::vec<wasm::Extern*>& exports, size_t i) -> wasm::Global* {
   if (exports.size() <= i || !exports[i]->global()) {
     std::cout << "> Error accessing global export " << i << "!" << std::endl;
@@ -149,13 +140,13 @@ void run() {
   check(var_i64_export->get().i64(), 8);
 
   check(call(get_const_f32_import).f32(), 1);
-  check(call(get_const_i64_import).f64(), f64_reinterpret_i64(2));
+  check(call(get_const_i64_import).i64(), 2);
   check(call(get_var_f32_import).f32(), 3);
-  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(4));
+  check(call(get_var_i64_import).i64(), 4);
   check(call(get_const_f32_export).f32(), 5);
-  check(call(get_const_i64_export).f64(), f64_reinterpret_i64(6));
+  check(call(get_const_i64_export).i64(), 6);
   check(call(get_var_f32_export).f32(), 7);
-  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(8));
+  check(call(get_var_i64_export).i64(), 8);
 
   // Modify variables through API and check again.
   var_f32_import->set(wasm::Val::f32(33));
@@ -169,15 +160,15 @@ void run() {
   check(var_i64_export->get().i64(), 38);
 
   check(call(get_var_f32_import).f32(), 33);
-  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(34));
+  check(call(get_var_i64_import).i64(), 34);
   check(call(get_var_f32_export).f32(), 37);
-  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(38));
+  check(call(get_var_i64_export).i64(), 38);
 
   // Modify variables through calls and check again.
   call(set_var_f32_import, wasm::Val::f32(73));
-  call(set_var_i64_import, wasm::Val::f64(f64_reinterpret_i64(74)));
+  call(set_var_i64_import, wasm::Val::i64(74));
   call(set_var_f32_export, wasm::Val::f32(77));
-  call(set_var_i64_export, wasm::Val::f64(f64_reinterpret_i64(78)));
+  call(set_var_i64_export, wasm::Val::i64(78));
 
   check(var_f32_import->get().f32(), 73);
   check(var_i64_import->get().i64(), 74);
@@ -185,9 +176,9 @@ void run() {
   check(var_i64_export->get().i64(), 78);
 
   check(call(get_var_f32_import).f32(), 73);
-  check(call(get_var_i64_import).f64(), f64_reinterpret_i64(74));
+  check(call(get_var_i64_import).i64(), 74);
   check(call(get_var_f32_export).f32(), 77);
-  check(call(get_var_i64_export).f64(), f64_reinterpret_i64(78));
+  check(call(get_var_i64_export).i64(), 78);
 
   // Shut down.
   std::cout << "Shutting down..." << std::endl;

@@ -80,9 +80,7 @@ V8 implementation:
 
 * Host functions (`Func::make`) create a JavaScript function internally, since V8 cannot handle raw C imports yet.
 
-* As a consequence, does not support i64 in external calls or host functions.
-
-* Also cannot handle multiple values in external calls or host functions.
+* As a consequence, does not support multiple results in external calls or host functions.
 
 * Host functions and host globals are created through auxiliary modules constructed on the fly, to work around limitations in JS API.
 

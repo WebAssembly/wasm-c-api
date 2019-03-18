@@ -19,6 +19,7 @@ namespace wasm_v8 {
 namespace v8 {
   namespace internal {
     extern bool FLAG_expose_gc;
+    extern bool FLAG_experimental_wasm_bigint;
     extern bool FLAG_experimental_wasm_mv;
     extern bool FLAG_experimental_wasm_anyref;
     extern bool FLAG_experimental_wasm_bulk_memory;
@@ -292,6 +293,7 @@ void Engine::operator delete(void *p) {
 
 auto Engine::make(own<Config*>&& config) -> own<Engine*> {
   v8::internal::FLAG_expose_gc = true;
+  v8::internal::FLAG_experimental_wasm_bigint = true;
   v8::internal::FLAG_experimental_wasm_mv = true;
   // v8::internal::FLAG_experimental_wasm_anyref = true;
   // v8::internal::FLAG_experimental_wasm_bulk_memory = true;
@@ -1057,7 +1059,7 @@ auto val_to_v8(StoreImpl* store, const Val& v) -> v8::Local<v8::Value> {
   auto isolate = store->isolate();
   switch (v.kind()) {
     case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
-    case I64: UNIMPLEMENTED("i64 value");
+    case I64: return v8::BigInt::New(isolate, v.i64());
     case F32: return v8::Number::New(isolate, v.f32());
     case F64: return v8::Number::New(isolate, v.f64());
     case ANYREF:
@@ -1078,7 +1080,10 @@ auto v8_to_val(
   auto context = store->context();
   switch (t->kind()) {
     case I32: return Val(value->Int32Value(context).ToChecked());
-    case I64: UNIMPLEMENTED("i64 value");
+    case I64: {
+      auto bigint = value->ToBigInt(context).ToLocalChecked();
+      return Val(bigint->Int64Value());
+    }
     case F32: {
       auto number = value->NumberValue(context).ToChecked();
       return Val(static_cast<float32_t>(number));
