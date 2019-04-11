@@ -125,7 +125,7 @@ void run() {
 
   // Check initial table.
   std::cout << "Checking table..." << std::endl;
-  check(table->size(), 2);
+  check(table->size(), 2u);
   check(table->get(0) == nullptr);
   check(table->get(1) != nullptr);
   check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(0));
@@ -146,7 +146,7 @@ void run() {
   // Grow table.
   std::cout << "Growing table..." << std::endl;
   check(table->grow(3));
-  check(table->size(), 5);
+  check(table->size(), 5u);
   check(table->set(2, f));
   check(table->set(3, h.get()));
   check(! table->set(5, nullptr));
@@ -159,7 +159,7 @@ void run() {
   check_trap(call_indirect, wasm::Val::i32(0), wasm::Val::i32(5));
 
   check(table->grow(2, f));
-  check(table->size(), 7);
+  check(table->size(), 7u);
   check(table->get(5) != nullptr);
   check(table->get(6) != nullptr);
 
