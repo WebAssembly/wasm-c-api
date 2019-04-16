@@ -208,6 +208,10 @@ public:
     return v;
   }
 
+  static auto make() -> vec {
+    return vec(0);
+  }
+
   template<class... Ts>
   static auto make(Ts&&... args) -> vec {
     own<T> data[] = { make_own(std::move(args))... };
@@ -533,7 +537,8 @@ public:
 
   auto copy() const -> Val {
     if (is_ref() && impl_.ref != nullptr) {
-      impl impl = {.ref = impl_.ref->copy().release()};
+      impl impl;
+      impl.ref = impl_.ref->copy().release();
       return Val(kind_, impl);
     } else {
       return Val(kind_, impl_);
