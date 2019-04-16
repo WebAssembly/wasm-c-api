@@ -109,8 +109,8 @@ void run() {
 
   // Check initial memory.
   std::cout << "Checking memory..." << std::endl;
-  check(memory->size(), 2);
-  check(memory->data_size(), 0x20000);
+  check(memory->size(), 2u);
+  check(memory->data_size(), 0x20000u);
   check(memory->data()[0], 0);
   check(memory->data()[0x1000], 1);
   check(memory->data()[0x1003], 4);
@@ -136,8 +136,8 @@ void run() {
   // Grow memory.
   std::cout << "Growing memory..." << std::endl;
   check(memory->grow(1), true);
-  check(memory->size(), 3);
-  check(memory->data_size(), 0x30000);
+  check(memory->size(), 3u);
+  check(memory->data_size(), 0x30000u);
 
   check(call(load_func, 0x20000), 0);
   check_ok(store_func, 0x20000, 0);
@@ -152,7 +152,7 @@ void run() {
   std::cout << "Creating stand-alone memory..." << std::endl;
   auto memorytype = wasm::MemoryType::make(wasm::Limits(5, 5));
   auto memory2 = wasm::Memory::make(store, memorytype.get());
-  check(memory2->size(), 5);
+  check(memory2->size(), 5u);
   check(memory2->grow(1), false);
   check(memory2->grow(0), true);
 
