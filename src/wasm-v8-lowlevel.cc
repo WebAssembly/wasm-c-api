@@ -348,7 +348,7 @@ void global_set_f32(v8::Local<v8::Object> global, float val) {
 void global_set_f64(v8::Local<v8::Object> global, double val) {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
   auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
-  v8_global->SetF32(val);
+  v8_global->SetF64(val);
 }
 
 
