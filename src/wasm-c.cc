@@ -517,6 +517,10 @@ const wasm_externtype_t* wasm_exporttype_type(const wasm_exporttype_t* et) {
     return release(t->copy()); \
   } \
   \
+  bool wasm_##name##_same(const wasm_##name##_t* t1, const wasm_##name##_t* t2) { \
+    return t1->same(t2); \
+  } \
+  \
   void* wasm_##name##_get_host_info(const wasm_##name##_t* r) { \
     return r->get_host_info(); \
   } \
