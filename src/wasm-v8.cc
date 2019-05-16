@@ -605,6 +605,7 @@ auto ExternType::copy() const -> own<ExternType*> {
     case EXTERN_GLOBAL: return global()->copy();
     case EXTERN_TABLE: return table()->copy();
     case EXTERN_MEMORY: return memory()->copy();
+    default: assert(false);
   }
 }
 
@@ -1100,6 +1101,7 @@ auto v8_to_val(
         UNIMPLEMENTED("ref value");
       }
     }
+    default: assert(false);
   }
 }
 
@@ -1550,6 +1552,7 @@ auto Extern::type() const -> own<ExternType*> {
     case EXTERN_GLOBAL: return global()->type();
     case EXTERN_TABLE: return table()->type();
     case EXTERN_MEMORY: return memory()->type();
+    default: assert(false);
   }
 }
 
@@ -1794,7 +1797,7 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   auto& param_types = self->type->params();
   auto& result_types = self->type->results();
 
-  assert(param_types.size() == info.Length());
+  assert(param_types.size() == static_cast<size_t>(info.Length()));
 
   // TODO: cache params and result arrays per thread.
   auto args = std::unique_ptr<Val[]>(new Val[param_types.size()]);
@@ -2194,6 +2197,7 @@ auto Instance::exports() const -> vec<Extern*> {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
         exports[i].reset(RefImpl<Memory>::make(store, obj));
       } break;
+      default: assert(false);
     }
   }
 

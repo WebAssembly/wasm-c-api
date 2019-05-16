@@ -82,7 +82,7 @@ void encode_const_zero(char*& ptr, const ValType* type) {
     case F64: *ptr++ = 0x44; break;
     default: assert(false);
   }
-  for (int i = 0; i < zero_size(type); ++i) *ptr++ = 0;
+  for (size_t i = 0; i < zero_size(type); ++i) *ptr++ = 0;
 }
 
 
@@ -123,7 +123,7 @@ auto wrapper(const FuncType* type) -> vec<byte_t> {
   *ptr++ = 0x00;  // func
   *ptr++ = 0;  // func index
 
-  assert(ptr - binary.get() == size);
+  assert(static_cast<size_t>(ptr - binary.get()) == size);
   return binary;
 }
 
@@ -149,7 +149,7 @@ auto wrapper(const GlobalType* type) -> vec<byte_t> {
   *ptr++ = 0x03;  // global
   *ptr++ = 0;  // func index
 
-  assert(ptr - binary.get() == size);
+  assert(static_cast<size_t>(ptr - binary.get()) == size);
   return binary;
 }
 
