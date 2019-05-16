@@ -8,11 +8,16 @@ V8_ARCH = x64
 V8_MODE = release
 
 WASM_FLAGS = -DDEBUG  # -DDEBUG_LOG
-C_FLAGS = ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
-CC_FLAGS = ${C_FLAGS}
-LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
+CFLAGS ?= ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
+CXXFLAGS ?= -std=c++11 ${CFLAGS}
+LDFLAGS ?= -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
-C_COMP = clang
+ifeq ($(origin CC),default)
+CC = clang
+endif
+ifeq ($(origin CXX),default)
+CXX = clang++
+endif
 
 WASM_INTERPRETER = ../spec/interpreter/wasm  # Adjust as needed.
 
@@ -60,16 +65,12 @@ V8_GN_ARGS = \
   use_custom_libcxx_for_host=false
 
 # Compiler config
-ifeq (${C_COMP},clang)
-  CC_COMP = clang++
-  LD_GROUP_START = 
-  LD_GROUP_END = 
-else ifeq (${C_COMP},gcc)
-  CC_COMP = g++
+ifeq ($(firstword $(subst -, ,${CXX})),g++)
   LD_GROUP_START = -Wl,--start-group
   LD_GROUP_END = -Wl,--end-group
 else
-  $(error C_COMP set to unknown compiler, must be clang or gcc)
+  LD_GROUP_START =
+  LD_GROUP_END =
 endif
 
 
@@ -113,16 +114,16 @@ run-%-cc: ${EXAMPLE_OUT}/%-cc ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/
 # Compiling C / C++ example
 ${EXAMPLE_OUT}/%-c.o: ${EXAMPLE_DIR}/%.c ${WASM_INCLUDE}/wasm.h
 	mkdir -p ${EXAMPLE_OUT}
-	${C_COMP} -c ${C_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${CC} -c ${CFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
-	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${CXX} -c ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 # Linking C / C++ example
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c}
 ${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
-	${CC_COMP} ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
+	${CXX} ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
 		${WASM_C_O} \
 		${LD_GROUP_START} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
@@ -131,7 +132,7 @@ ${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
 
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-cc}
 ${EXAMPLE_OUT}/%-cc: ${EXAMPLE_OUT}/%-cc.o ${WASM_CC_O}
-	${CC_COMP} ${CC_FLAGS} ${LD_FLAGS} $< -o $@ \
+	${CXX} ${CXXFLAGS} ${LDFLAGS} $< -o $@ \
 		${WASM_CC_O} \
 		${LD_GROUP_START} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
@@ -169,7 +170,7 @@ wasm-cc: ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 # Compiling
 ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
-	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+	${CXX} -c ${CXXFLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 # wasm-c.cc includes wasm-v8.cc, so set up a side dependency
 ${WASM_OUT}/wasm-c.o: ${WASM_SRC}/wasm-v8.cc
