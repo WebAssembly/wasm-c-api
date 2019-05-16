@@ -1200,6 +1200,11 @@ auto Ref::copy() const -> own<Ref*> {
   return impl(this)->copy();
 }
 
+auto Ref::same(const Ref* that) const -> bool {
+  v8::HandleScope handle_scope(impl(this)->isolate());
+  return impl(this)->v8_object()->SameValue(impl(that)->v8_object());
+}
+
 auto Ref::get_host_info() const -> void* {
   return impl(this)->get_host_info();
 }

@@ -455,6 +455,7 @@ public:
   void operator delete(void*);
 
   auto copy() const -> own<Ref*>;
+  auto same(const Ref*) const -> bool;
 
   auto get_host_info() const -> void*;
   void set_host_info(void* info, void (*finalizer)(void*) = nullptr);
