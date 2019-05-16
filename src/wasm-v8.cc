@@ -23,6 +23,7 @@ namespace v8 {
     extern bool FLAG_experimental_wasm_mv;
     extern bool FLAG_experimental_wasm_anyref;
     extern bool FLAG_experimental_wasm_bulk_memory;
+    extern bool FLAG_experimental_wasm_return_call;
   }
 }
 
@@ -68,7 +69,7 @@ auto seal(const typename implement <C>::type* x) -> const C* {
 
 struct Stats {
   enum category_t {
-    BYTE, CONFIG, ENGINE, STORE,
+    BYTE, CONFIG, ENGINE, STORE, FRAME,
     VALTYPE, FUNCTYPE, GLOBALTYPE, TABLETYPE, MEMORYTYPE,
     EXTERNTYPE, IMPORTTYPE, EXPORTTYPE,
     VAL, REF, TRAP,
@@ -176,7 +177,7 @@ struct Stats {
 
 #ifdef DEBUG
 const char* Stats::name[STRONG_COUNT] = {
-  "byte_t", "Config", "Engine", "Store",
+  "byte_t", "Config", "Engine", "Store", "Frame",
   "ValType", "FuncType", "GlobalType", "TableType", "MemoryType",
   "ExternType", "ImportType", "ExportType",
   "Val", "Ref", "Trap",
@@ -210,6 +211,7 @@ Stats stats;
   }
 
 DEFINE_VEC(byte_t, BYTE)
+DEFINE_VEC(Frame*, FRAME)
 DEFINE_VEC(ValType*, VALTYPE)
 DEFINE_VEC(FuncType*, FUNCTYPE)
 DEFINE_VEC(GlobalType*, GLOBALTYPE)
@@ -295,8 +297,9 @@ auto Engine::make(own<Config*>&& config) -> own<Engine*> {
   v8::internal::FLAG_expose_gc = true;
   v8::internal::FLAG_experimental_wasm_bigint = true;
   v8::internal::FLAG_experimental_wasm_mv = true;
-  // v8::internal::FLAG_experimental_wasm_anyref = true;
-  // v8::internal::FLAG_experimental_wasm_bulk_memory = true;
+  v8::internal::FLAG_experimental_wasm_anyref = true;
+  v8::internal::FLAG_experimental_wasm_bulk_memory = true;
+  v8::internal::FLAG_experimental_wasm_return_call = true;
   // v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char**>(argv), false);
   auto engine = new(std::nothrow) EngineImpl;
   if (!engine) return own<Engine*>();
@@ -1217,6 +1220,64 @@ void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Objects
 
+// Frames
+
+struct FrameImpl {
+  FrameImpl(
+    own<Instance*>&& instance, uint32_t func_index,
+    size_t func_offset, size_t module_offset
+  ) :
+    instance(std::move(instance)),
+    func_index(func_index),
+    func_offset(func_offset),
+    module_offset(module_offset)
+  {
+    stats.make(Stats::FRAME, this);
+  }
+
+  ~FrameImpl() { stats.free(Stats::FRAME, this); }
+
+  own<Instance*> instance;
+  uint32_t func_index;
+  size_t func_offset;
+  size_t module_offset;
+};
+
+template<> struct implement<Frame> { using type = FrameImpl; };
+
+
+Frame::~Frame() {
+  impl(this)->~FrameImpl();
+}
+
+void Frame::operator delete(void *p) {
+  ::operator delete(p);
+}
+
+auto Frame::copy() const -> own<Frame*> {
+  auto self = impl(this);
+  return own<Frame*>(seal<Frame>(new(std::nothrow) FrameImpl(
+    self->instance->copy(), self->func_index, self->func_offset,
+    self->module_offset)));
+}
+
+auto Frame::instance() const -> Instance* {
+  return impl(this)->instance.get();
+}
+
+auto Frame::func_index() const -> uint32_t {
+  return impl(this)->func_index;
+}
+
+auto Frame::func_offset() const -> size_t {
+  return impl(this)->func_offset;
+}
+
+auto Frame::module_offset() const -> size_t {
+  return impl(this)->module_offset;
+}
+
+
 // Traps
 
 template<> struct implement<Trap> { using type = RefImpl<Trap>; };
@@ -1247,6 +1308,16 @@ auto Trap::message() const -> Message {
   auto message = v8::Exception::CreateMessage(isolate, impl(this)->v8_object());
   v8::String::Utf8Value string(isolate, message->Get());
   return vec<byte_t>::make(std::string(*string));
+}
+
+auto Trap::origin() const -> own<Frame*> {
+  // TODO(v8): implement
+  return own<Frame*>(nullptr);
+}
+
+auto Trap::trace() const -> vec<Frame*> {
+  // TODO(v8): implement
+  return vec<Frame*>::make();
 }
 
 

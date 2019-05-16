@@ -668,6 +668,31 @@ void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Objects
 
+// Frames
+
+WASM_DEFINE_OWN(frame, Frame)
+WASM_DEFINE_VEC(frame, Frame, *)
+
+wasm_frame_t* wasm_frame_copy(const wasm_frame_t* frame) {
+  return release(frame->copy());
+}
+
+wasm_instance_t* wasm_frame_instance(const wasm_frame_t* frame);
+// Defined below along with wasm_instance_t.
+
+uint32_t wasm_frame_func_index(const wasm_frame_t* frame) {
+  return reveal(frame)->func_index();
+}
+
+size_t wasm_frame_func_offset(const wasm_frame_t* frame) {
+  return reveal(frame)->func_offset();
+}
+
+size_t wasm_frame_module_offset(const wasm_frame_t* frame) {
+  return reveal(frame)->module_offset();
+}
+
+
 // Traps
 
 WASM_DEFINE_REF(trap, Trap)
@@ -679,6 +704,14 @@ wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t* message) {
 
 void wasm_trap_message(const wasm_trap_t* trap, wasm_message_t* out) {
   *out = release(reveal(trap)->message());
+}
+
+wasm_frame_t* wasm_trap_origin(const wasm_trap_t* trap) {
+  return release(reveal(trap)->origin());
+}
+
+void wasm_trap_trace(const wasm_trap_t* trap, wasm_frame_vec_t* out) {
+  *out = release(reveal(trap)->trace());
 }
 
 
@@ -980,6 +1013,11 @@ void wasm_instance_exports(
   const wasm_instance_t* instance, wasm_extern_vec_t* out
 ) {
   *out = release(instance->exports());
+}
+
+
+wasm_instance_t* wasm_frame_instance(const wasm_frame_t* frame) {
+  return hide(reveal(frame)->instance());
 }
 
 }  // extern "C"
