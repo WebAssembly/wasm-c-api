@@ -111,13 +111,8 @@ class vec {
   size_t size_;
   std::unique_ptr<T[]> data_;
 
-#ifdef DEBUG
   void make_data();
   void free_data();
-#else
-  void make_data() {}
-  void free_data() {}
-#endif
 
   vec(size_t size) : vec(size, size ? new(std::nothrow) T[size] : nullptr) {
     make_data();
