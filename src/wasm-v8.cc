@@ -210,6 +210,14 @@ Stats stats;
     if (data_) stats.free(Stats::STAT, data_.get(), Stats::VEC); \
   }
 
+#else
+
+#define DEFINE_VEC(type, STAT) \
+  template<> void vec<type>::make_data() {} \
+  template<> void vec<type>::free_data() {}
+
+#endif  // #ifdef DEBUG
+
 DEFINE_VEC(byte_t, BYTE)
 DEFINE_VEC(Frame*, FRAME)
 DEFINE_VEC(ValType*, VALTYPE)
@@ -230,8 +238,6 @@ DEFINE_VEC(Table*, TABLE)
 DEFINE_VEC(Memory*, MEMORY)
 DEFINE_VEC(Extern*, EXTERN)
 DEFINE_VEC(Val, VAL)
-
-#endif  // #ifdef DEBUG
 
 
 ///////////////////////////////////////////////////////////////////////////////
