@@ -10,7 +10,11 @@
 #include <assert.h>
 
 #ifndef WASM_C_API
+#ifdef _WIN32
+#define WASM_C_API __declspec(dllimport)
+#else
 #define WASM_C_API
+#endif
 #endif
 
 #ifdef __cplusplus
