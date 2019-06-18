@@ -111,7 +111,7 @@ class vec {
   size_t size_;
   std::unique_ptr<T[]> data_;
 
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
   void make_data();
   void free_data();
 #else

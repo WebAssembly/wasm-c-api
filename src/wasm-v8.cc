@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
 #include <atomic>
 #endif
 
@@ -82,7 +82,7 @@ struct Stats {
     OWN, VEC, SHARED, CARDINALITY_COUNT
   };
 
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
   static const char* name[STRONG_COUNT];
   static const char* left[CARDINALITY_COUNT];
   static const char* right[CARDINALITY_COUNT];
@@ -128,8 +128,8 @@ struct Stats {
 #endif
 
   void make(category_t i, void* ptr, cardinality_t j = OWN, size_t n = 1) {
-#ifdef DEBUG
-#ifdef DEBUG_LOG
+#ifdef WASM_API_DEBUG
+#ifdef WASM_API_DEBUG_LOG
     if (ptr) {
       std::clog << "[make] " << ptr
         << " wasm::" << left[j] << name[i] << right[j] << std::endl;
@@ -140,8 +140,8 @@ struct Stats {
   }
 
   void free(category_t i, void* ptr, cardinality_t j = OWN, size_t n = 1) {
-#ifdef DEBUG
-#ifdef DEBUG_LOG
+#ifdef WASM_API_DEBUG
+#ifdef WASM_API_DEBUG_LOG
     if (ptr) {
       std::clog << "[free] " << ptr
         << " wasm::" << left[j] << name[i] << right[j] << std::endl;
@@ -159,7 +159,7 @@ struct Stats {
   }
 
   static category_t categorize(const v8::Persistent<v8::Object>& pobj) {
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
     auto isolate = wasm_v8::object_isolate(pobj);
     v8::HandleScope handle_scope(isolate);
     auto obj = pobj.Get(isolate);
@@ -175,7 +175,7 @@ struct Stats {
   }
 };
 
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
 const char* Stats::name[STRONG_COUNT] = {
   "byte_t", "Config", "Engine", "Store", "Frame",
   "ValType", "FuncType", "GlobalType", "TableType", "MemoryType",
@@ -199,7 +199,7 @@ Stats stats;
 
 // Vectors
 
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
 
 #define DEFINE_VEC(type, STAT) \
   template<> void vec<type>::make_data() { \
@@ -231,7 +231,7 @@ DEFINE_VEC(Memory*, MEMORY)
 DEFINE_VEC(Extern*, EXTERN)
 DEFINE_VEC(Val, VAL)
 
-#endif  // #ifdef DEBUG
+#endif  // #ifdef WASM_API_DEBUG
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -352,7 +352,7 @@ public:
   }
 
   ~StoreImpl() {
-#ifdef DEBUG
+#ifdef WASM_API_DEBUG
     isolate_->RequestGarbageCollectionForTesting(
       v8::Isolate::kFullGarbageCollection);
 #endif

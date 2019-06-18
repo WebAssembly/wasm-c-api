@@ -7,7 +7,7 @@ V8_VERSION = branch-heads/7.4
 V8_ARCH = x64
 V8_MODE = release
 
-WASM_FLAGS = -DDEBUG  # -DDEBUG_LOG
+WASM_FLAGS = -DWASM_API_DEBUG  # -DWASM_API_DEBUG_LOG
 C_FLAGS = ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
 CC_FLAGS = ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
