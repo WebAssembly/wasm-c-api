@@ -548,14 +548,12 @@ struct ValTypeImpl {
 
 template<> struct implement<ValType> { using type = ValTypeImpl; };
 
-ValTypeImpl* valtypes[] = {
-  new ValTypeImpl(I32),
-  new ValTypeImpl(I64),
-  new ValTypeImpl(F32),
-  new ValTypeImpl(F64),
-  new ValTypeImpl(ANYREF),
-  new ValTypeImpl(FUNCREF),
-};
+ValTypeImpl* valtype_i32 = new ValTypeImpl(I32);
+ValTypeImpl* valtype_i64 = new ValTypeImpl(I64);
+ValTypeImpl* valtype_f32 = new ValTypeImpl(F32);
+ValTypeImpl* valtype_f64 = new ValTypeImpl(F64);
+ValTypeImpl* valtype_anyref = new ValTypeImpl(ANYREF);
+ValTypeImpl* valtype_funcref = new ValTypeImpl(FUNCREF);
 
 
 ValType::~ValType() {
@@ -565,7 +563,19 @@ ValType::~ValType() {
 void ValType::operator delete(void*) {}
 
 auto ValType::make(ValKind k) -> own<ValType*> {
-  auto result = seal<ValType>(valtypes[k]);
+  ValTypeImpl* valtype;
+  switch (k) {
+    case I32: valtype = valtype_i32; break;
+    case I64: valtype = valtype_i64; break;
+    case F32: valtype = valtype_f32; break;
+    case F64: valtype = valtype_f64; break;
+    case ANYREF: valtype = valtype_anyref; break;
+    case FUNCREF: valtype = valtype_funcref; break;
+    default:
+      // TODO(wasm+): support new value types
+      assert(false);
+  };
+  auto result = seal<ValType>(valtype);
   stats.make(Stats::VALTYPE, result);
   return own<ValType*>(result);
 }

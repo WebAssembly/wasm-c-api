@@ -288,7 +288,14 @@ struct Limits {
 
 // Value Types
 
-enum ValKind { I32, I64, F32, F64, ANYREF, FUNCREF };
+enum ValKind {
+  I32 = 0,
+  I64 = 1,
+  F32 = 2,
+  F64 = 3,
+  ANYREF = 128+0,
+  FUNCREF = 128+1
+};
 
 inline bool is_num(ValKind k) { return k < ANYREF; }
 inline bool is_ref(ValKind k) { return k >= ANYREF; }

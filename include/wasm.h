@@ -163,12 +163,12 @@ static const uint32_t wasm_limits_max_default = 0xffffffff;
 WASM_DECLARE_TYPE(valtype)
 
 typedef enum wasm_valkind_t {
-  WASM_I32,
-  WASM_I64,
-  WASM_F32,
-  WASM_F64,
-  WASM_ANYREF,
-  WASM_FUNCREF
+  WASM_I32 = 0,
+  WASM_I64 = 1,
+  WASM_F32 = 2,
+  WASM_F64 = 3,
+  WASM_ANYREF = 128+0,
+  WASM_FUNCREF = 128+1
 } wasm_valkind_t;
 
 own wasm_valtype_t* wasm_valtype_new(wasm_valkind_t);
