@@ -251,7 +251,7 @@ extern "C++" inline auto hide(Mutability mutability) -> wasm_mutability_t {
   return static_cast<wasm_mutability_t>(mutability);
 }
 
-extern "C++" inline auto reveal(wasm_mutability_t mutability) -> Mutability {
+extern "C++" inline auto reveal(wasm_mutability_enum mutability) -> Mutability {
   return static_cast<Mutability>(mutability);
 }
 
@@ -269,7 +269,7 @@ extern "C++" inline auto hide(ValKind kind) -> wasm_valkind_t {
   return static_cast<wasm_valkind_t>(kind);
 }
 
-extern "C++" inline auto reveal(wasm_valkind_t kind) -> ValKind {
+extern "C++" inline auto reveal(wasm_valkind_enum kind) -> ValKind {
   return static_cast<ValKind>(kind);
 }
 
@@ -278,7 +278,7 @@ extern "C++" inline auto hide(ExternKind kind) -> wasm_externkind_t {
   return static_cast<wasm_externkind_t>(kind);
 }
 
-extern "C++" inline auto reveal(wasm_externkind_t kind) -> ExternKind {
+extern "C++" inline auto reveal(wasm_externkind_enum kind) -> ExternKind {
   return static_cast<ExternKind>(kind);
 }
 
@@ -300,7 +300,7 @@ extern "C++" inline auto reveal(wasm_externkind_t kind) -> ExternKind {
 WASM_DEFINE_TYPE(valtype, ValType)
 
 wasm_valtype_t* wasm_valtype_new(wasm_valkind_t k) {
-  return release(ValType::make(reveal(k)));
+  return release(ValType::make(reveal(static_cast<wasm_valkind_enum>(k))));
 }
 
 wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* t) {
@@ -334,7 +334,10 @@ WASM_DEFINE_TYPE(globaltype, GlobalType)
 wasm_globaltype_t* wasm_globaltype_new(
   wasm_valtype_t* content, wasm_mutability_t mutability
 ) {
-  return release(GlobalType::make(adopt(content), reveal(mutability)));
+  return release(GlobalType::make(
+    adopt(content),
+    reveal(static_cast<wasm_mutability_enum>(mutability))
+  ));
 }
 
 const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t* gt) {
@@ -563,7 +566,7 @@ WASM_DEFINE_REF_BASE(ref, Ref)
 extern "C++" {
 
 inline auto is_empty(wasm_val_t v) -> bool {
- return !is_ref(reveal(v.kind)) || !v.of.ref;
+ return !is_ref(reveal(static_cast<wasm_valkind_enum>(v.kind))) || !v.of.ref;
 }
 
 inline auto hide(Val v) -> wasm_val_t {
@@ -595,7 +598,7 @@ inline auto release(Val v) -> wasm_val_t {
 }
 
 inline auto adopt(wasm_val_t v) -> Val {
-  switch (reveal(v.kind)) {
+  switch (reveal(static_cast<wasm_valkind_enum>(v.kind))) {
     case I32: return Val(v.of.i32);
     case I64: return Val(v.of.i64);
     case F32: return Val(v.of.f32);
@@ -615,7 +618,7 @@ struct borrowed_val {
 
 inline auto borrow(const wasm_val_t* v) -> borrowed_val {
   Val v2;
-  switch (reveal(v->kind)) {
+  switch (reveal(static_cast<wasm_valkind_enum>(v->kind))) {
     case I32: v2 = Val(v->of.i32); break;
     case I64: v2 = Val(v->of.i64); break;
     case F32: v2 = Val(v->of.f32); break;
@@ -654,12 +657,14 @@ void wasm_val_vec_copy(wasm_val_vec_t* out, wasm_val_vec_t* v) {
 
 
 void wasm_val_delete(wasm_val_t* v) {
-  if (is_ref(reveal(v->kind))) adopt(v->of.ref);
+  if (is_ref(reveal(static_cast<wasm_valkind_enum>(v->kind)))) {
+    adopt(v->of.ref);
+  }
 }
 
 void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
   *out = *v;
-  if (is_ref(reveal(v->kind))) {
+  if (is_ref(reveal(static_cast<wasm_valkind_enum>(v->kind)))) {
     out->of.ref = release(v->of.ref->copy());
   }
 }
