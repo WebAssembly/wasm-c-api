@@ -9,7 +9,7 @@ V8_MODE = release
 
 WASM_FLAGS = -DWASM_API_DEBUG  # -DWASM_API_DEBUG_LOG
 C_FLAGS = ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
-CC_FLAGS = ${C_FLAGS}
+CC_FLAGS = -std=c++11 ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
 C_COMP = clang
@@ -117,12 +117,12 @@ ${EXAMPLE_OUT}/%-c.o: ${EXAMPLE_DIR}/%.c ${WASM_INCLUDE}/wasm.h
 
 ${EXAMPLE_OUT}/%-cc.o: ${EXAMPLE_DIR}/%.cc ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${EXAMPLE_OUT}
-	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
+	${CC_COMP} -c ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} $< -o $@
 
 # Linking C / C++ example
 .PRECIOUS: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c}
 ${EXAMPLE_OUT}/%-c: ${EXAMPLE_OUT}/%-c.o ${WASM_C_O}
-	${CC_COMP} ${C_FLAGS} ${LD_FLAGS} $< -o $@ \
+	${CC_COMP} ${CC_FLAGS} ${LD_FLAGS} $< -o $@ \
 		${WASM_C_O} \
 		${LD_GROUP_START} \
 		${V8_LIBS:%=${V8_OUT}/obj/libv8_%.a} \
@@ -169,7 +169,7 @@ wasm-cc: ${WASM_CC_LIBS:%=${WASM_OUT}/%.o}
 # Compiling
 ${WASM_OUT}/%.o: ${WASM_SRC}/%.cc ${WASM_INCLUDE}/wasm.h ${WASM_INCLUDE}/wasm.hh
 	mkdir -p ${WASM_OUT}
-	${CC_COMP} -c -std=c++11 ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
+	${CC_COMP} -c ${CC_FLAGS} -I. -I${V8_INCLUDE} -I${WASM_INCLUDE} -I${WASM_SRC} $< -o $@
 
 # wasm-c.cc includes wasm-v8.cc, so set up a side dependency
 ${WASM_OUT}/wasm-c.o: ${WASM_SRC}/wasm-v8.cc
