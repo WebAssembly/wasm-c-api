@@ -10,7 +10,7 @@
 const int iterations = 100000;
 
 void finalize(void* data) {
-  int i = (int)data;
+  int i = (intptr_t)data;
   if (i % (iterations / 10) == 0) printf("Finalizing #%d...\n", i);
 }
 
