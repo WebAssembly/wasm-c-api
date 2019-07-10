@@ -11,8 +11,12 @@
 #include <limits>
 #include <string>
 
-#ifndef WASM_C_API
-#define WASM_C_API
+#ifndef WASM_API_EXTERN
+#ifdef _WIN32
+#define WASM_API_EXTERN __declspec(dllimport)
+#else
+#define WASM_API_EXTERN
+#endif
 #endif
 
 
@@ -43,8 +47,8 @@ class vec {
   std::unique_ptr<T[]> data_;
 
 #ifdef WASM_API_DEBUG
-  WASM_C_API void make_data();
-  WASM_C_API void free_data();
+  WASM_API_EXTERN void make_data();
+  WASM_API_EXTERN void free_data();
 #else
   void make_data() {}
   void free_data() {}
@@ -182,7 +186,7 @@ auto make_own(T* x) -> own<T> { return own<T>(x); }
 
 // Configuration
 
-class WASM_C_API Config {
+class WASM_API_EXTERN Config {
 public:
   Config() = delete;
   ~Config();
@@ -196,7 +200,7 @@ public:
 
 // Engine
 
-class WASM_C_API Engine {
+class WASM_API_EXTERN Engine {
 public:
   Engine() = delete;
   ~Engine();
@@ -208,7 +212,7 @@ public:
 
 // Store
 
-class WASM_C_API Store {
+class WASM_API_EXTERN Store {
 public:
   Store() = delete;
   ~Store();
@@ -245,7 +249,7 @@ inline bool is_num(ValKind k) { return k < ANYREF; }
 inline bool is_ref(ValKind k) { return k >= ANYREF; }
 
 
-class WASM_C_API ValType {
+class WASM_API_EXTERN ValType {
 public:
   ValType() = delete;
   ~ValType();
@@ -271,7 +275,7 @@ class GlobalType;
 class TableType;
 class MemoryType;
 
-class WASM_C_API ExternType {
+class WASM_API_EXTERN ExternType {
 public:
   ExternType() = delete;
   ~ExternType();
@@ -295,7 +299,7 @@ public:
 
 // Function Types
 
-class WASM_C_API FuncType : public ExternType {
+class WASM_API_EXTERN FuncType : public ExternType {
 public:
   FuncType() = delete;
   ~FuncType();
@@ -314,7 +318,7 @@ public:
 
 // Global Types
 
-class WASM_C_API GlobalType : public ExternType {
+class WASM_API_EXTERN GlobalType : public ExternType {
 public:
   GlobalType() = delete;
   ~GlobalType();
@@ -329,7 +333,7 @@ public:
 
 // Table Types
 
-class WASM_C_API TableType : public ExternType {
+class WASM_API_EXTERN TableType : public ExternType {
 public:
   TableType() = delete;
   ~TableType();
@@ -344,7 +348,7 @@ public:
 
 // Memory Types
 
-class WASM_C_API MemoryType : public ExternType {
+class WASM_API_EXTERN MemoryType : public ExternType {
 public:
   MemoryType() = delete;
   ~MemoryType();
@@ -360,7 +364,7 @@ public:
 
 using Name = vec<byte_t>;
 
-class WASM_C_API ImportType {
+class WASM_API_EXTERN ImportType {
 public:
   ImportType() = delete;
   ~ImportType();
@@ -378,7 +382,7 @@ public:
 
 // Export Types
 
-class WASM_C_API ExportType {
+class WASM_API_EXTERN ExportType {
 public:
   ExportType() = delete;
   ~ExportType();
@@ -397,7 +401,7 @@ public:
 
 // References
 
-class WASM_C_API Ref {
+class WASM_API_EXTERN Ref {
 public:
   Ref() = delete;
   ~Ref();
@@ -535,7 +539,7 @@ using Message = vec<byte_t>;  // null terminated
 
 class Instance;
 
-class WASM_C_API Frame {
+class WASM_API_EXTERN Frame {
 public:
   Frame() = delete;
   ~Frame();
@@ -549,7 +553,7 @@ public:
   auto module_offset() const -> size_t;
 };
 
-class WASM_C_API Trap : public Ref {
+class WASM_API_EXTERN Trap : public Ref {
 public:
   Trap() = delete;
   ~Trap();
@@ -566,7 +570,7 @@ public:
 // Shared objects
 
 template<class T>
-class WASM_C_API Shared {
+class WASM_API_EXTERN Shared {
 public:
   Shared() = delete;
   ~Shared();
@@ -576,7 +580,7 @@ public:
 
 // Modules
 
-class WASM_C_API Module : public Ref {
+class WASM_API_EXTERN Module : public Ref {
 public:
   Module() = delete;
   ~Module();
@@ -598,7 +602,7 @@ public:
 
 // Foreign Objects
 
-class WASM_C_API Foreign : public Ref {
+class WASM_API_EXTERN Foreign : public Ref {
 public:
   Foreign() = delete;
   ~Foreign();
@@ -615,7 +619,7 @@ class Global;
 class Table;
 class Memory;
 
-class WASM_C_API Extern : public Ref {
+class WASM_API_EXTERN Extern : public Ref {
 public:
   Extern() = delete;
   ~Extern();
@@ -639,7 +643,7 @@ public:
 
 // Function Instances
 
-class WASM_C_API Func : public Extern {
+class WASM_API_EXTERN Func : public Extern {
 public:
   Func() = delete;
   ~Func();
@@ -662,7 +666,7 @@ public:
 
 // Global Instances
 
-class WASM_C_API Global : public Extern {
+class WASM_API_EXTERN Global : public Extern {
 public:
   Global() = delete;
   ~Global();
@@ -678,7 +682,7 @@ public:
 
 // Table Instances
 
-class WASM_C_API Table : public Extern {
+class WASM_API_EXTERN Table : public Extern {
 public:
   Table() = delete;
   ~Table();
@@ -699,7 +703,7 @@ public:
 
 // Memory Instances
 
-class WASM_C_API Memory : public Extern {
+class WASM_API_EXTERN Memory : public Extern {
 public:
   Memory() = delete;
   ~Memory();
@@ -721,7 +725,7 @@ public:
 
 // Module Instances
 
-class WASM_C_API Instance : public Ref {
+class WASM_API_EXTERN Instance : public Ref {
 public:
   Instance() = delete;
   ~Instance();
