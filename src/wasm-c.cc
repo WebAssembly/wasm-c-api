@@ -665,7 +665,7 @@ void wasm_val_delete(wasm_val_t* v) {
 void wasm_val_copy(wasm_val_t* out, const wasm_val_t* v) {
   *out = *v;
   if (is_ref(reveal(static_cast<wasm_valkind_enum>(v->kind)))) {
-    out->of.ref = release(v->of.ref->copy());
+    out->of.ref = v->of.ref ? release(v->of.ref->copy()) : nullptr;
   }
 }
 

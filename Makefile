@@ -26,7 +26,7 @@ OUT_DIR = out
 
 # Example config
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory finalize serialize threads
+EXAMPLES = hello callback trap reflect global table memory finalize serialize threads hostref
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
@@ -94,10 +94,10 @@ endif
 # To rebuild after V8 version change:
 #   make clean all
 
-.PHONY: all c cc
-all: c cc
-c: ${EXAMPLES:%=run-%-c}
+.PHONY: all cc c
+all: cc c
 cc: ${EXAMPLES:%=run-%-cc}
+c: ${EXAMPLES:%=run-%-c}
 
 # Running a C / C++ example
 run-%-c: ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/%.bin}

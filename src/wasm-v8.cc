@@ -1066,54 +1066,6 @@ own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Values
 
-// Values
-
-auto val_to_v8(StoreImpl* store, const Val& v) -> v8::Local<v8::Value> {
-  auto isolate = store->isolate();
-  switch (v.kind()) {
-    case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
-    case I64: return v8::BigInt::New(isolate, v.i64());
-    case F32: return v8::Number::New(isolate, v.f32());
-    case F64: return v8::Number::New(isolate, v.f64());
-    case ANYREF:
-    case FUNCREF: {
-      if (v.ref() == nullptr) {
-        return v8::Null(isolate);
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    }
-    default: assert(false);
-  }
-}
-
-auto v8_to_val(
-  StoreImpl* store, v8::Local<v8::Value> value, const ValType* t
-) -> own<Val> {
-  auto context = store->context();
-  switch (t->kind()) {
-    case I32: return Val(value->Int32Value(context).ToChecked());
-    case I64: {
-      auto bigint = value->ToBigInt(context).ToLocalChecked();
-      return Val(bigint->Int64Value());
-    }
-    case F32: {
-      auto number = value->NumberValue(context).ToChecked();
-      return Val(static_cast<float32_t>(number));
-    }
-    case F64: return Val(value->NumberValue(context).ToChecked());
-    case ANYREF:
-    case FUNCREF: {
-      if (value->IsNull()) {
-        return Val(nullptr);
-      } else {
-        UNIMPLEMENTED("ref value");
-      }
-    }
-  }
-}
-
-
 // References
 
 template<class Ref>
@@ -1224,6 +1176,56 @@ auto Ref::get_host_info() const -> void* {
 
 void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
   impl(this)->set_host_info(info, finalizer);
+}
+
+
+// Value Conversion
+
+auto val_to_v8(StoreImpl* store, const Val& v) -> v8::Local<v8::Value> {
+  auto isolate = store->isolate();
+  switch (v.kind()) {
+    case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
+    case I64: return v8::BigInt::New(isolate, v.i64());
+    case F32: return v8::Number::New(isolate, v.f32());
+    case F64: return v8::Number::New(isolate, v.f64());
+    case ANYREF:
+    case FUNCREF: {
+      if (v.ref() == nullptr) {
+        return v8::Null(isolate);
+      } else {
+        return impl(v.ref())->v8_object();
+      }
+    }
+    default: assert(false);
+  }
+}
+
+auto v8_to_val(
+  StoreImpl* store, v8::Local<v8::Value> value, const ValType* t
+) -> own<Val> {
+  auto context = store->context();
+  switch (t->kind()) {
+    case I32: return Val(value->Int32Value(context).ToChecked());
+    case I64: {
+      auto bigint = value->ToBigInt(context).ToLocalChecked();
+      return Val(bigint->Int64Value());
+    }
+    case F32: {
+      auto number = value->NumberValue(context).ToChecked();
+      return Val(static_cast<float32_t>(number));
+    }
+    case F64: return Val(value->NumberValue(context).ToChecked());
+    case ANYREF:
+    case FUNCREF: {
+      if (value->IsNull()) {
+        return Val(nullptr);
+      } else if (value->IsObject()) {
+        return Val(RefImpl<Ref>::make(store, v8::Local<v8::Object>::Cast(value)));
+      } else {
+        UNIMPLEMENTED("JS primitive ref value");
+      }
+    }
+  }
 }
 
 
@@ -1991,10 +1993,8 @@ auto Table::make(
   if (table && ref) {
     auto size = type->limits().min;
     auto obj = maybe_obj.ToLocalChecked();
-    auto maybe_func = v8::MaybeLocal<v8::Function>(
-      v8::Local<v8::Function>::Cast(init));
     for (size_t i = 0; i < size; ++i) {
-      wasm_v8::table_set(obj, i, maybe_func);
+      wasm_v8::table_set(obj, i, v8::Local<v8::Value>::Cast(init));
     }
   }
   return table;
@@ -2014,10 +2014,8 @@ auto Table::get(size_t index) const -> own<Ref*> {
   v8::HandleScope handle_scope(impl(this)->isolate());
   auto maybe = wasm_v8::table_get(impl(this)->v8_object(), index);
   if (maybe.IsEmpty() || maybe.ToLocalChecked()->IsNull()) return own<Ref*>();
-  // TODO(wasm+): other references
-  auto obj = maybe.ToLocalChecked();
-  assert(obj->IsFunction());
-  return RefImpl<Func>::make(impl(this)->store(), obj);
+  auto obj = v8::Local<v8::Object>::Cast(maybe.ToLocalChecked());
+  return RefImpl<Ref>::make(impl(this)->store(), obj);
 }
 
 auto Table::set(size_t index, const Ref* ref) -> bool {
@@ -2026,11 +2024,10 @@ auto Table::set(size_t index, const Ref* ref) -> bool {
     UNIMPLEMENTED("non-function table elements");
     exit(1);
   }
-  auto obj = ref
-    ? v8::MaybeLocal<v8::Function>(
-        v8::Local<v8::Function>::Cast(impl(ref)->v8_object()))
-    : v8::MaybeLocal<v8::Function>();
-  return wasm_v8::table_set(impl(this)->v8_object(), index, obj);
+  auto val = ref
+    ? v8::Local<v8::Value>(impl(ref)->v8_object())
+    : v8::Local<v8::Value>(v8::Null(impl(this)->isolate()));
+  return wasm_v8::table_set(impl(this)->v8_object(), index, val);
 }
 
 auto Table::size() const -> size_t {
@@ -2040,11 +2037,10 @@ auto Table::size() const -> size_t {
 
 auto Table::grow(size_t delta, const Ref* ref) -> bool {
   v8::HandleScope handle_scope(impl(this)->isolate());
-  auto obj = ref
-    ? v8::MaybeLocal<v8::Function>(
-        v8::Local<v8::Function>::Cast(impl(ref)->v8_object()))
-    : v8::MaybeLocal<v8::Function>();
-  return wasm_v8::table_grow(impl(this)->v8_object(), delta, obj);
+  auto val = ref
+    ? v8::Local<v8::Value>(impl(ref)->v8_object())
+    : v8::Local<v8::Value>(v8::Null(impl(this)->isolate()));
+  return wasm_v8::table_grow(impl(this)->v8_object(), delta, val);
 }
 
 
