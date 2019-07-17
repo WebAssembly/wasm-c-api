@@ -2,7 +2,7 @@ diff --git a/BUILD.gn b/BUILD.gn
 index deedf82..6dced15 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
-@@ -1124,6 +1124,7 @@ v8_header_set("v8_headers") {
+@@ -1679,6 +1679,7 @@ v8_header_set("v8_headers") {
 
    sources = [
      "include/v8.h",
@@ -10,7 +10,7 @@ index deedf82..6dced15 100644
      "include/v8config.h",
    ]
 
-@@ -1150,6 +1151,7 @@ v8_source_set("v8_base") {
+@@ -2007,6 +2008,7 @@ v8_source_set("v8_base") {
      "include/v8-testing.h",
      "include/v8-util.h",
      "include/v8.h",
@@ -18,11 +18,11 @@ index deedf82..6dced15 100644
      "include/v8config.h",
      "src/accessors.cc",
      "src/accessors.h",
-@@ -1164,6 +1166,7 @@ v8_source_set("v8_base") {
-     "src/api-natives.cc",
-     "src/api-natives.h",
-     "src/api.cc",
+@@ -2020,6 +2022,7 @@ v8_source_set("v8_base") {
+     "src/api/api-natives.h",
+     "src/api/api.cc",
+     "src/api/api.h",
 +    "src/wasm-v8-lowlevel.cc",
-     "src/api.h",
-     "src/arguments.cc",
-     "src/arguments.h",
+     "src/asmjs/asm-js.cc",
+     "src/asmjs/asm-js.h",
+     "src/asmjs/asm-names.h",
