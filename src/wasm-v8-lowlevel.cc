@@ -255,50 +255,6 @@ auto extern_kind(v8::Local<v8::Object> external) -> extern_kind_t {
 
 // Functions
 
-/*
-auto func_make(
-  v8::Local<v8::Function> function, const own<FuncType*>& type
-) -> own<Func*> {
-  auto v8_function = v8::Utils::OpenHandle<v8::Object, v8::internal::JSFunction>(function);
-  auto isolate = v8_function->GetIsolate();
-  auto factory = isolate->factory();
-
-  // Create a module as in CompileToModuleObjectInternal
-  auto managed = v8::internal::Handle<v8::internal::Foreign>();  // TODO?
-  auto bytes = v8::internal::Handle<v8::internal::SeqOneByteString>();
-  auto script = v8::internal::Handle<v8::internal::Script>();
-  auto offsets = v8::internal::Handle<v8::internal::ByteArray>();
-  auto shared = wasm::internal::WasmSharedModuleData::New(
-      isolate, managed, bytes, script, offsets);
-
-  // Create instance as in InstanceBuilder::Build
-  CodeSpaceMemoryModificationScope modification_scope(isolate->heap());
-
-  auto compiled = nullptr;
-  auto shared = nullptr;
-  auto exports = v8::FixedArray
-  auto module = v8::WasmModuleObject::New(
-    isolate, compiled,
-    Handle<FixedArray> export_wrappers, Handle<WasmSharedModuleData> shared) {
-
-  auto instance =
-    v8::WasmInstanceObject::New(isolate, module, compiled);
-  auto weak_instance = factory->NewWeakCell(instance);
-
-
-  auto wrapper = v8::wasm::compiler::CompileWasmToJSWrapper(
-              isolate_, js_receiver, expected_sig, func_index,
-              module_->origin(), use_trap_handler());
-          RecordStats(*wrapper_code, counters());
-
-          WasmCode* wasm_code = native_module->AddCodeCopy(
-              wrapper_code, wasm::WasmCode::kWasmToJsWrapper, func_index);
-          ImportedFunctionEntry entry(instance, func_index);
-          entry.set_wasm_to_js(*js_receiver, wasm_code);
-
-}
-*/
-
 auto func_instance(v8::Local<v8::Function> function) -> v8::Local<v8::Object> {
   auto v8_function = v8::Utils::OpenHandle(*function);
   auto v8_func = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_function);
