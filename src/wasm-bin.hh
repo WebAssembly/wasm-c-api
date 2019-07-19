@@ -16,8 +16,8 @@ auto u64(const byte_t*& pos) -> uint64_t;
 auto wrapper(const FuncType*) -> vec<byte_t>;
 auto wrapper(const GlobalType*) -> vec<byte_t>;
 
-auto imports(const vec<byte_t>& binary) -> vec<ImportType*>;
-auto exports(const vec<byte_t>& binary) -> vec<ExportType*>;
+auto imports(const vec<byte_t>& binary) -> ownvec<ImportType>;
+auto exports(const vec<byte_t>& binary) -> ownvec<ExportType>;
 
 }  // namespace bin
 }  // namespace wasm
