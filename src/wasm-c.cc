@@ -600,7 +600,7 @@ struct borrowed_val {
   Val it;
   borrowed_val(Val&& v) : it(std::move(v)) {}
   borrowed_val(borrowed_val&& that) : it(std::move(that.it)) {}
-  ~borrowed_val() { if (it.is_ref()) it.release_ref(); }
+  ~borrowed_val() { if (it.is_ref()) it.release_ref().release(); }
 };
 
 inline auto borrow_val(const wasm_val_t* v) -> borrowed_val {

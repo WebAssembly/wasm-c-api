@@ -53,10 +53,12 @@ auto global_get_i32(v8::Local<v8::Object> global) -> int32_t;
 auto global_get_i64(v8::Local<v8::Object> global) -> int64_t;
 auto global_get_f32(v8::Local<v8::Object> global) -> float;
 auto global_get_f64(v8::Local<v8::Object> global) -> double;
+auto global_get_ref(v8::Local<v8::Object> global) -> v8::Local<v8::Value>;
 void global_set_i32(v8::Local<v8::Object> global, int32_t);
 void global_set_i64(v8::Local<v8::Object> global, int64_t);
 void global_set_f32(v8::Local<v8::Object> global, float);
 void global_set_f64(v8::Local<v8::Object> global, double);
+void global_set_ref(v8::Local<v8::Object> global, v8::Local<v8::Value>);
 
 auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Value>;
 auto table_set(v8::Local<v8::Object> table, size_t index, v8::Local<v8::Value>) -> bool;
