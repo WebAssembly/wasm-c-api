@@ -20,6 +20,9 @@ auto object_is_error(v8::Local<v8::Object>) -> bool;
 auto foreign_new(v8::Isolate*, void*) -> v8::Local<v8::Value>;
 auto foreign_get(v8::Local<v8::Value>) -> void*;
 
+auto managed_new(v8::Isolate*, void*, void (*)(void*)) -> v8::Local<v8::Value>;
+auto managed_get(v8::Local<v8::Value>) -> void*;
+
 enum val_kind_t { I32, I64, F32, F64, ANYREF = 128, FUNCREF };
 auto func_type_param_arity(v8::Local<v8::Object> global) -> uint32_t;
 auto func_type_result_arity(v8::Local<v8::Object> global) -> uint32_t;
