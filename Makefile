@@ -26,7 +26,19 @@ OUT_DIR = out
 
 # Example config
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
-EXAMPLES = hello callback trap reflect global table memory finalize serialize threads hostref
+EXAMPLES = \
+  hello \
+  callback \
+  trap \
+  reflect \
+  global \
+  table \
+  memory \
+  hostref \
+  finalize \
+  serialize \
+  threads \
+  # multi \
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
