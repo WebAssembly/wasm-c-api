@@ -20,7 +20,7 @@ auto object_is_error(v8::Local<v8::Object>) -> bool;
 auto foreign_new(v8::Isolate*, void*) -> v8::Local<v8::Value>;
 auto foreign_get(v8::Local<v8::Value>) -> void*;
 
-enum val_kind_t { I32, I64, F32, F64, REF };
+enum val_kind_t { I32, I64, F32, F64, ANYREF = 128, FUNCREF };
 auto func_type_param_arity(v8::Local<v8::Object> global) -> uint32_t;
 auto func_type_result_arity(v8::Local<v8::Object> global) -> uint32_t;
 auto func_type_param(v8::Local<v8::Object> global, size_t) -> val_kind_t;
@@ -58,10 +58,10 @@ void global_set_i64(v8::Local<v8::Object> global, int64_t);
 void global_set_f32(v8::Local<v8::Object> global, float);
 void global_set_f64(v8::Local<v8::Object> global, double);
 
-auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Function>;
-auto table_set(v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Function>) -> bool;
+auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Value>;
+auto table_set(v8::Local<v8::Object> table, size_t index, v8::Local<v8::Value>) -> bool;
 auto table_size(v8::Local<v8::Object> table) -> size_t;
-auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::MaybeLocal<v8::Function>) -> bool;
+auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::Local<v8::Value>) -> bool;
 
 auto memory_data(v8::Local<v8::Object> memory) -> char*;
 auto memory_data_size(v8::Local<v8::Object> memory)-> size_t;

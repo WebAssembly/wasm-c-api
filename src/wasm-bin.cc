@@ -80,6 +80,8 @@ void encode_const_zero(char*& ptr, const ValType* type) {
     case I64: *ptr++ = 0x42; break;
     case F32: *ptr++ = 0x43; break;
     case F64: *ptr++ = 0x44; break;
+    case FUNCREF: *ptr++ = 0xd0; break;
+    case ANYREF: *ptr++ = 0xd0; break;
     default: assert(false);
   }
   for (int i = 0; i < zero_size(type); ++i) *ptr++ = 0;
@@ -302,10 +304,11 @@ void memorytype_skip(const byte_t*& pos) {
 // Expressions
 
 void expr_skip(const byte_t*& pos) {
-  switch (*pos++) {
+  switch (*pos++ & 0xff) {
     case 0x41:  // i32.const
     case 0x42:  // i64.const
-    case 0x23: {  // get_global
+    case 0x23:  // get_global
+    case 0xd2: {  // ref.func
       bin::u32_skip(pos);
     } break;
     case 0x43: {  // f32.const
@@ -314,8 +317,9 @@ void expr_skip(const byte_t*& pos) {
     case 0x44: {  // f64.const
       pos += 8;
     } break;
+    case 0xd0: {  // ref.null
+    } break;
     default: {
-      // TODO(wasm+): support new expression forms
       assert(false);
     }
   }
