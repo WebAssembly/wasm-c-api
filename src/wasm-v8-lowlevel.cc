@@ -104,8 +104,9 @@ auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t 
     case v8::internal::wasm::kWasmI64: return I64;
     case v8::internal::wasm::kWasmF32: return F32;
     case v8::internal::wasm::kWasmF64: return F64;
+    case v8::internal::wasm::kWasmAnyRef: return ANYREF;
+    case v8::internal::wasm::kWasmAnyFunc: return FUNCREF;
     default:
-      // TODO(wasm+): support new value types
       UNREACHABLE();
   }
 }
@@ -354,28 +355,24 @@ void global_set_f64(v8::Local<v8::Object> global, double val) {
 
 // Tables
 
-auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Function> {
+auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::Value> {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
   // TODO(v8): This should happen in WasmTableObject::Get.
-  if (index > v8_table->current_length()) return v8::MaybeLocal<v8::Function>();
+  if (index > v8_table->current_length()) return v8::MaybeLocal<v8::Value>();
 
   v8::internal::Handle<v8::internal::Object> v8_value =
     v8::internal::WasmTableObject::Get(
       v8_table->GetIsolate(), v8_table, static_cast<uint32_t>(index));
-  return v8_value->IsNull(v8_table->GetIsolate())
-    ? v8::MaybeLocal<v8::Function>()
-    : v8::MaybeLocal<v8::Function>(
-        v8::Utils::ToLocal(v8::internal::Handle<v8::internal::JSFunction>::cast(v8_value)));
+  return v8::Utils::ToLocal(v8::internal::Handle<v8::internal::Object>::cast(v8_value));
 }
 
 auto table_set(
-  v8::Local<v8::Object> table, size_t index, v8::MaybeLocal<v8::Function> maybe
+  v8::Local<v8::Object> table, size_t index, v8::Local<v8::Value> value
 ) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
-  v8::internal::Handle<v8::internal::Object> v8_value = v8_table->GetIsolate()->factory()->null_value();
-  if (!maybe.IsEmpty()) v8_value = v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(maybe.ToLocalChecked());
+  auto v8_value = v8::Utils::OpenHandle<v8::Value, v8::internal::Object>(value);
   // TODO(v8): This should happen in WasmTableObject::Set.
   if (index >= v8_table->current_length()) return false;
 
@@ -395,7 +392,7 @@ auto table_size(v8::Local<v8::Object> table) -> size_t {
 }
 
 auto table_grow(
-  v8::Local<v8::Object> table, size_t delta, v8::MaybeLocal<v8::Function> init
+  v8::Local<v8::Object> table, size_t delta, v8::Local<v8::Value> init
 ) -> bool {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
@@ -405,11 +402,10 @@ auto table_grow(
   // TODO(v8): This should happen in WasmTableObject::Grow.
   if (new_size > table_type_max(table)) return false;
 
-  v8::internal::Handle<v8::internal::Object> val = v8_table->GetIsolate()->factory()->null_value();
-  if (!init.IsEmpty()) val = v8::Utils::OpenHandle<v8::Function, v8::internal::JSReceiver>(init.ToLocalChecked());
   { v8::TryCatch handler(table->GetIsolate());
     v8::internal::WasmTableObject::Grow(
-      v8_table->GetIsolate(), v8_table, static_cast<uint32_t>(delta), val);
+      v8_table->GetIsolate(), v8_table, static_cast<uint32_t>(delta),
+      v8::Utils::OpenHandle<v8::Value, v8::internal::Object>(init));
     if (handler.HasCaught()) return false;
   }
 
