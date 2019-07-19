@@ -1791,7 +1791,14 @@ auto Func::call(const Val args[], Val results[]) const -> own<Trap> {
     assert(!val->IsUndefined());
     new (&results[0]) Val(v8_to_val(store, val, result_types[0].get()));
   } else {
-    UNIMPLEMENTED("multiple results");
+    assert(val->IsArray());
+    auto array = v8::Handle<v8::Array>::Cast(val);
+    for (size_t i = 0; i < result_types.size(); ++i) {
+      auto maybe = array->Get(context, i);
+      assert(!maybe.IsEmpty());
+      new (&results[i]) Val(v8_to_val(
+        store, maybe.ToLocalChecked(), result_types[i].get()));
+    }
   }
   return nullptr;
 }
@@ -1834,7 +1841,13 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     assert(results[0].kind() == result_types[0]->kind());
     ret.Set(val_to_v8(store, results[0]));
   } else {
-    UNIMPLEMENTED("multiple results");
+    auto context = store->context();
+    auto array = v8::Array::New(isolate, result_types.size());
+    for (size_t i = 0; i < result_types.size(); ++i) {
+      auto success = array->Set(context, i, val_to_v8(store, results[i]));
+      assert(success.IsJust() && success.ToChecked());
+    }
+    ret.Set(array);
   }
 }
 
