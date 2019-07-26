@@ -360,6 +360,11 @@ void run() {
     check(call(load_func, 0x40000), 10);
     check(call(load_func, 0x40001), 11);
 
+    check_ok(store_func, 0x40002, 12);
+    memory->data()[0x40003] = 13;
+    check(call(load_func, 0x40002), 12);
+    check(call(load_func, 0x40003), 13);
+
     check_trap(load_func, 0x50000);
     check_trap(store_func, 0x50000, 0);
   };
