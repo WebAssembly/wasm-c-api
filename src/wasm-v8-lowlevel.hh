@@ -63,10 +63,19 @@ auto table_set(v8::Local<v8::Object> table, size_t index, v8::Local<v8::Value>) 
 auto table_size(v8::Local<v8::Object> table) -> size_t;
 auto table_grow(v8::Local<v8::Object> table, size_t delta, v8::Local<v8::Value>) -> bool;
 
+using memory_grow_callback_t = auto (*)(void*, void*, size_t, size_t) -> void*;
+using memory_free_callback_t = void (*)(void*, void*);
+auto memory_new_external(
+  v8::Isolate*, void*, uint32_t min, uint32_t max,
+  void*, memory_grow_callback_t, memory_free_callback_t
+) -> v8::MaybeLocal<v8::Object>;
+
 auto memory_data(v8::Local<v8::Object> memory) -> char*;
 auto memory_data_size(v8::Local<v8::Object> memory)-> size_t;
 auto memory_size(v8::Local<v8::Object> memory) -> uint32_t;
 auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool;
+auto memory_redzone_size_lo(size_t) -> size_t;
+auto memory_redzone_size_hi(size_t) -> size_t;
 
 }  // namespace wasm
 }  // namespace v8

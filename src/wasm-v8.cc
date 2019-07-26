@@ -2185,3 +2185,51 @@ auto Instance::exports() const -> ownvec<Extern> {
 ///////////////////////////////////////////////////////////////////////////////
 
 }  // namespace wasm
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Vendor-specific extensions
+
+#include "wasm-v8.hh"
+
+namespace wasm {
+namespace v8 {
+
+namespace Memory {
+  auto make_external(
+    Store* store_abs, const MemoryType* type, byte_t* mem,
+    void* info, grow_callback_t grow, free_callback_t free
+  ) -> own<wasm::Memory> {
+    auto store = impl(store_abs);
+    auto isolate = store->isolate();
+    ::v8::HandleScope handle_scope(isolate);
+
+    auto min = type->limits().min;
+    auto max = type->limits().max;
+    assert(min <= max);
+    assert(max < 0x10000u || max == std::numeric_limits<uint32_t>::max());
+    assert(min == 0 || mem[0] == mem[0]);
+    assert(min == 0 || mem[min-1] == mem[min-1]);
+
+    // TODO: handle grow and free
+    auto maybe_obj = wasm_v8::memory_new_external(
+      isolate, mem, min, max, info,
+      reinterpret_cast<wasm_v8::memory_grow_callback_t>(grow),
+      reinterpret_cast<wasm_v8::memory_free_callback_t>(free));
+    if (maybe_obj.IsEmpty()) return nullptr;
+    return RefImpl<wasm::Memory>::make(store, maybe_obj.ToLocalChecked());
+  }
+
+  auto redzone_size_lo(size_t size) -> size_t {
+    return wasm_v8::memory_redzone_size_lo(size);
+  }
+  auto redzone_size_hi(size_t size) -> size_t {
+    return wasm_v8::memory_redzone_size_hi(size);
+  }
+}
+
+}  // namespace v8
+}  // namespace wasm
+
+///////////////////////////////////////////////////////////////////////////////

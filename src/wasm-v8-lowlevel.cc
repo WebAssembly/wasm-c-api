@@ -10,6 +10,7 @@
 #include "objects/ordered-hash-table.h"
 #include "objects/js-promise.h"
 #include "objects/js-collection.h"
+#include "objects/js-array-buffer.h"
 
 #include "api/api.h"
 #include "api/api-inl.h"
@@ -371,6 +372,25 @@ auto table_grow(
 
 // Memory
 
+auto memory_new_external(
+  v8::Isolate* isolate, void* data, uint32_t min, uint32_t max,
+  void* info, memory_grow_callback_t grow, memory_free_callback_t free
+) -> v8::MaybeLocal<v8::Object> {
+  auto i_isolate = reinterpret_cast<v8::internal::Isolate*>(isolate);
+  auto size =
+    static_cast<size_t>(min) *
+    static_cast<size_t>(v8::internal::wasm::kWasmPageSize);
+  auto buffer = v8::internal::wasm::SetupArrayBuffer(
+    i_isolate, data, size, true, v8::internal::SharedFlag::kNotShared);
+  auto desc =
+    new(std::nothrow) v8::internal::WasmMemoryObject::HostOwnedStoreInfo{
+      grow, free, info};
+  if (!desc) return v8::MaybeLocal<v8::Object>();
+  auto memory = v8::internal::WasmMemoryObject::New(i_isolate, buffer, max,
+    std::unique_ptr<v8::internal::WasmMemoryObject::HostOwnedStoreInfo>(desc));
+  return v8::Utils::ToLocal(v8::internal::Handle<v8::internal::JSObject>::cast(memory));
+}
+
 auto memory_data(v8::Local<v8::Object> memory) -> char* {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(memory);
   auto v8_memory = v8::internal::Handle<v8::internal::WasmMemoryObject>::cast(v8_object);
@@ -396,6 +416,14 @@ auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool {
   auto old = v8::internal::WasmMemoryObject::Grow(
     v8_memory->GetIsolate(), v8_memory, delta);
   return old != -1;
+}
+
+auto memory_redzone_size_lo(size_t) -> size_t {
+  return V8_TARGET_ARCH_64_BIT ? 1u << 31 : 0;
+}
+
+auto memory_redzone_size_hi(size_t size) -> size_t {
+  return V8_TARGET_ARCH_64_BIT ? v8::internal::wasm::kWasmMaxHeapOffset - size : 0;
 }
 
 }  // namespace wasm

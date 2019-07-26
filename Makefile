@@ -27,6 +27,8 @@ OUT_DIR = out
 # Example config
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLES = \
+  mmap
+BLA = \
   hello \
   callback \
   trap \
@@ -38,6 +40,7 @@ EXAMPLES = \
   finalize \
   serialize \
   threads \
+  mmap \
   # multi \
 
 # Wasm config
