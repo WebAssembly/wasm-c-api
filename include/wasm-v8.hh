@@ -12,8 +12,8 @@ namespace v8 {
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace Memory {
-  using grow_callback_t = auto (*)(byte_t*, void*, size_t, size_t) -> byte_t*;
-  using free_callback_t = void (*)(byte_t*, void*);
+  using grow_callback_t = auto (*)(void*, byte_t*, size_t, size_t) -> byte_t*;
+  using free_callback_t = void (*)(void*, byte_t*, size_t);
 
   auto make_external(
     Store*, const MemoryType*, byte_t*, void*, grow_callback_t, free_callback_t

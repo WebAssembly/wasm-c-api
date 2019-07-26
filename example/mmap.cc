@@ -80,8 +80,9 @@ auto make_mem(size_t size, int fd) -> std::unique_ptr<mem_info> {
   return std::unique_ptr<mem_info>(new mem_info{base, data, alloc_size, fd});
 }
 
-void free_mem(byte_t*, void* extra) {
-  std::cout << "> Freeing memory in callback..." << std::endl;
+void free_mem(void* extra, byte_t* data, size_t size) {
+  std::cout << "> Freeing memory in callback "
+    << "(size = " << size << ")..." << std::endl;
   auto info = static_cast<mem_info*>(extra);
 
   close(info->fd);
@@ -102,7 +103,7 @@ void free_mem(byte_t*, void* extra) {
   --mem_count;
 }
 
-auto grow_mem(byte_t* data, void* extra, size_t old_size, size_t new_size) -> byte_t* {
+auto grow_mem(void* extra, byte_t* data, size_t old_size, size_t new_size) -> byte_t* {
   std::cout << "> Growing memory in callback "
     << "(old size = " << old_size << ", new size = " << new_size << ")..."
     << std::endl;
@@ -368,7 +369,7 @@ void run() {
     check_trap(load_func, 0x50000);
     check_trap(store_func, 0x50000, 0);
   };
-  execute(engine.get(), shared_module.get(), pages, 1, run2);
+  execute(engine.get(), shared_module.get(), pages, 2, run2);
 
   // Cleaning up.
   if (remove(data_file) == -1) {

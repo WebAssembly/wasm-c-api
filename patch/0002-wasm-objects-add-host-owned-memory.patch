@@ -11,25 +11,21 @@ index e1fc2d2410..ec3f04be57 100644
  
  // WasmGlobalObject
 diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
-index 27a56695c2..55d205b534 100644
+index 27a56695c2..2a807e600c 100644
 --- a/src/wasm/wasm-objects.cc
 +++ b/src/wasm/wasm-objects.cc
-@@ -1223,9 +1223,23 @@ void SetInstanceMemory(Handle<WasmInstanceObject> instance,
+@@ -1223,9 +1223,19 @@ void SetInstanceMemory(Handle<WasmInstanceObject> instance,
  
  }  // namespace
  
 +WasmMemoryObject::HostOwnedStoreInfo::~HostOwnedStoreInfo() {
-+  DCHECK(memory);
-+  auto buffer = memory->array_buffer();
-+  DCHECK(buffer.IsJSArrayBuffer());
-+  void* store = buffer.backing_store();
-+
-+/*TODO
-+  Isolate* isolate = buffer.GetIsolate();
-+  HandleScope(isolate) handle_scope;
-+  wasm::DetachMemoryBuffer(isolate, Handle<JSArrayBuffer>(buffer), false);
-+*/
-+  if (free_callback) free_callback(store, callback_info);
++  // TODO: This is a hack. If the associated ArrayBuffer is still alive,
++  // it will have a dangling pointer as packing store at this point.
++  // (However, that should only matter when mixing Wasm and V8 API.)
++  // To fix, the life time of the backing store should be tied to the buffer.
++  // However, that would require attaching this structue to the buffer
++  // instead of the memory object. Possible with some extra flag bit there?
++  if (free_callback) free_callback(callback_info, data, size);
 +}
 +
  Handle<WasmMemoryObject> WasmMemoryObject::New(
@@ -39,28 +35,25 @@ index 27a56695c2..55d205b534 100644
    Handle<JSArrayBuffer> buffer;
    if (!maybe_buffer.ToHandle(&buffer)) {
      // If no buffer was provided, create a 0-length one.
-@@ -1243,6 +1257,20 @@ Handle<WasmMemoryObject> WasmMemoryObject::New(
+@@ -1243,6 +1253,17 @@ Handle<WasmMemoryObject> WasmMemoryObject::New(
        isolate->factory()->NewJSObject(memory_ctor, AllocationType::kOld));
    memory_obj->set_array_buffer(*buffer);
    memory_obj->set_maximum_pages(maximum);
 +  if (host_owned) {
 +    DCHECK(host_owned->memory.is_null());
-+    host_owned->memory =
-+        isolate->global_handles()->Create<WasmMemoryObject>(*memory_obj);
-+/*TODO
-+    GlobalHandles::MakeWeak(
-+        reinterpret_cast<Address**>(host_owned->memory.address()));
-+*/
++    host_owned->data = buffer->backing_store();
++    host_owned->size = buffer->byte_length();
 +    auto managed = Managed<HostOwnedStoreInfo>::FromUniquePtr(
 +        isolate, sizeof(HostOwnedStoreInfo), std::move(host_owned));
 +    memory_obj->set_host_owned(*managed);
++    buffer->set_is_wasm_memory(false);
 +  } else {
 +    memory_obj->set_host_owned(ReadOnlyRoots(isolate).undefined_value());
 +  }
  
    return memory_obj;
  }
-@@ -1308,10 +1336,16 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1308,10 +1329,16 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
                                 Handle<WasmMemoryObject> memory_object,
                                 uint32_t pages) {
    TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("v8.wasm"), "GrowMemory");
@@ -78,16 +71,15 @@ index 27a56695c2..55d205b534 100644
  
    // Checks for maximum memory size, compute new size.
    uint32_t maximum_pages = wasm::max_mem_pages();
-@@ -1335,7 +1369,19 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1335,7 +1362,20 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    // Handle this in the interrupt handler so that it's safe for all the isolates
    // that share this buffer to be updated safely.
    Handle<JSArrayBuffer> new_buffer;
 -  if (old_buffer->is_shared()) {
 +  if (host_owned) {
 +    // TODO: handle shared host-owned memory once we support it.
-+    auto new_store = host_owned->grow_callback(
-+        old_buffer->backing_store(), host_owned->callback_info,
-+        old_size, new_size);
++    auto new_store = host_owned->grow_callback(host_owned->callback_info,
++        old_buffer->backing_store(), old_size, new_size);
 +    if (!new_store) return -1;
 +    bool is_external = old_buffer->is_external();
 +    DCHECK(is_external);
@@ -95,23 +87,26 @@ index 27a56695c2..55d205b534 100644
 +    wasm::DetachMemoryBuffer(isolate, old_buffer, false);
 +    new_buffer =
 +        wasm::SetupArrayBuffer(isolate, new_store, new_size, is_external);
++    host_owned->data = new_store;
++    host_owned->size = new_size;
 +  } else if (old_buffer->is_shared()) {
      // Adjust protections for the buffer.
      if (!AdjustBufferPermissions(isolate, old_buffer, new_size)) {
        return -1;
 diff --git a/src/wasm/wasm-objects.h b/src/wasm/wasm-objects.h
-index 1e6ced0b76..434514f947 100644
+index 1e6ced0b76..c3ecf4efe0 100644
 --- a/src/wasm/wasm-objects.h
 +++ b/src/wasm/wasm-objects.h
-@@ -327,10 +327,20 @@ class V8_EXPORT_PRIVATE WasmTableObject : public JSObject {
+@@ -327,10 +327,21 @@ class V8_EXPORT_PRIVATE WasmTableObject : public JSObject {
  // Representation of a WebAssembly.Memory JavaScript-level object.
  class WasmMemoryObject : public JSObject {
   public:
 +  struct HostOwnedStoreInfo {
 +    auto (*grow_callback)(void*, void*, size_t, size_t) -> void* = nullptr;
-+    void (*free_callback)(void*, void*) = nullptr;
++    void (*free_callback)(void*, void*, size_t) = nullptr;
 +    void* callback_info = nullptr;
-+    Handle<WasmMemoryObject> memory = Handle<WasmMemoryObject>();
++    void* data = nullptr;
++    size_t size = 0;
 +
 +    ~HostOwnedStoreInfo();
 +  };
@@ -124,7 +119,7 @@ index 1e6ced0b76..434514f947 100644
    DECL_OPTIONAL_ACCESSORS(instances, WeakArrayList)
  
    // Dispatched behavior.
-@@ -347,7 +357,8 @@ class WasmMemoryObject : public JSObject {
+@@ -347,7 +358,8 @@ class WasmMemoryObject : public JSObject {
    inline bool has_maximum_pages();
  
    V8_EXPORT_PRIVATE static Handle<WasmMemoryObject> New(
