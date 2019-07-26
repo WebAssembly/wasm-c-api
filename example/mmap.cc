@@ -274,6 +274,7 @@ void run() {
     auto size_func = get_export_func(exports, i++);
     auto load_func = get_export_func(exports, i++);
     auto store_func = get_export_func(exports, i++);
+    auto grow_func = get_export_func(exports, i++);
 
     // Try cloning.
     assert(memory->copy()->same(memory));
@@ -310,17 +311,31 @@ void run() {
     check(memory->size(), 3u);
     check(memory->data_size(), 0x30000u);
 
-    check(call(load_func, 0x20000), 0);
-    check_ok(store_func, 0x20000, 0);
+    check_ok(store_func, 0x20000, 7);
+    memory->data()[0x20001] = 8;
+    check(call(load_func, 0x20000), 7);
+    check(call(load_func, 0x20001), 8);
+
     check_trap(load_func, 0x30000);
     check_trap(store_func, 0x30000, 0);
 
     check(memory->grow(0), true);
+
+    check(call(grow_func, 2), 3);
+    check(memory->size(), 5u);
+
+    check_ok(store_func, 0x40000, 10);
+    memory->data()[0x40001] = 11;
+    check(call(load_func, 0x40000), 10);
+    check(call(load_func, 0x40001), 11);
+
+    check_trap(load_func, 0x50000);
+    check_trap(store_func, 0x50000, 0);
   };
   execute(engine.get(), shared_module.get(), pages, 1, run1);
 
   // Run 2.
-  pages = 3;
+  pages = 5;
   auto run2 = [&](
     wasm::Memory* memory, const wasm::ownvec<wasm::Extern>& exports
   ) {
@@ -331,20 +346,24 @@ void run() {
 
     // Check persisted memory.
     std::cout << "Checking memory..." << std::endl;
-    check(memory->size(), 3u);
-    check(memory->data_size(), 0x30000u);
-    check(call(size_func), 3);
+    check(memory->size(), 5u);
+    check(memory->data_size(), 0x50000u);
+    check(call(size_func), 5);
 
     check(memory->data()[0], 0);
     check(memory->data()[0x1002], 6);
     check(memory->data()[0x1003], 5);
     check(call(load_func, 0x1002), 6);
     check(call(load_func, 0x1003), 5);
+    check(call(load_func, 0x20000), 7);
+    check(call(load_func, 0x20001), 8);
+    check(call(load_func, 0x40000), 10);
+    check(call(load_func, 0x40001), 11);
 
-    check_trap(load_func, 0x30000);
-    check_trap(store_func, 0x30000, 0);
+    check_trap(load_func, 0x50000);
+    check_trap(store_func, 0x50000, 0);
   };
-  execute(engine.get(), shared_module.get(), pages, 2, run2);
+  execute(engine.get(), shared_module.get(), pages, 1, run2);
 
   // Cleaning up.
   if (remove(data_file) == -1) {
