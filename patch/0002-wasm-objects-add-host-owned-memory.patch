@@ -11,7 +11,7 @@ index e1fc2d2410..ec3f04be57 100644
  
  // WasmGlobalObject
 diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
-index 27a56695c2..2a807e600c 100644
+index 27a56695c2..fb15ca22ba 100644
 --- a/src/wasm/wasm-objects.cc
 +++ b/src/wasm/wasm-objects.cc
 @@ -1223,9 +1223,19 @@ void SetInstanceMemory(Handle<WasmInstanceObject> instance,
@@ -71,13 +71,14 @@ index 27a56695c2..2a807e600c 100644
  
    // Checks for maximum memory size, compute new size.
    uint32_t maximum_pages = wasm::max_mem_pages();
-@@ -1335,7 +1362,20 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1335,7 +1362,21 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    // Handle this in the interrupt handler so that it's safe for all the isolates
    // that share this buffer to be updated safely.
    Handle<JSArrayBuffer> new_buffer;
 -  if (old_buffer->is_shared()) {
 +  if (host_owned) {
 +    // TODO: handle shared host-owned memory once we support it.
++    if (!host_owned->grow_callback) return -1;
 +    auto new_store = host_owned->grow_callback(host_owned->callback_info,
 +        old_buffer->backing_store(), old_size, new_size);
 +    if (!new_store) return -1;

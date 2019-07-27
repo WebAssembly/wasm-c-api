@@ -2199,7 +2199,7 @@ namespace v8 {
 namespace Memory {
   auto make_external(
     Store* store_abs, const MemoryType* type, byte_t* mem,
-    void* info, grow_callback_t grow, free_callback_t free
+    grow_callback_t grow, free_callback_t free, void* info
   ) -> own<wasm::Memory> {
     auto store = impl(store_abs);
     auto isolate = store->isolate();
@@ -2209,8 +2209,6 @@ namespace Memory {
     auto max = type->limits().max;
     assert(min <= max);
     assert(max < 0x10000u || max == std::numeric_limits<uint32_t>::max());
-    assert(min == 0 || mem[0] == mem[0]);
-    assert(min == 0 || mem[min-1] == mem[min-1]);
 
     // TODO: handle grow and free
     auto maybe_obj = wasm_v8::memory_new_external(

@@ -53,6 +53,7 @@ auto make_mem(size_t size, int fd) -> std::unique_ptr<mem_info> {
 
   void* base = nullptr;
   if (offset > 0) {
+    // Lo redzone needed.
     base = mmap(nullptr, offset, PROT_NONE, MAP_ANON | MAP_PRIVATE, 0, 0);
     if (base == MAP_FAILED) {
       std::cout << "> Error reserving lo redzone! errno = " << errno
@@ -108,6 +109,14 @@ auto grow_mem(void* extra, byte_t* data, size_t old_size, size_t new_size) -> by
     << "(old size = " << old_size << ", new size = " << new_size << ")..."
     << std::endl;
   auto info = static_cast<mem_info*>(extra);
+
+  // Only support in-place growth.
+  if (wasm::v8::Memory::redzone_size_lo(new_size) >
+      wasm::v8::Memory::redzone_size_lo(old_size) ||
+      new_size + wasm::v8::Memory::redzone_size_hi(new_size) >
+      old_size + wasm::v8::Memory::redzone_size_hi(old_size)) {
+    return nullptr;
+  }
 
   if (ftruncate(info->fd, new_size) == -1) {
     close(info->fd);
@@ -230,7 +239,7 @@ void execute(
   auto memory_type = wasm::MemoryType::make(wasm::Limits(pages));
 
   auto memory = wasm::v8::Memory::make_external(
-    store, memory_type.get(), info->data, info.get(), &grow_mem, &free_mem);
+    store, memory_type.get(), info->data, grow_mem, free_mem, info.release());
   if (!memory) {
     std::cout << "> Error creating memory!" << std::endl;
     exit(1);

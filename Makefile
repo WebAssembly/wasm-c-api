@@ -28,7 +28,7 @@ OUT_DIR = out
 EXAMPLE_OUT = ${OUT_DIR}/${EXAMPLE_DIR}
 EXAMPLES = \
   mmap
-BLA = \
+TEMPORARILY_DISABLED_DO_NOT_COMMIT = \
   hello \
   callback \
   trap \
@@ -225,15 +225,18 @@ v8-build:
 .PHONY: v8-patch
 v8-patch:
 	if ! grep ${WASM_V8_PATCH} ${V8_V8}/BUILD.gn; then \
-	  cp ${V8_V8}/BUILD.gn ${V8_V8}/BUILD.gn.save; \
 	  cd ${V8_V8}; \
-	  patch < ../../patch/0001-BUILD.gn-add-wasm-v8-lowlevel.patch; \
+	  cp BUILD.gn BUILD.gn.save; \
+	  patch -p1 <../../patch/0001-BUILD.gn-add-wasm-v8-lowlevel.patch; \
+	  patch -p1 <../../patch/0002-wasm-objects-add-host-owned-memory.patch; \
 	fi
 
 .PHONY: v8-unpatch
 v8-unpatch:
 	if [ -f ${V8_V8}/BUILD.gn.save ]; then \
-	  mv -f ${V8_V8}/BUILD.gn.save ${V8_V8}/BUILD.gn; \
+	  cd ${V8_V8}; \
+	  patch -p1 -R <../../patch/0001-BUILD.gn-add-wasm-v8-lowlevel.patch; \
+	  patch -p1 -R <../../patch/0002-wasm-objects-add-host-owned-memory.patch; \
 	fi
 
 ${V8_INCLUDE}/${WASM_V8_PATCH}.hh: ${WASM_SRC}/${WASM_V8_PATCH}.hh
