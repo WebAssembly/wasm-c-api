@@ -11,7 +11,7 @@ index e1fc2d2410..ec3f04be57 100644
  
  // WasmGlobalObject
 diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
-index 27a56695c2..fb15ca22ba 100644
+index 27a56695c2..f24d752e34 100644
 --- a/src/wasm/wasm-objects.cc
 +++ b/src/wasm/wasm-objects.cc
 @@ -1223,9 +1223,19 @@ void SetInstanceMemory(Handle<WasmInstanceObject> instance,
@@ -53,17 +53,12 @@ index 27a56695c2..fb15ca22ba 100644
  
    return memory_obj;
  }
-@@ -1308,10 +1329,16 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
-                                Handle<WasmMemoryObject> memory_object,
-                                uint32_t pages) {
+@@ -1310,8 +1331,11 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("v8.wasm"), "GrowMemory");
-+  HostOwnedStoreInfo* host_owned = nullptr;
-+  if (!memory_object->IsUndefined()) {
-+    host_owned =
-+        Managed<HostOwnedStoreInfo>::cast(memory_object->host_owned())->raw();
-+  }
    Handle<JSArrayBuffer> old_buffer(memory_object->array_buffer(), isolate);
    if (old_buffer->is_shared() && !FLAG_wasm_grow_shared_memory) return -1;
++  HostOwnedStoreInfo* host_owned =
++      Managed<HostOwnedStoreInfo>::cast(memory_object->host_owned())->raw();
    auto* memory_tracker = isolate->wasm_engine()->memory_tracker();
 -  if (!memory_tracker->IsWasmMemoryGrowable(old_buffer)) return -1;
 +  if (!(host_owned || memory_tracker->IsWasmMemoryGrowable(old_buffer)))
@@ -71,17 +66,20 @@ index 27a56695c2..fb15ca22ba 100644
  
    // Checks for maximum memory size, compute new size.
    uint32_t maximum_pages = wasm::max_mem_pages();
-@@ -1335,7 +1362,21 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1335,7 +1359,24 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    // Handle this in the interrupt handler so that it's safe for all the isolates
    // that share this buffer to be updated safely.
    Handle<JSArrayBuffer> new_buffer;
 -  if (old_buffer->is_shared()) {
 +  if (host_owned) {
-+    // TODO: handle shared host-owned memory once we support it.
-+    if (!host_owned->grow_callback) return -1;
-+    auto new_store = host_owned->grow_callback(host_owned->callback_info,
++    // TODO: handle shared host-owned memory once the C API supports it.
++    void* new_store = old_buffer->backing_store();
++    if (new_size > old_size) {
++      if (!host_owned->grow_callback) return -1;
++      new_store = host_owned->grow_callback(host_owned->callback_info,
 +        old_buffer->backing_store(), old_size, new_size);
-+    if (!new_store) return -1;
++      if (!new_store) return -1;
++    }
 +    bool is_external = old_buffer->is_external();
 +    DCHECK(is_external);
 +    // Disconnect buffer early so GC won't free it.

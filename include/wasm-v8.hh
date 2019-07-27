@@ -24,13 +24,14 @@ namespace Memory {
   //   right after the byte vector's address range
   // * optionally, provide a `grow_callback` that is invoked by the engine when
   //   the Memory needs to grow; it receives the current byte vector, its
-  //   current size, and the new size requested; it needs to return the address
+  //   current size, and the new size requested (it is an invariant that
+  //   new size > old size when invoked); it needs to return the address
   //   of a new byte vector with redzones installed as before, or `nullptr`to
   //   reject the request; the new byte vector can be the same as the old if the
   //   host is able to grow it in place; if not, it is the host's responsibility
   //   to copy the contents from the old to the new vector; the additional
   //   bytes must be zeroed; if no `grow_callback` is provided, all grow
-  //   requests for the Memory will be rejected
+  //   requests for the Memory will be rejected except if the delta is zero
   // * optionally, provide a `free_callback` that is invoked by the engine when
   //   the Memory is no longer needed; it receives the current byte vector and
   //   the current size; when invoked, the host can free the bytee vector and
