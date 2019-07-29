@@ -16,7 +16,8 @@ namespace Memory {
   using free_callback_t = void (*)(void*, byte_t*, size_t);
 
   // Create a Memory backed by an external storage.
-  // For a memory type with limits.min = S, It is the callers responsibility to
+  // For a memory type with limits.min * page_size = S, It is the caller's
+  // responsibility to
   // * provide a readable and writable, zeroed byte array of size S
   // * install an inaccessible redzone address range of size redzone_size_lo(S)
   //   right before the byte vector's address range
@@ -26,7 +27,7 @@ namespace Memory {
   //   the Memory needs to grow; it receives the current byte vector, its
   //   current size, and the new size requested (it is an invariant that
   //   new size > old size when invoked); it needs to return the address
-  //   of a new byte vector with redzones installed as before, or `nullptr`to
+  //   of a new byte vector with redzones installed as before, or `nullptr` to
   //   reject the request; the new byte vector can be the same as the old if the
   //   host is able to grow it in place; if not, it is the host's responsibility
   //   to copy the contents from the old to the new vector; the additional
@@ -34,11 +35,11 @@ namespace Memory {
   //   requests for the Memory will be rejected except if the delta is zero
   // * optionally, provide a `free_callback` that is invoked by the engine when
   //   the Memory is no longer needed; it receives the current byte vector and
-  //   the current size; when invoked, the host can free the bytee vector and
+  //   the current size; when invoked, the host can free the byte vector and
   //   associated redzones
   // * optionally, provide an additional parameter that is stored by the engine
   //   and passed on to the callbacks as their first argument; the host should
-  //   free any associated allocation in thee `free_callback`
+  //   free any associated allocation in the `free_callback`
   auto make_external(
     Store*, const MemoryType*, byte_t*,
     grow_callback_t = nullptr, free_callback_t = nullptr, void* = nullptr
