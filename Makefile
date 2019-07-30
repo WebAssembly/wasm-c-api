@@ -235,7 +235,7 @@ v8-patch:
 v8-unpatch:
 	if [ -f ${V8_V8}/BUILD.gn.save ]; then \
 	  cd ${V8_V8}; \
-	  patch -p1 -R <../../patch/0001-BUILD.gn-add-wasm-v8-lowlevel.patch; \
+	  mv -f BUILD.gn.save BUILD.gn; \
 	  patch -p1 -R <../../patch/0002-wasm-objects-add-host-owned-memory.patch; \
 	fi
 

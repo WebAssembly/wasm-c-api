@@ -65,7 +65,7 @@ auto make_mem(size_t size, int fd) -> std::unique_ptr<mem_info> {
   auto data = static_cast<byte_t*>(base) + offset;
   auto result = mmap(
     data, alloc_size, PROT_NONE, MAP_FILE | MAP_FIXED | MAP_SHARED, fd, 0);
-  if (result == MAP_FAILED) {
+  if (result == MAP_FAILED || (data != nullptr && result != data)) {
     std::cout << "> Error reserving memory! errno = " << errno
       << " (" << strerror(errno) << ")" << std::endl;
     exit(1);
