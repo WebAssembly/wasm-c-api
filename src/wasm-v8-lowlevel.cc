@@ -3,6 +3,7 @@
 // TODO(v8): if we don't include these, api.h does not compile
 #include "objects/objects.h"
 #include "objects/bigint.h"
+#include "objects/managed.h"
 #include "objects/module.h"
 #include "objects/shared-function-info.h"
 #include "objects/templates.h"
@@ -93,6 +94,36 @@ auto foreign_get(v8::Local<v8::Value> val) -> void* {
   if (!foreign->IsForeign()) return nullptr;
   auto addr = v8::ToCData<v8::internal::Address>(*foreign);
   return reinterpret_cast<void*>(addr);
+}
+
+
+struct ManagedData {
+  ManagedData(void* info, void (*finalizer)(void*)) :
+    info(info), finalizer(finalizer) {}
+
+  ~ManagedData() {
+    if (finalizer) (*finalizer)(info);
+  }
+
+  void* info;
+  void (*finalizer)(void*);
+};
+
+auto managed_new(v8::Isolate* isolate, void* ptr, void (*finalizer)(void*)) -> v8::Local<v8::Value> {
+  assert(ptr);
+  auto managed = v8::internal::Managed<ManagedData>::FromUniquePtr(
+    reinterpret_cast<v8::internal::Isolate*>(isolate), sizeof(ManagedData),
+    std::unique_ptr<ManagedData>(new ManagedData(ptr, finalizer))
+  );
+  return v8::Utils::ToLocal(managed);
+}
+
+auto managed_get(v8::Local<v8::Value> val) -> void* {
+  auto v8_val = v8::Utils::OpenHandle(*val);
+  if (!v8_val->IsForeign()) return nullptr;
+  auto managed =
+    v8::internal::Handle<v8::internal::Managed<ManagedData>>::cast(v8_val);
+  return managed->raw()->info;
 }
 
 
