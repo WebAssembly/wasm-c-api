@@ -2086,7 +2086,8 @@ auto Instance::copy() const -> own<Instance> {
 }
 
 auto Instance::make(
-  Store* store_abs, const Module* module_abs, const Extern* const imports[]
+  Store* store_abs, const Module* module_abs, const Extern* const imports[],
+  own<Trap>* trap
 ) -> own<Instance> {
   auto store = impl(store_abs);
   auto module = impl(module_abs);
@@ -2096,6 +2097,7 @@ auto Instance::make(
 
   assert(wasm_v8::object_isolate(module->v8_object()) == isolate);
 
+  if (trap) *trap = nullptr;
   auto import_types = module_abs->imports();
   auto imports_obj = v8::Object::New(isolate);
   for (size_t i = 0; i < import_types.size(); ++i) {
@@ -2126,9 +2128,23 @@ auto Instance::make(
       context, name_str, extern_to_v8(imports[i])));
   }
 
+  v8::TryCatch handler(isolate);
   v8::Local<v8::Value> instantiate_args[] = {module->v8_object(), imports_obj};
   auto obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
+
+  if (handler.HasCaught() && trap) {
+    auto exception = handler.Exception();
+    if (!exception->IsObject()) {
+      auto maybe_string = exception->ToString(store->context());
+      auto string = maybe_string.IsEmpty()
+        ? store->v8_string(V8_S_EMPTY) : maybe_string.ToLocalChecked();
+      exception = v8::Exception::Error(string);
+    }
+    *trap = RefImpl<Trap>::make(store, v8::Local<v8::Object>::Cast(exception));
+    return nullptr;
+  }
+
   return RefImpl<Instance>::make(store, obj);
 }
 

@@ -30,6 +30,7 @@ EXAMPLES = \
   hello \
   callback \
   trap \
+  start \
   reflect \
   global \
   table \

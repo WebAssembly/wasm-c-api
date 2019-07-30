@@ -995,10 +995,14 @@ WASM_DEFINE_REF(instance, Instance)
 wasm_instance_t* wasm_instance_new(
   wasm_store_t* store,
   const wasm_module_t* module,
-  const wasm_extern_t* const imports[]
+  const wasm_extern_t* const imports[],
+  wasm_trap_t** trap
 ) {
-  return release_instance(Instance::make(store, module,
-    reinterpret_cast<const Extern* const*>(imports)));
+  own<Trap> error;
+  auto instance = release_instance(Instance::make(store, module,
+    reinterpret_cast<const Extern* const*>(imports), &error));
+  if (trap) *trap = hide_trap(error.release());
+  return instance;
 }
 
 void wasm_instance_exports(
