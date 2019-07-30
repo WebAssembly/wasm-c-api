@@ -1154,7 +1154,6 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 
 Ref::~Ref() {
-printf("deleting ref\n");
   stats.free(Stats::categorize(*impl(this)), this);
   v8::HandleScope handle_scope(impl(this)->isolate());
   impl(this)->store()->free_handle(impl(this));
