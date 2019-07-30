@@ -1115,10 +1115,6 @@ public:
   void set_host_info(void* info, void (*finalizer)(void*)) {
     v8::HandleScope handle_scope(isolate());
     auto store = this->store();
-
-    // V8 attaches finalizers to handles instead of objects, and such handles
-    // cannot be reused after the finalizer has been invoked.
-    // So we need to create them separately from the pool.
     auto managed = wasm_v8::managed_new(store->isolate(), info, finalizer);
     v8::Local<v8::Value> args[] = { v8_object(), managed };
     auto maybe_result = store->v8_function(V8_F_WEAKMAP_SET)->Call(
