@@ -53,12 +53,13 @@ index 27a56695c2..f24d752e34 100644
  
    return memory_obj;
  }
-@@ -1310,8 +1331,11 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1310,8 +1331,12 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("v8.wasm"), "GrowMemory");
    Handle<JSArrayBuffer> old_buffer(memory_object->array_buffer(), isolate);
    if (old_buffer->is_shared() && !FLAG_wasm_grow_shared_memory) return -1;
-+  HostOwnedStoreInfo* host_owned =
-+      Managed<HostOwnedStoreInfo>::cast(memory_object->host_owned())->raw();
++  auto host_owned = memory_object->host_owned().IsUndefined()
++      ? nullptr
++      : Managed<HostOwnedStoreInfo>::cast(memory_object->host_owned())->raw();
    auto* memory_tracker = isolate->wasm_engine()->memory_tracker();
 -  if (!memory_tracker->IsWasmMemoryGrowable(old_buffer)) return -1;
 +  if (!(host_owned || memory_tracker->IsWasmMemoryGrowable(old_buffer)))
@@ -66,7 +67,7 @@ index 27a56695c2..f24d752e34 100644
  
    // Checks for maximum memory size, compute new size.
    uint32_t maximum_pages = wasm::max_mem_pages();
-@@ -1335,7 +1359,24 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
+@@ -1335,7 +1360,24 @@ int32_t WasmMemoryObject::Grow(Isolate* isolate,
    // Handle this in the interrupt handler so that it's safe for all the isolates
    // that share this buffer to be updated safely.
    Handle<JSArrayBuffer> new_buffer;
