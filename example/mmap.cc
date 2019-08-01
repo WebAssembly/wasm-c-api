@@ -273,7 +273,11 @@ void run() {
   auto engine = wasm::Engine::make();
   auto shared_module = compile(engine.get());
 
-  truncate(data_file, 0);  // in case it still exists
+  // in case it still exists
+  if (truncate(data_file, 0) == -1) {
+      perror("ftruncate");
+      exit(1);
+  };
 
   // Run 1.
   auto pages = 2;
