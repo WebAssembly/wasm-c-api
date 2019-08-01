@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cinttypes>
+#include <functional>
 
 #include <fcntl.h>
 #include <unistd.h>
