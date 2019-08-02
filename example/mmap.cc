@@ -274,7 +274,7 @@ void run() {
   auto shared_module = compile(engine.get());
 
   // in case it still exists
-  if (truncate(data_file, 0) == -1) {
+  if (access(data_file, F_OK ) != -1 && truncate(data_file, 0) == -1) {
       perror("ftruncate");
       exit(1);
   };
