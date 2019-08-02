@@ -1,3 +1,15 @@
+diff --git a/src/builtins/base.tq b/src/builtins/base.tq
+index 76e1a486c8..3c79ccec87 100644
+--- a/src/builtins/base.tq
++++ b/src/builtins/base.tq
+@@ -1299,6 +1299,7 @@ extern class WasmTableObject extends JSObject {
+ extern class WasmMemoryObject extends JSObject {
+   array_buffer: JSArrayBuffer;
+   maximum_pages: Smi;
++  host_owned: Object;
+   instances: WeakArrayList | Undefined;
+ }
+ 
 diff --git a/src/wasm/wasm-objects-inl.h b/src/wasm/wasm-objects-inl.h
 index e1fc2d2410..ec3f04be57 100644
 --- a/src/wasm/wasm-objects-inl.h
@@ -11,7 +23,7 @@ index e1fc2d2410..ec3f04be57 100644
  
  // WasmGlobalObject
 diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
-index 27a56695c2..f24d752e34 100644
+index 27a56695c2..479a93037d 100644
 --- a/src/wasm/wasm-objects.cc
 +++ b/src/wasm/wasm-objects.cc
 @@ -1223,9 +1223,19 @@ void SetInstanceMemory(Handle<WasmInstanceObject> instance,
