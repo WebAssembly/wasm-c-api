@@ -1,26 +1,26 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstring>
-#include <cstdlib>
 #include <cinttypes>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <functional>
+#include <ios>
+#include <iostream>
+#include <string>
 
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
-#include "wasm.hh"
 #include "wasm-v8.hh"
-
+#include "wasm.hh"
 
 static const char data_file[] = "mmap.data";
 
 int mem_count = 0;
 
-auto open_mem_file(int pages) -> int {
+auto open_mem_file(size_t size) -> int {
   // Create memory file.
-  std::cout << "opening memory file..." << std::endl;
-  auto size = pages * wasm::Memory::page_size;
+  std::cout << "Opening memory file..." << std::endl;
 
   auto fd = open(data_file, O_RDWR | O_CREAT, 0600);
   if (fd == -1) {
@@ -39,46 +39,94 @@ auto open_mem_file(int pages) -> int {
 }
 
 struct mem_info {
-  void* base;
-  byte_t* data;
-  size_t alloc_size;
+  void *base;
+  byte_t *data;
+  size_t alloc_total_size;
   int fd;
 };
 
 auto make_mem(size_t size, int fd) -> std::unique_ptr<mem_info> {
   std::cout << "> Making memory "
-    << "(size = " << size << ", fd = " << fd << ")..." << std::endl;
-  auto offset = wasm::v8::Memory::redzone_size_lo(size);
-  auto alloc_size = size + wasm::v8::Memory::redzone_size_hi(size);
+            << "(size = " << size << ", fd = " << fd << ")..." << std::endl;
+  // How much memory we need to reserve including guard regions before and after
+  auto alloc_total_size = wasm::v8::Memory::redzone_size_lo(size) + size +
+                          wasm::v8::Memory::redzone_size_hi(size);
+  std::cout
+      << std::hex
+      << "> linux_page_size = 0x"
+      << getpagesize()
+      << ", wasm_page_size = 0x"
+      << wasm::Memory::page_size
+      << ", memory_size = 0x"
+      << size
+      << ", redzone_size_lo = 0x"
+      << wasm::v8::Memory::redzone_size_lo(size)
+      << ", redzone_size_hi = 0x"
+      << wasm::v8::Memory::redzone_size_hi(size)
+      << ", total_size = 0x"
+      << alloc_total_size
+      << std::dec
+      << std::endl;
 
-  void* base = nullptr;
-  if (offset > 0) {
-    // Lo redzone needed.
-    base = mmap(nullptr, offset, PROT_NONE, MAP_ANON | MAP_PRIVATE, 0, 0);
-    if (base == MAP_FAILED) {
-      std::cout << "> Error reserving lo redzone! errno = " << errno
-        << " (" << strerror(errno) << ")" << std::endl;
-      exit(1);
-    }
+  std::cout
+      << "> Calling mmap "
+      << "(addr = nullptr"
+      << ", size = "
+      << alloc_total_size
+      << ")..."
+      << std::endl;
+
+  // Need to allocate the total address space first and only then remap a
+  // portion of it with MAP_FIXED
+  void *base =
+      mmap(nullptr, alloc_total_size, PROT_NONE, MAP_ANON | MAP_PRIVATE, 0, 0);
+  if (base == MAP_FAILED) {
+    std::cout << "> Error reserving lo redzone! errno = " << errno << " ("
+              << strerror(errno) << ")" << std::endl;
+    exit(1);
   }
 
-  auto data = static_cast<byte_t*>(base) + offset;
-  auto result = mmap(
-    data, alloc_size, PROT_NONE, MAP_FILE | MAP_FIXED | MAP_SHARED, fd, 0);
+  // Where the module data is located
+  auto data =
+      static_cast<byte_t *>(base) + wasm::v8::Memory::redzone_size_lo(size);
+
+  std::cout
+      << "> base_address = "
+      << static_cast<void *>(base)
+      << ", data_address = "
+      << static_cast<void *>(data)
+      << std::endl;
+
+  std::cout
+      << "> Calling mmap "
+      << "(addr = "
+      << static_cast<void *>(data)
+      << ", size = "
+      << size
+      << ", fd = "
+      << fd
+      << ")..."
+      << std::endl;
+
+  // Modify the existing mapping such that `size` bytes beginning at `base +
+  // offset` are mapped with the contents of the file descriptor `fd`. We remap
+  // the maximum amount of memory a module can use but only make the `size`
+  // bytes accessible.
+  auto result = mmap(data, size + wasm::v8::Memory::redzone_size_hi(size),
+                     PROT_NONE, MAP_FIXED | MAP_SHARED, fd, 0);
   if (result == MAP_FAILED || (data != nullptr && result != data)) {
-    std::cout << "> Error reserving memory! errno = " << errno
-      << " (" << strerror(errno) << ")" << std::endl;
+    std::cout << "> Error reserving memory! errno = " << errno << " ("
+              << strerror(errno) << ")" << std::endl;
     exit(1);
   }
 
   if (mprotect(data, size, PROT_READ | PROT_WRITE) != 0) {
     std::cout << "> Error allocating memory! errno = " << errno
-      << " (" << strerror(errno) << ")" << std::endl;
-    exit(1);
+              << " (" << strerror(errno) << ")" << std::endl;
   }
-
   ++mem_count;
-  return std::unique_ptr<mem_info>(new mem_info{base, data, alloc_size, fd});
+  return std::unique_ptr<mem_info>(
+      new mem_info{base, data, alloc_total_size, fd});
 }
 
 void free_mem(void* extra, byte_t* data, size_t size) {
@@ -92,9 +140,9 @@ void free_mem(void* extra, byte_t* data, size_t size) {
     std::cout << "> Error freeing lo redzone! errno = " << errno
       << " (" << strerror(errno) << ")" << std::endl;
     exit(1);
-  } 
+  }
 
-  if (munmap(info->data, info->alloc_size) == -1) {
+  if (munmap(info->base, info->alloc_total_size) == -1) {
     std::cout << "> Error freeing memory! errno = " << errno
       << " (" << strerror(errno) << ")" << std::endl;
     exit(1);
@@ -232,24 +280,24 @@ void execute(
   // Allocate memory.
   std::cout << "Allocating memory..." << std::endl;
   auto size = pages * wasm::Memory::page_size;
-  auto info = make_mem(size, open_mem_file(pages));
+  auto info = make_mem(size, open_mem_file(size));
 
   // Create memory.
   std::cout << "Creating memory..." << std::endl;
   auto memory_type = wasm::MemoryType::make(wasm::Limits(pages));
 
+  auto info_ = info.release();
   auto memory = wasm::v8::Memory::make_external(
-    store, memory_type.get(), info->data, grow_mem, free_mem, info.release());
+      store, memory_type.get(), info_->data, grow_mem, free_mem, info_);
   if (!memory) {
     std::cout << "> Error creating memory!" << std::endl;
     exit(1);
   }
-  info.release();
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
   auto module = wasm::Module::obtain(store, shared_module);
-  wasm::Extern* imports[] = {memory.get()};
+  wasm::Extern *imports[] = {memory.get()};
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -265,14 +313,17 @@ void execute(
   std::cout << "Ending run " << run << "..." << std::endl;
 }
 
-
 void run() {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
   auto engine = wasm::Engine::make();
   auto shared_module = compile(engine.get());
 
-  truncate(data_file, 0);  // in case it still exists
+  // in case it still exists
+  if (access(data_file, F_OK) != -1 && truncate(data_file, 0) == -1) {
+    perror("ftruncate");
+    exit(1);
+  };
 
   // Run 1.
   auto pages = 2;
@@ -391,11 +442,9 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
-int main(int argc, const char* argv[]) {
+int main(int argc, const char *argv[]) {
   run();
   assert(mem_count == 0);
   std::cout << "Done." << std::endl;
   return 0;
 }
-
