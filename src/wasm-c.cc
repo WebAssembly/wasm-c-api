@@ -235,7 +235,7 @@ extern "C++" inline auto hide_mutability(Mutability mutability) -> wasm_mutabili
   return static_cast<wasm_mutability_t>(mutability);
 }
 
-extern "C++" inline auto reveal_mutability(wasm_mutability_enum mutability) -> Mutability {
+extern "C++" inline auto reveal_mutability(wasm_mutability_t mutability) -> Mutability {
   return static_cast<Mutability>(mutability);
 }
 
@@ -262,7 +262,7 @@ extern "C++" inline auto hide_externkind(ExternKind kind) -> wasm_externkind_t {
   return static_cast<wasm_externkind_t>(kind);
 }
 
-extern "C++" inline auto reveal_externkind(wasm_externkind_enum kind) -> ExternKind {
+extern "C++" inline auto reveal_externkind(wasm_externkind_t kind) -> ExternKind {
   return static_cast<ExternKind>(kind);
 }
 
@@ -321,7 +321,7 @@ wasm_globaltype_t* wasm_globaltype_new(
 ) {
   return release_globaltype(GlobalType::make(
     adopt_valtype(content),
-    reveal_mutability(static_cast<wasm_mutability_enum>(mutability))
+    reveal_mutability(mutability)
   ));
 }
 
@@ -644,7 +644,7 @@ void wasm_val_vec_copy(wasm_val_vec_t* out, wasm_val_vec_t* v) {
 
 
 void wasm_val_delete(wasm_val_t* v) {
-  if (is_ref(reveal_valkind(static_cast<wasm_valkind_enum>(v->kind)))) {
+  if (is_ref(reveal_valkind(v->kind))) {
     adopt_ref(v->of.ref);
   }
 }
