@@ -82,6 +82,7 @@ public:
   }
 
   auto release() -> T* {
+    size_ = invalid_size;
     return data_.release();
   }
 
@@ -95,6 +96,7 @@ public:
     free_data();
     size_ = that.size_;
     data_.reset(that.data_.release());
+    that.size_ = invalid_size;
   }
 
   auto operator=(vec&& that) -> vec& {
