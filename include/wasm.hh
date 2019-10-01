@@ -57,7 +57,9 @@ class vec {
 public:
   using elem_type = T;
 
-  vec(vec<T>&& that) : vec(that.size_, that.data_.release()) {}
+  vec(vec<T>&& that) : vec(that.size_, that.data_.release()) {
+    that.size_ = invalid_size;
+  }
 
   ~vec() {
     free_data();
