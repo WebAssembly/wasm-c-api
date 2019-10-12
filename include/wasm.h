@@ -79,7 +79,7 @@ typedef double float64_t;
     own wasm_##name##_vec_t* out, \
     size_t, own wasm_##name##_t ptr_or_none const[]); \
   void wasm_##name##_vec_copy( \
-    own wasm_##name##_vec_t* out, wasm_##name##_vec_t*); \
+    own wasm_##name##_vec_t* out, const wasm_##name##_vec_t*); \
   void wasm_##name##_vec_delete(own wasm_##name##_vec_t*);
 
 
