@@ -16,7 +16,10 @@ own wasm_trap_t* callback(
     args[0].of.i32, args[1].of.i64, args[2].of.i64, args[3].of.i32);
   printf("\n");
 
-  wasm_val_copy(&results[0], &args[0]);
+  wasm_val_copy(&results[0], &args[3]);
+  wasm_val_copy(&results[1], &args[1]);
+  wasm_val_copy(&results[2], &args[2]);
+  wasm_val_copy(&results[3], &args[0]);
   return NULL;
 }
 
