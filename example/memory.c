@@ -1,12 +1,11 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
-
 
 wasm_memory_t* get_export_memory(const wasm_extern_vec_t* exports, size_t i) {
   if (exports->size <= i || !wasm_extern_as_memory(exports->data[i])) {
@@ -23,7 +22,6 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
   }
   return wasm_extern_as_func(exports->data[i]);
 }
-
 
 void check(bool success) {
   if (!success) {
@@ -45,15 +43,16 @@ void check_call0(wasm_func_t* func, int32_t expected) {
 }
 
 void check_call1(wasm_func_t* func, int32_t arg, int32_t expected) {
-  wasm_val_t args[] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
+  wasm_val_t args[] = {{.kind = WASM_I32, .of = {.i32 = arg}}};
   check_call(func, args, expected);
 }
 
-void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
-  wasm_val_t args[2] = {
-    {.kind = WASM_I32, .of = {.i32 = arg1}},
-    {.kind = WASM_I32, .of = {.i32 = arg2}}
-  };
+void check_call2(wasm_func_t* func,
+                 int32_t arg1,
+                 int32_t arg2,
+                 int32_t expected) {
+  wasm_val_t args[2] = {{.kind = WASM_I32, .of = {.i32 = arg1}},
+                        {.kind = WASM_I32, .of = {.i32 = arg2}}};
   check_call(func, args, expected);
 }
 
@@ -65,17 +64,15 @@ void check_ok(wasm_func_t* func, wasm_val_t args[]) {
 }
 
 void check_ok2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t args[2] = {
-    {.kind = WASM_I32, .of = {.i32 = arg1}},
-    {.kind = WASM_I32, .of = {.i32 = arg2}}
-  };
+  wasm_val_t args[2] = {{.kind = WASM_I32, .of = {.i32 = arg1}},
+                        {.kind = WASM_I32, .of = {.i32 = arg2}}};
   check_ok(func, args);
 }
 
 void check_trap(wasm_func_t* func, wasm_val_t args[]) {
   wasm_val_t results[1];
   own wasm_trap_t* trap = wasm_func_call(func, args, results);
-  if (! trap) {
+  if (!trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
   }
@@ -83,18 +80,15 @@ void check_trap(wasm_func_t* func, wasm_val_t args[]) {
 }
 
 void check_trap1(wasm_func_t* func, int32_t arg) {
-  wasm_val_t args[1] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
+  wasm_val_t args[1] = {{.kind = WASM_I32, .of = {.i32 = arg}}};
   check_trap(func, args);
 }
 
 void check_trap2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t args[2] = {
-    {.kind = WASM_I32, .of = {.i32 = arg1}},
-    {.kind = WASM_I32, .of = {.i32 = arg2}}
-  };
+  wasm_val_t args[2] = {{.kind = WASM_I32, .of = {.i32 = arg1}},
+                        {.kind = WASM_I32, .of = {.i32 = arg2}}};
   check_trap(func, args);
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -192,7 +186,7 @@ int main(int argc, const char* argv[]) {
   check_trap1(load_func, 0x30000);
   check_trap2(store_func, 0x30000, 0);
 
-  check(! wasm_memory_grow(memory, 1));
+  check(!wasm_memory_grow(memory, 1));
   check(wasm_memory_grow(memory, 0));
 
   wasm_extern_vec_delete(&exports);
@@ -205,7 +199,7 @@ int main(int argc, const char* argv[]) {
   own wasm_memorytype_t* memorytype = wasm_memorytype_new(&limits);
   own wasm_memory_t* memory2 = wasm_memory_new(store, memorytype);
   check(wasm_memory_size(memory2) == 5);
-  check(! wasm_memory_grow(memory2, 1));
+  check(!wasm_memory_grow(memory2, 1));
   check(wasm_memory_grow(memory2, 0));
 
   wasm_memorytype_delete(memorytype);

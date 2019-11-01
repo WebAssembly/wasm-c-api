@@ -1,7 +1,7 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
@@ -9,24 +9,41 @@
 
 void print_mutability(wasm_mutability_t mut) {
   switch (mut) {
-    case WASM_VAR: printf("var"); break;
-    case WASM_CONST: printf("const"); break;
+    case WASM_VAR:
+      printf("var");
+      break;
+    case WASM_CONST:
+      printf("const");
+      break;
   }
 }
 
 void print_limits(const wasm_limits_t* limits) {
   printf("%ud", limits->min);
-  if (limits->max < wasm_limits_max_default) printf(" %ud", limits->max);
+  if (limits->max < wasm_limits_max_default)
+    printf(" %ud", limits->max);
 }
 
 void print_valtype(const wasm_valtype_t* type) {
   switch (wasm_valtype_kind(type)) {
-    case WASM_I32: printf("i32"); break;
-    case WASM_I64: printf("i64"); break;
-    case WASM_F32: printf("f32"); break;
-    case WASM_F64: printf("f64"); break;
-    case WASM_ANYREF: printf("anyref"); break;
-    case WASM_FUNCREF: printf("funcref"); break;
+    case WASM_I32:
+      printf("i32");
+      break;
+    case WASM_I64:
+      printf("i64");
+      break;
+    case WASM_F32:
+      printf("f32");
+      break;
+    case WASM_F64:
+      printf("f64");
+      break;
+    case WASM_ANYREF:
+      printf("anyref");
+      break;
+    case WASM_FUNCREF:
+      printf("funcref");
+      break;
   }
 }
 
@@ -45,8 +62,7 @@ void print_valtypes(const wasm_valtype_vec_t* types) {
 void print_externtype(const wasm_externtype_t* type) {
   switch (wasm_externtype_kind(type)) {
     case WASM_EXTERN_FUNC: {
-      const wasm_functype_t* functype =
-        wasm_externtype_as_functype_const(type);
+      const wasm_functype_t* functype = wasm_externtype_as_functype_const(type);
       printf("func ");
       print_valtypes(wasm_functype_params(functype));
       printf(" -> ");
@@ -54,7 +70,7 @@ void print_externtype(const wasm_externtype_t* type) {
     } break;
     case WASM_EXTERN_GLOBAL: {
       const wasm_globaltype_t* globaltype =
-        wasm_externtype_as_globaltype_const(type);
+          wasm_externtype_as_globaltype_const(type);
       printf("global ");
       print_mutability(wasm_globaltype_mutability(globaltype));
       printf(" ");
@@ -62,7 +78,7 @@ void print_externtype(const wasm_externtype_t* type) {
     } break;
     case WASM_EXTERN_TABLE: {
       const wasm_tabletype_t* tabletype =
-        wasm_externtype_as_tabletype_const(type);
+          wasm_externtype_as_tabletype_const(type);
       printf("table ");
       print_limits(wasm_tabletype_limits(tabletype));
       printf(" ");
@@ -70,7 +86,7 @@ void print_externtype(const wasm_externtype_t* type) {
     } break;
     case WASM_EXTERN_MEMORY: {
       const wasm_memorytype_t* memorytype =
-        wasm_externtype_as_memorytype_const(type);
+          wasm_externtype_as_memorytype_const(type);
       printf("memory ");
       print_limits(wasm_memorytype_limits(memorytype));
     } break;
@@ -80,7 +96,6 @@ void print_externtype(const wasm_externtype_t* type) {
 void print_name(const wasm_name_t* name) {
   printf("\"%.*s\"", (int)name->size, name->data);
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -134,7 +149,7 @@ int main(int argc, const char* argv[]) {
 
   for (size_t i = 0; i < exports.size; ++i) {
     assert(wasm_extern_kind(exports.data[i]) ==
-      wasm_externtype_kind(wasm_exporttype_type(export_types.data[i])));
+           wasm_externtype_kind(wasm_exporttype_type(export_types.data[i])));
     printf("> export %zu ", i);
     print_name(wasm_exporttype_name(export_types.data[i]));
     printf("\n");

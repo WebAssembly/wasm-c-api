@@ -1,11 +1,10 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
-
 
 void print_frame(const wasm::Frame* frame) {
   std::cout << "> " << frame->instance();
@@ -13,7 +12,6 @@ void print_frame(const wasm::Frame* frame) {
   std::cout << " = " << frame->func_index();
   std::cout << ".0x" << std::hex << frame->func_offset() << std::endl;
 }
-
 
 void run() {
   // Initialize.
@@ -79,10 +77,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

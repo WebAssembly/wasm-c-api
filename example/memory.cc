@@ -1,13 +1,13 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
-
-auto get_export_memory(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::Memory* {
+auto get_export_memory(wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> wasm::Memory* {
   if (exports.size() <= i || !exports[i]->memory()) {
     std::cout << "> Error accessing memory export " << i << "!" << std::endl;
     exit(1);
@@ -15,7 +15,8 @@ auto get_export_memory(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::M
   return exports[i]->memory();
 }
 
-auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> const wasm::Func* {
+auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> const wasm::Func* {
   if (exports.size() <= i || !exports[i]->func()) {
     std::cout << "> Error accessing function export " << i << "!" << std::endl;
     exit(1);
@@ -23,15 +24,16 @@ auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> con
   return exports[i]->func();
 }
 
-template<class T, class U>
+template <class T, class U>
 void check(T actual, U expected) {
   if (actual != expected) {
-    std::cout << "> Error on result, expected " << expected << ", got " << actual << std::endl;
+    std::cout << "> Error on result, expected " << expected << ", got "
+              << actual << std::endl;
     exit(1);
   }
 }
 
-template<class... Args>
+template <class... Args>
 void check_ok(const wasm::Func* func, Args... xs) {
   wasm::Val args[] = {wasm::Val::i32(xs)...};
   if (func->call(args)) {
@@ -40,16 +42,16 @@ void check_ok(const wasm::Func* func, Args... xs) {
   }
 }
 
-template<class... Args>
+template <class... Args>
 void check_trap(const wasm::Func* func, Args... xs) {
   wasm::Val args[] = {wasm::Val::i32(xs)...};
-  if (! func->call(args)) {
+  if (!func->call(args)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
   }
 }
 
-template<class... Args>
+template <class... Args>
 auto call(const wasm::Func* func, Args... xs) -> int32_t {
   wasm::Val args[] = {wasm::Val::i32(xs)...};
   wasm::Val results[1];
@@ -59,7 +61,6 @@ auto call(const wasm::Func* func, Args... xs) -> int32_t {
   }
   return results[0].i32();
 }
-
 
 void run() {
   // Initialize.
@@ -163,10 +164,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

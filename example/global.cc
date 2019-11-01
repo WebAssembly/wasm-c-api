@@ -1,13 +1,13 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
-
-auto get_export_global(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::Global* {
+auto get_export_global(wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> wasm::Global* {
   if (exports.size() <= i || !exports[i]->global()) {
     std::cout << "> Error accessing global export " << i << "!" << std::endl;
     exit(1);
@@ -15,7 +15,8 @@ auto get_export_global(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::G
   return exports[i]->global();
 }
 
-auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> const wasm::Func* {
+auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> const wasm::Func* {
   if (exports.size() <= i || !exports[i]->func()) {
     std::cout << "> Error accessing function export " << i << "!" << std::endl;
     exit(1);
@@ -23,10 +24,11 @@ auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> con
   return exports[i]->func();
 }
 
-template<class T, class U>
+template <class T, class U>
 void check(T actual, U expected) {
   if (actual != expected) {
-    std::cout << "> Error reading value, expected " << expected << ", got " << actual << std::endl;
+    std::cout << "> Error reading value, expected " << expected << ", got "
+              << actual << std::endl;
     exit(1);
   }
 }
@@ -47,7 +49,6 @@ void call(const wasm::Func* func, wasm::Val&& arg) {
     exit(1);
   }
 }
-
 
 void run() {
   // Initialize.
@@ -80,25 +81,27 @@ void run() {
 
   // Create external globals.
   std::cout << "Creating globals..." << std::endl;
-  auto const_f32_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::F32), wasm::CONST);
-  auto const_i64_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::I64), wasm::CONST);
-  auto var_f32_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::F32), wasm::VAR);
-  auto var_i64_type = wasm::GlobalType::make(
-    wasm::ValType::make(wasm::I64), wasm::VAR);
-  auto const_f32_import = wasm::Global::make(store, const_f32_type.get(), wasm::Val::f32(1));
-  auto const_i64_import = wasm::Global::make(store, const_i64_type.get(), wasm::Val::i64(2));
-  auto var_f32_import = wasm::Global::make(store, var_f32_type.get(), wasm::Val::f32(3));
-  auto var_i64_import = wasm::Global::make(store, var_i64_type.get(), wasm::Val::i64(4));
+  auto const_f32_type =
+      wasm::GlobalType::make(wasm::ValType::make(wasm::F32), wasm::CONST);
+  auto const_i64_type =
+      wasm::GlobalType::make(wasm::ValType::make(wasm::I64), wasm::CONST);
+  auto var_f32_type =
+      wasm::GlobalType::make(wasm::ValType::make(wasm::F32), wasm::VAR);
+  auto var_i64_type =
+      wasm::GlobalType::make(wasm::ValType::make(wasm::I64), wasm::VAR);
+  auto const_f32_import =
+      wasm::Global::make(store, const_f32_type.get(), wasm::Val::f32(1));
+  auto const_i64_import =
+      wasm::Global::make(store, const_i64_type.get(), wasm::Val::i64(2));
+  auto var_f32_import =
+      wasm::Global::make(store, var_f32_type.get(), wasm::Val::f32(3));
+  auto var_i64_import =
+      wasm::Global::make(store, var_i64_type.get(), wasm::Val::i64(4));
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  wasm::Extern* imports[] = {
-    const_f32_import.get(), const_i64_import.get(),
-    var_f32_import.get(), var_i64_import.get()
-  };
+  wasm::Extern* imports[] = {const_f32_import.get(), const_i64_import.get(),
+                             var_f32_import.get(), var_i64_import.get()};
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -187,10 +190,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

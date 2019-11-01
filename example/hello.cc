@@ -1,21 +1,18 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
-
 // A function to be called from Wasm code.
-auto hello_callback(
-  const wasm::Val args[], wasm::Val results[]
-) -> wasm::own<wasm::Trap> {
+auto hello_callback(const wasm::Val args[], wasm::Val results[])
+    -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   std::cout << "> Hello world!" << std::endl;
   return nullptr;
 }
-
 
 void run() {
   // Initialize.
@@ -48,9 +45,8 @@ void run() {
 
   // Create external print functions.
   std::cout << "Creating callback..." << std::endl;
-  auto hello_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(), wasm::ownvec<wasm::ValType>::make()
-  );
+  auto hello_type = wasm::FuncType::make(wasm::ownvec<wasm::ValType>::make(),
+                                         wasm::ownvec<wasm::ValType>::make());
   auto hello_func = wasm::Func::make(store, hello_type.get(), hello_callback);
 
   // Instantiate.
@@ -65,7 +61,8 @@ void run() {
   // Extract export.
   std::cout << "Extracting export..." << std::endl;
   auto exports = instance->exports();
-  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC ||
+      !exports[0]->func()) {
     std::cout << "> Error accessing export!" << std::endl;
     exit(1);
   }
@@ -82,10 +79,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

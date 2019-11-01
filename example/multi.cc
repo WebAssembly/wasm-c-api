@@ -1,15 +1,14 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
 // A function to be called from Wasm code.
-auto callback(
-  const wasm::Val args[], wasm::Val results[]
-) -> wasm::own<wasm::Trap> {
+auto callback(const wasm::Val args[], wasm::Val results[])
+    -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   std::cout << "> " << args[0].i32();
   std::cout << " " << args[1].i64();
@@ -21,7 +20,6 @@ auto callback(
   results[3] = args[0].copy();
   return nullptr;
 }
-
 
 void run() {
   // Initialize.
@@ -55,13 +53,10 @@ void run() {
   // Create external print functions.
   std::cout << "Creating callback..." << std::endl;
   auto tuple = wasm::ownvec<wasm::ValType>::make(
-    wasm::ValType::make(wasm::I32),
-    wasm::ValType::make(wasm::I64),
-    wasm::ValType::make(wasm::I64),
-    wasm::ValType::make(wasm::I32)
-  );
+      wasm::ValType::make(wasm::I32), wasm::ValType::make(wasm::I64),
+      wasm::ValType::make(wasm::I64), wasm::ValType::make(wasm::I32));
   auto callback_type =
-    wasm::FuncType::make(tuple.deep_copy(), tuple.deep_copy());
+      wasm::FuncType::make(tuple.deep_copy(), tuple.deep_copy());
   auto callback_func = wasm::Func::make(store, callback_type.get(), callback);
 
   // Instantiate.
@@ -76,7 +71,8 @@ void run() {
   // Extract export.
   std::cout << "Extracting export..." << std::endl;
   auto exports = instance->exports();
-  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC ||
+      !exports[0]->func()) {
     std::cout << "> Error accessing export!" << std::endl;
     exit(1);
   }
@@ -84,12 +80,12 @@ void run() {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  wasm::Val args[] = {
-    wasm::Val::i32(1), wasm::Val::i64(2), wasm::Val::i64(3), wasm::Val::i32(4)
-  };
+  wasm::Val args[] = {wasm::Val::i32(1), wasm::Val::i64(2), wasm::Val::i64(3),
+                      wasm::Val::i32(4)};
   wasm::Val results[4];
   if (wasm::own<wasm::Trap> trap = run_func->call(args, results)) {
-    std::cout << "> Error calling function! " << trap->message().get() << std::endl;
+    std::cout << "> Error calling function! " << trap->message().get()
+              << std::endl;
     exit(1);
   }
 
@@ -109,10 +105,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

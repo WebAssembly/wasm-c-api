@@ -1,23 +1,21 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
-
 // A function to be called from Wasm code.
-auto neg_callback(
-  const wasm::Val args[], wasm::Val results[]
-) -> wasm::own<wasm::Trap> {
+auto neg_callback(const wasm::Val args[], wasm::Val results[])
+    -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   results[0] = wasm::Val(-args[0].i32());
   return nullptr;
 }
 
-
-auto get_export_table(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::Table* {
+auto get_export_table(wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> wasm::Table* {
   if (exports.size() <= i || !exports[i]->table()) {
     std::cout << "> Error accessing table export " << i << "!" << std::endl;
     exit(1);
@@ -25,7 +23,8 @@ auto get_export_table(wasm::ownvec<wasm::Extern>& exports, size_t i) -> wasm::Ta
   return exports[i]->table();
 }
 
-auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> const wasm::Func* {
+auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i)
+    -> const wasm::Func* {
   if (exports.size() <= i || !exports[i]->func()) {
     std::cout << "> Error accessing function export " << i << "!" << std::endl;
     exit(1);
@@ -33,24 +32,24 @@ auto get_export_func(const wasm::ownvec<wasm::Extern>& exports, size_t i) -> con
   return exports[i]->func();
 }
 
-template<class T, class U>
+template <class T, class U>
 void check(T actual, U expected) {
   if (actual != expected) {
-    std::cout << "> Error on result, expected " << expected << ", got " << actual << std::endl;
+    std::cout << "> Error on result, expected " << expected << ", got "
+              << actual << std::endl;
     exit(1);
   }
 }
 
 void check(bool success) {
-  if (! success) {
+  if (!success) {
     std::cout << "> Error, expected success" << std::endl;
     exit(1);
   }
 }
 
-auto call(
-  const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2
-) -> wasm::Val {
+auto call(const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2)
+    -> wasm::Val {
   wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
   wasm::Val results[1];
   if (func->call(args, results)) {
@@ -63,7 +62,7 @@ auto call(
 void check_trap(const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2) {
   wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
   wasm::Val results[1];
-  if (! func->call(args, results)) {
+  if (!func->call(args, results)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
   }
@@ -118,9 +117,8 @@ void run() {
   // Create external function.
   std::cout << "Creating callback..." << std::endl;
   auto neg_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32))
-  );
+      wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
+      wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)));
   auto h = wasm::Func::make(store, neg_type.get(), neg_callback);
 
   // Try cloning.
@@ -139,7 +137,7 @@ void run() {
   std::cout << "Mutating table..." << std::endl;
   check(table->set(0, g));
   check(table->set(1, nullptr));
-  check(! table->set(2, f));
+  check(!table->set(2, f));
   check(table->get(0) != nullptr);
   check(table->get(1) == nullptr);
   check(call(call_indirect, wasm::Val::i32(7), wasm::Val::i32(0)).i32(), 666);
@@ -152,7 +150,7 @@ void run() {
   check(table->size(), 5u);
   check(table->set(2, f));
   check(table->set(3, h.get()));
-  check(! table->set(5, nullptr));
+  check(!table->set(5, nullptr));
   check(table->get(2) != nullptr);
   check(table->get(3) != nullptr);
   check(table->get(4) == nullptr);
@@ -166,24 +164,23 @@ void run() {
   check(table->get(5) != nullptr);
   check(table->get(6) != nullptr);
 
-  check(! table->grow(5));
+  check(!table->grow(5));
   check(table->grow(3));
   check(table->grow(0));
 
   // Create stand-alone table.
   // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
   std::cout << "Creating stand-alone table..." << std::endl;
-  auto tabletype = wasm::TableType::make(
-    wasm::ValType::make(wasm::FUNCREF), wasm::Limits(5, 5));
+  auto tabletype = wasm::TableType::make(wasm::ValType::make(wasm::FUNCREF),
+                                         wasm::Limits(5, 5));
   auto table2 = wasm::Table::make(store, tabletype.get());
   check(table2->size() == 5);
-  check(! table2->grow(1));
+  check(!table2->grow(1));
   check(table2->grow(0));
 
   // Shut down.
   std::cout << "Shutting down..." << std::endl;
 }
-
 
 int main(int argc, const char* argv[]) {
   run();
