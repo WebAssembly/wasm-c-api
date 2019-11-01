@@ -1,7 +1,7 @@
-#include <iostream>
 #include <fstream>
-#include <thread>
+#include <iostream>
 #include <mutex>
+#include <thread>
 
 #include "wasm.hh"
 
@@ -9,9 +9,8 @@ const int N_THREADS = 10;
 const int N_REPS = 3;
 
 // A function to be called from Wasm code.
-auto callback(
-  void* env, const wasm::Val args[], wasm::Val results[]
-) -> wasm::own<wasm::Trap> {
+auto callback(void* env, const wasm::Val args[], wasm::Val results[])
+    -> wasm::own<wasm::Trap> {
   assert(args[0].kind() == wasm::I32);
   std::lock_guard<std::mutex>(*reinterpret_cast<std::mutex*>(env));
   std::cout << "Thread " << args[0].i32() << " running..." << std::endl;
@@ -19,11 +18,10 @@ auto callback(
   return nullptr;
 }
 
-
-void run(
-  wasm::Engine* engine, const wasm::Shared<wasm::Module>* shared,
-  std::mutex* mutex, int id
-) {
+void run(wasm::Engine* engine,
+         const wasm::Shared<wasm::Module>* shared,
+         std::mutex* mutex,
+         int id) {
   // Create store.
   auto store_ = wasm::Store::make(engine);
   auto store = store_.get();
@@ -42,15 +40,14 @@ void run(
 
     // Create imports.
     auto func_type = wasm::FuncType::make(
-      wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
-      wasm::ownvec<wasm::ValType>::make()
-    );
+        wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
+        wasm::ownvec<wasm::ValType>::make());
     auto func = wasm::Func::make(store, func_type.get(), callback, mutex);
 
-    auto global_type = wasm::GlobalType::make(
-      wasm::ValType::make(wasm::I32), wasm::CONST);
-    auto global = wasm::Global::make(
-      store, global_type.get(), wasm::Val::i32(i));
+    auto global_type =
+        wasm::GlobalType::make(wasm::ValType::make(wasm::I32), wasm::CONST);
+    auto global =
+        wasm::Global::make(store, global_type.get(), wasm::Val::i32(i));
 
     // Instantiate.
     wasm::Extern* imports[] = {func.get(), global.get()};
@@ -63,7 +60,8 @@ void run(
 
     // Extract export.
     auto exports = instance->exports();
-    if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+    if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC ||
+        !exports[0]->func()) {
       std::lock_guard<std::mutex> lock(*mutex);
       std::cout << "> Error accessing export!" << std::endl;
       exit(1);
@@ -75,7 +73,7 @@ void run(
   }
 }
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
   // Initialize.
   std::cout << "Initializing..." << std::endl;
   auto engine = wasm::Engine::make();

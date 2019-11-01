@@ -1,7 +1,7 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
@@ -13,7 +13,8 @@ int live_count = 0;
 
 void finalize(void* data) {
   int i = (int)data;
-  if (i % (iterations / 10) == 0) printf("Finalizing #%d...\n", i);
+  if (i % (iterations / 10) == 0)
+    printf("Finalizing #%d...\n", i);
   --live_count;
 }
 
@@ -49,9 +50,10 @@ void run_in_store(wasm_store_t* store) {
   // Instantiate.
   printf("Instantiating modules...\n");
   for (int i = 0; i <= iterations; ++i) {
-    if (i % (iterations / 10) == 0) printf("%d\n", i);
+    if (i % (iterations / 10) == 0)
+      printf("%d\n", i);
     own wasm_instance_t* instance =
-      wasm_instance_new(store, module, NULL, NULL);
+        wasm_instance_new(store, module, NULL, NULL);
     if (!instance) {
       printf("> Error instantiating module %d!\n", i);
       exit(1);

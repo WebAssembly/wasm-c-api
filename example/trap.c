@@ -1,16 +1,16 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
 
 // A function to be called from Wasm code.
-own wasm_trap_t* fail_callback(
-  void* env, const wasm_val_t args[], wasm_val_t results[]
-) {
+own wasm_trap_t* fail_callback(void* env,
+                               const wasm_val_t args[],
+                               wasm_val_t results[]) {
   printf("Calling back...\n");
   own wasm_name_t message;
   wasm_name_new_from_string(&message, "callback abort");
@@ -19,16 +19,11 @@ own wasm_trap_t* fail_callback(
   return trap;
 }
 
-
 void print_frame(wasm_frame_t* frame) {
-  printf("> %p @ 0x%zx = %"PRIu32".0x%zx\n",
-    wasm_frame_instance(frame),
-    wasm_frame_module_offset(frame),
-    wasm_frame_func_index(frame),
-    wasm_frame_func_offset(frame)
-  );
+  printf("> %p @ 0x%zx = %" PRIu32 ".0x%zx\n", wasm_frame_instance(frame),
+         wasm_frame_module_offset(frame), wasm_frame_func_index(frame),
+         wasm_frame_func_offset(frame));
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -67,17 +62,17 @@ int main(int argc, const char* argv[]) {
   // Create external print functions.
   printf("Creating callback...\n");
   own wasm_functype_t* fail_type =
-    wasm_functype_new_0_1(wasm_valtype_new_i32());
+      wasm_functype_new_0_1(wasm_valtype_new_i32());
   own wasm_func_t* fail_func =
-    wasm_func_new_with_env(store, fail_type, fail_callback, store, NULL);
+      wasm_func_new_with_env(store, fail_type, fail_callback, store, NULL);
 
   wasm_functype_delete(fail_type);
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(fail_func) };
+  const wasm_extern_t* imports[] = {wasm_func_as_extern(fail_func)};
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+      wasm_instance_new(store, module, imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

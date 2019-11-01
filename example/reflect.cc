@@ -1,39 +1,48 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
 
-
 auto operator<<(std::ostream& out, wasm::Mutability mut) -> std::ostream& {
   switch (mut) {
-    case wasm::VAR: return out << "var";
-    case wasm::CONST: return out << "const";
+    case wasm::VAR:
+      return out << "var";
+    case wasm::CONST:
+      return out << "const";
   }
   return out;
 }
 
 auto operator<<(std::ostream& out, wasm::Limits limits) -> std::ostream& {
   out << limits.min;
-  if (limits.max < wasm::Limits(0).max) out << " " << limits.max;
+  if (limits.max < wasm::Limits(0).max)
+    out << " " << limits.max;
   return out;
 }
 
 auto operator<<(std::ostream& out, const wasm::ValType& type) -> std::ostream& {
   switch (type.kind()) {
-    case wasm::I32: return out << "i32";
-    case wasm::I64: return out << "i64";
-    case wasm::F32: return out << "f32";
-    case wasm::F64: return out << "f64";
-    case wasm::ANYREF: return out << "anyref";
-    case wasm::FUNCREF: return out << "funcref";
+    case wasm::I32:
+      return out << "i32";
+    case wasm::I64:
+      return out << "i64";
+    case wasm::F32:
+      return out << "f32";
+    case wasm::F64:
+      return out << "f64";
+    case wasm::ANYREF:
+      return out << "anyref";
+    case wasm::FUNCREF:
+      return out << "funcref";
   }
   return out;
 }
 
-auto operator<<(std::ostream& out, const wasm::ownvec<wasm::ValType>& types) -> std::ostream& {
+auto operator<<(std::ostream& out, const wasm::ownvec<wasm::ValType>& types)
+    -> std::ostream& {
   bool first = true;
   for (size_t i = 0; i < types.size(); ++i) {
     if (first) {
@@ -46,16 +55,20 @@ auto operator<<(std::ostream& out, const wasm::ownvec<wasm::ValType>& types) -> 
   return out;
 }
 
-auto operator<<(std::ostream& out, const wasm::ExternType& type) -> std::ostream& {
+auto operator<<(std::ostream& out, const wasm::ExternType& type)
+    -> std::ostream& {
   switch (type.kind()) {
     case wasm::EXTERN_FUNC: {
-      out << "func " << type.func()->params() << " -> " << type.func()->results();
+      out << "func " << type.func()->params() << " -> "
+          << type.func()->results();
     } break;
     case wasm::EXTERN_GLOBAL: {
-      out << "global " << type.global()->mutability() << " " << *type.global()->content();
+      out << "global " << type.global()->mutability() << " "
+          << *type.global()->content();
     } break;
     case wasm::EXTERN_TABLE: {
-      out << "table " << type.table()->limits() << " " << *type.table()->element();
+      out << "table " << type.table()->limits() << " "
+          << *type.table()->element();
     } break;
     case wasm::EXTERN_MEMORY: {
       out << "memory " << type.memory()->limits();
@@ -68,7 +81,6 @@ auto operator<<(std::ostream& out, const wasm::Name& name) -> std::ostream& {
   out << "\"" << std::string(name.get(), name.size()) << "\"";
   return out;
 }
-
 
 void run() {
   // Initialize.
@@ -115,7 +127,8 @@ void run() {
 
   for (size_t i = 0; i < exports.size(); ++i) {
     assert(exports[i]->kind() == export_types[i]->type()->kind());
-    std::cout << "> export " << i << " " << export_types[i]->name() << std::endl;
+    std::cout << "> export " << i << " " << export_types[i]->name()
+              << std::endl;
     std::cout << ">> initial: " << *export_types[i]->type() << std::endl;
     std::cout << ">> current: " << *exports[i]->type() << std::endl;
     if (exports[i]->kind() == wasm::EXTERN_FUNC) {
@@ -129,10 +142,8 @@ void run() {
   std::cout << "Shutting down..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Done." << std::endl;
   return 0;
 }
-

@@ -1,22 +1,17 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
 
-
 void print_frame(wasm_frame_t* frame) {
-  printf("> %p @ 0x%zx = %"PRIu32".0x%zx\n",
-    wasm_frame_instance(frame),
-    wasm_frame_module_offset(frame),
-    wasm_frame_func_index(frame),
-    wasm_frame_func_offset(frame)
-  );
+  printf("> %p @ 0x%zx = %" PRIu32 ".0x%zx\n", wasm_frame_instance(frame),
+         wasm_frame_module_offset(frame), wasm_frame_func_index(frame),
+         wasm_frame_func_offset(frame));
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -55,8 +50,7 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
   own wasm_trap_t* trap = NULL;
-  own wasm_instance_t* instance =
-    wasm_instance_new(store, module, NULL, &trap);
+  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL, &trap);
   if (instance || !trap) {
     printf("> Error instantiating module, expected trap!\n");
     return 1;

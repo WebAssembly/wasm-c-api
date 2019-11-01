@@ -1,11 +1,10 @@
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <string>
 #include <cinttypes>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 #include "wasm.hh"
-
 
 const int iterations = 100000;
 
@@ -45,7 +44,8 @@ void run_in_store(wasm::Store* store) {
   // Instantiate.
   std::cout << "Instantiating modules..." << std::endl;
   for (int i = 0; i <= iterations; ++i) {
-    if (i % (iterations / 10) == 0) std::cout << i << std::endl;
+    if (i % (iterations / 10) == 0)
+      std::cout << i << std::endl;
     auto instance = wasm::Instance::make(store, module.get(), nullptr);
     if (!instance) {
       std::cout << "> Error instantiating module " << i << "!" << std::endl;
@@ -58,7 +58,6 @@ void run_in_store(wasm::Store* store) {
   // Shut down.
   std::cout << "Shutting down..." << std::endl;
 }
-
 
 void run() {
   // Initialize.
@@ -92,7 +91,6 @@ void run() {
   std::cout << "Deleting store 1..." << std::endl;
 }
 
-
 int main(int argc, const char* argv[]) {
   run();
   std::cout << "Live count " << live_count << std::endl;
@@ -100,4 +98,3 @@ int main(int argc, const char* argv[]) {
   std::cout << "Done." << std::endl;
   return 0;
 }
-
