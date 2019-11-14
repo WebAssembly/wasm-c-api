@@ -1,7 +1,7 @@
 // WebAssembly C++ API
 
-#ifndef __WASM_HH
-#define __WASM_HH
+#ifndef WASM_HH
+#define WASM_HH
 
 #include <cassert>
 #include <cstddef>
@@ -158,7 +158,7 @@ public:
 
   template<class... Ts>
   static auto make(Ts&&... args) -> vec {
-    T data[] = { std::move(args)... };
+    T data[] = { std::forward<Ts>(args)... };
     return make(sizeof...(Ts), data);
   }
 
@@ -743,4 +743,4 @@ public:
 
 }  // namespace wasm
 
-#endif  // #ifdef __WASM_HH
+#endif  // #ifdef WASM_HH
