@@ -227,7 +227,7 @@ public:
 
 // Type attributes
 
-enum Mutability : uint8_t { CONST, VAR };
+enum class Mutability : uint8_t { CONST, VAR };
 
 struct Limits {
   uint32_t min;
@@ -240,13 +240,13 @@ struct Limits {
 
 // Value Types
 
-enum ValKind : uint8_t {
+enum class ValKind : uint8_t {
   I32, I64, F32, F64,
   ANYREF = 128, FUNCREF,
 };
 
-inline bool is_num(ValKind k) { return k < ANYREF; }
-inline bool is_ref(ValKind k) { return k >= ANYREF; }
+inline bool is_num(ValKind k) { return k < ValKind::ANYREF; }
+inline bool is_ref(ValKind k) { return k >= ValKind::ANYREF; }
 
 
 class WASM_API_EXTERN ValType {
@@ -266,8 +266,8 @@ public:
 
 // External Types
 
-enum ExternKind : uint8_t {
-  EXTERN_FUNC, EXTERN_GLOBAL, EXTERN_TABLE, EXTERN_MEMORY
+enum class ExternKind : uint8_t {
+  FUNC, GLOBAL, TABLE, MEMORY
 };
 
 class FuncType;
@@ -430,12 +430,12 @@ class Val {
   Val(ValKind kind, impl impl) : kind_(kind), impl_(impl) {}
 
 public:
-  Val() : kind_(ANYREF) { impl_.ref = nullptr; }
-  Val(int32_t i) : kind_(I32) { impl_.i32 = i; }
-  Val(int64_t i) : kind_(I64) { impl_.i64 = i; }
-  Val(float32_t z) : kind_(F32) { impl_.f32 = z; }
-  Val(float64_t z) : kind_(F64) { impl_.f64 = z; }
-  Val(own<Ref>&& r) : kind_(ANYREF) { impl_.ref = r.release(); }
+  Val() : kind_(ValKind::ANYREF) { impl_.ref = nullptr; }
+  Val(int32_t i) : kind_(ValKind::I32) { impl_.i32 = i; }
+  Val(int64_t i) : kind_(ValKind::I64) { impl_.i64 = i; }
+  Val(float32_t z) : kind_(ValKind::F32) { impl_.f32 = z; }
+  Val(float64_t z) : kind_(ValKind::F64) { impl_.f64 = z; }
+  Val(own<Ref>&& r) : kind_(ValKind::ANYREF) { impl_.ref = r.release(); }
 
   Val(Val&& that) : kind_(that.kind_), impl_(that.impl_) {
     if (is_ref()) that.impl_.ref = nullptr;
@@ -476,10 +476,10 @@ public:
   } 
 
   auto kind() const -> ValKind { return kind_; }
-  auto i32() const -> int32_t { assert(kind_ == I32); return impl_.i32; }
-  auto i64() const -> int64_t { assert(kind_ == I64); return impl_.i64; }
-  auto f32() const -> float32_t { assert(kind_ == F32); return impl_.f32; }
-  auto f64() const -> float64_t { assert(kind_ == F64); return impl_.f64; }
+  auto i32() const -> int32_t { assert(kind_ == ValKind::I32); return impl_.i32; }
+  auto i64() const -> int64_t { assert(kind_ == ValKind::I64); return impl_.i64; }
+  auto f32() const -> float32_t { assert(kind_ == ValKind::F32); return impl_.f32; }
+  auto f64() const -> float64_t { assert(kind_ == ValKind::F64); return impl_.f64; }
   auto ref() const -> Ref* { assert(is_ref()); return impl_.ref; }
   template<class T> inline auto get() const -> T;
 

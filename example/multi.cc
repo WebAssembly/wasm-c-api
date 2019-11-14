@@ -55,10 +55,10 @@ void run() {
   // Create external print functions.
   std::cout << "Creating callback..." << std::endl;
   auto tuple = wasm::ownvec<wasm::ValType>::make(
-    wasm::ValType::make(wasm::I32),
-    wasm::ValType::make(wasm::I64),
-    wasm::ValType::make(wasm::I64),
-    wasm::ValType::make(wasm::I32)
+    wasm::ValType::make(wasm::ValKind::I32),
+    wasm::ValType::make(wasm::ValKind::I64),
+    wasm::ValType::make(wasm::ValKind::I64),
+    wasm::ValType::make(wasm::ValKind::I32)
   );
   auto callback_type =
     wasm::FuncType::make(tuple.deep_copy(), tuple.deep_copy());
@@ -76,7 +76,7 @@ void run() {
   // Extract export.
   std::cout << "Extracting export..." << std::endl;
   auto exports = instance->exports();
-  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+  if (exports.size() == 0 || exports[0]->kind() != wasm::ExternKind::FUNC || !exports[0]->func()) {
     std::cout << "> Error accessing export!" << std::endl;
     exit(1);
   }

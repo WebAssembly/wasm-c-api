@@ -77,7 +77,7 @@ void run() {
   // Extract export.
   std::cout << "Extracting export..." << std::endl;
   auto exports = instance->exports();
-  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+  if (exports.size() == 0 || exports[0]->kind() != wasm::ExternKind::FUNC || !exports[0]->func()) {
     std::cout << "> Error accessing export!" << std::endl;
     exit(1);
   }

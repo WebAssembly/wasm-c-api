@@ -58,7 +58,7 @@ void run() {
   std::cout << "Creating callback..." << std::endl;
   auto fail_type = wasm::FuncType::make(
     wasm::ownvec<wasm::ValType>::make(),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32))
   );
   auto fail_func =
     wasm::Func::make(store, fail_type.get(), fail_callback, store);
@@ -76,8 +76,8 @@ void run() {
   std::cout << "Extracting exports..." << std::endl;
   auto exports = instance->exports();
   if (exports.size() < 2 ||
-      exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func() ||
-      exports[1]->kind() != wasm::EXTERN_FUNC || !exports[1]->func()) {
+      exports[0]->kind() != wasm::ExternKind::FUNC || !exports[0]->func() ||
+      exports[1]->kind() != wasm::ExternKind::FUNC || !exports[1]->func()) {
     std::cout << "> Error accessing exports!" << std::endl;
     exit(1);
   }

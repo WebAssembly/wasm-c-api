@@ -548,12 +548,12 @@ struct ValTypeImpl {
 
 template<> struct implement<ValType> { using type = ValTypeImpl; };
 
-ValTypeImpl* valtype_i32 = new ValTypeImpl(I32);
-ValTypeImpl* valtype_i64 = new ValTypeImpl(I64);
-ValTypeImpl* valtype_f32 = new ValTypeImpl(F32);
-ValTypeImpl* valtype_f64 = new ValTypeImpl(F64);
-ValTypeImpl* valtype_anyref = new ValTypeImpl(ANYREF);
-ValTypeImpl* valtype_funcref = new ValTypeImpl(FUNCREF);
+ValTypeImpl* valtype_i32 = new ValTypeImpl(ValKind::I32);
+ValTypeImpl* valtype_i64 = new ValTypeImpl(ValKind::I64);
+ValTypeImpl* valtype_f32 = new ValTypeImpl(ValKind::F32);
+ValTypeImpl* valtype_f64 = new ValTypeImpl(ValKind::F64);
+ValTypeImpl* valtype_anyref = new ValTypeImpl(ValKind::ANYREF);
+ValTypeImpl* valtype_funcref = new ValTypeImpl(ValKind::FUNCREF);
 
 
 ValType::~ValType() {
@@ -565,12 +565,12 @@ void ValType::operator delete(void*) {}
 auto ValType::make(ValKind k) -> own<ValType> {
   ValTypeImpl* valtype;
   switch (k) {
-    case I32: valtype = valtype_i32; break;
-    case I64: valtype = valtype_i64; break;
-    case F32: valtype = valtype_f32; break;
-    case F64: valtype = valtype_f64; break;
-    case ANYREF: valtype = valtype_anyref; break;
-    case FUNCREF: valtype = valtype_funcref; break;
+    case ValKind::I32: valtype = valtype_i32; break;
+    case ValKind::I64: valtype = valtype_i64; break;
+    case ValKind::F32: valtype = valtype_f32; break;
+    case ValKind::F64: valtype = valtype_f64; break;
+    case ValKind::ANYREF: valtype = valtype_anyref; break;
+    case ValKind::FUNCREF: valtype = valtype_funcref; break;
     default:
       // TODO(wasm+): support new value types
       assert(false);
@@ -611,10 +611,10 @@ void ExternType::operator delete(void *p) {
 
 auto ExternType::copy() const -> own<ExternType> {
   switch (kind()) {
-    case EXTERN_FUNC: return func()->copy();
-    case EXTERN_GLOBAL: return global()->copy();
-    case EXTERN_TABLE: return table()->copy();
-    case EXTERN_MEMORY: return memory()->copy();
+    case ExternKind::FUNC: return func()->copy();
+    case ExternKind::GLOBAL: return global()->copy();
+    case ExternKind::TABLE: return table()->copy();
+    case ExternKind::MEMORY: return memory()->copy();
   }
 }
 
@@ -630,7 +630,7 @@ struct FuncTypeImpl : ExternTypeImpl {
   ownvec<ValType> results;
 
   FuncTypeImpl(ownvec<ValType>& params, ownvec<ValType>& results) :
-    ExternTypeImpl(EXTERN_FUNC),
+    ExternTypeImpl(ExternKind::FUNC),
     params(std::move(params)), results(std::move(results))
   {
     stats.make(Stats::FUNCTYPE, this);
@@ -668,13 +668,13 @@ auto FuncType::results() const -> const ownvec<ValType>& {
 
 
 auto ExternType::func() -> FuncType* {
-  return kind() == EXTERN_FUNC
+  return kind() == ExternKind::FUNC
     ? seal<FuncType>(static_cast<FuncTypeImpl*>(impl(this)))
     : nullptr;
 }
 
 auto ExternType::func() const -> const FuncType* {
-  return kind() == EXTERN_FUNC
+  return kind() == ExternKind::FUNC
     ? seal<FuncType>(static_cast<const FuncTypeImpl*>(impl(this)))
     : nullptr;
 }
@@ -687,7 +687,7 @@ struct GlobalTypeImpl : ExternTypeImpl {
   Mutability mutability;
 
   GlobalTypeImpl(own<ValType>& content, Mutability mutability) :
-    ExternTypeImpl(EXTERN_GLOBAL),
+    ExternTypeImpl(ExternKind::GLOBAL),
     content(std::move(content)), mutability(mutability)
   {
     stats.make(Stats::GLOBALTYPE, this);
@@ -726,13 +726,13 @@ auto GlobalType::mutability() const -> Mutability {
 
 
 auto ExternType::global() -> GlobalType* {
-  return kind() == EXTERN_GLOBAL
+  return kind() == ExternKind::GLOBAL
     ? seal<GlobalType>(static_cast<GlobalTypeImpl*>(impl(this)))
     : nullptr;
 }
 
 auto ExternType::global() const -> const GlobalType* {
-  return kind() == EXTERN_GLOBAL
+  return kind() == ExternKind::GLOBAL
     ? seal<GlobalType>(static_cast<const GlobalTypeImpl*>(impl(this)))
     : nullptr;
 }
@@ -745,7 +745,7 @@ struct TableTypeImpl : ExternTypeImpl {
   Limits limits;
 
   TableTypeImpl(own<ValType>& element, Limits limits) :
-    ExternTypeImpl(EXTERN_TABLE), element(std::move(element)), limits(limits)
+    ExternTypeImpl(ExternKind::TABLE), element(std::move(element)), limits(limits)
   {
     stats.make(Stats::TABLETYPE, this);
   }
@@ -781,13 +781,13 @@ auto TableType::limits() const -> const Limits& {
 
 
 auto ExternType::table() -> TableType* {
-  return kind() == EXTERN_TABLE
+  return kind() == ExternKind::TABLE
     ? seal<TableType>(static_cast<TableTypeImpl*>(impl(this)))
     : nullptr;
 }
 
 auto ExternType::table() const -> const TableType* {
-  return kind() == EXTERN_TABLE
+  return kind() == ExternKind::TABLE
     ? seal<TableType>(static_cast<const TableTypeImpl*>(impl(this)))
     : nullptr;
 }
@@ -799,7 +799,7 @@ struct MemoryTypeImpl : ExternTypeImpl {
   Limits limits;
 
   MemoryTypeImpl(Limits limits) :
-    ExternTypeImpl(EXTERN_MEMORY), limits(limits)
+    ExternTypeImpl(ExternKind::MEMORY), limits(limits)
   {
     stats.make(Stats::MEMORYTYPE, this);
   }
@@ -829,13 +829,13 @@ auto MemoryType::limits() const -> const Limits& {
 
 
 auto ExternType::memory() -> MemoryType* {
-  return kind() == EXTERN_MEMORY
+  return kind() == ExternKind::MEMORY
     ? seal<MemoryType>(static_cast<MemoryTypeImpl*>(impl(this)))
     : nullptr;
 }
 
 auto ExternType::memory() const -> const MemoryType* {
-  return kind() == EXTERN_MEMORY
+  return kind() == ExternKind::MEMORY
     ? seal<MemoryType>(static_cast<const MemoryTypeImpl*>(impl(this)))
     : nullptr;
 }
@@ -956,12 +956,12 @@ auto valtype_to_v8(
 ) -> v8::Local<v8::Value> {
   v8_string_t string;
   switch (type->kind()) {
-    case I32: string = V8_S_I32; break;
-    case I64: string = V8_S_I64; break;
-    case F32: string = V8_S_F32; break;
-    case F64: string = V8_S_F64; break;
-    case ANYREF: string = V8_S_ANYREF; break;
-    case FUNCREF: string = V8_S_ANYFUNC; break;
+    case ValKind::I32: string = V8_S_I32; break;
+    case ValKind::I64: string = V8_S_I64; break;
+    case ValKind::F32: string = V8_S_F32; break;
+    case ValKind::F64: string = V8_S_F64; break;
+    case ValKind::ANYREF: string = V8_S_ANYREF; break;
+    case ValKind::FUNCREF: string = V8_S_ANYFUNC; break;
     default:
       // TODO(wasm+): support new value types
       assert(false);
@@ -972,7 +972,7 @@ auto valtype_to_v8(
 auto mutability_to_v8(
   StoreImpl* store, Mutability mutability
 ) -> v8::Local<v8::Boolean> {
-  return v8::Boolean::New(store->isolate(), mutability == VAR);
+  return v8::Boolean::New(store->isolate(), mutability == Mutability::VAR);
 }
 
 void limits_to_v8(StoreImpl* store, Limits limits, v8::Local<v8::Object> desc) {
@@ -1019,48 +1019,6 @@ auto memorytype_to_v8(
   limits_to_v8(store, type->limits(), desc);
   return desc;
 }
-
-/* OBSOLETE?
-wasm_externkind_t wasm_externkind_from_v8_kind(wasm_store_t* store, v8::Local<v8::String> kind) {
-  if (kind->SameValue(store->v8_string(V8_S_FUNCTION))) {
-    return WASM_EXTERN_FUNC;
-  } else if (kind->SameValue(store->v8_string(V8_S_GLOBAL))) {
-    return WASM_EXTERN_GLOBAL;
-  } else if (kind->SameValue(store->v8_string(V8_S_TABLE))) {
-    return WASM_EXTERN_TABLE;
-  } else if (kind->SameValue(store->v8_string(V8_S_MEMORY))) {
-    return WASM_EXTERN_MEMORY;
-  } else {
-    assert(false);
-  }
-}
-
-own wasm_ExternType_t* wasm_externtype_new_from_v8_kind(wasm_store_t* store, v8::Local<v8::String> kind) {
-  // TODO: proper types
-  switch (wasm_externkind_from_v8_kind(store, kind)) {
-    case WASM_EXTERN_FUNC:
-      return wasm_functype_as_externtype(wasm_functype_new_0_0());
-    case WASM_EXTERN_GLOBAL:
-      return wasm_globaltype_as_externtype(wasm_globaltype_new(wasm_valtype_new_anyref(), WASM_CONST));
-    case WASM_EXTERN_TABLE:
-      return wasm_tabletype_as_externtype(wasm_tabletype_new(wasm_valtype_new_funcref(), wasm_limits(0, 0)));
-    case WASM_EXTERN_MEMORY:
-      return wasm_memtype_as_externtype(wasm_memtype_new(wasm_limits(0, 0)));
-  }
-}
-*/
-
-
-// Strings
-
-/* OBSOLETE?
-own wasm_byte_vec_t wasm_v8_to_byte_vec(v8::Local<v8::String> string) {
-  size_t len = string->Utf8Length();
-  auto v = wasm_byte_vec_new_uninitialized(len);
-  if (v.data != nullptr) string->WriteUtf8(v.data);
-  return v;
-}
-*/
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1165,12 +1123,12 @@ auto ref_to_v8(StoreImpl* store, const Ref* r) -> v8::Local<v8::Value> {
 auto val_to_v8(StoreImpl* store, const Val& v) -> v8::Local<v8::Value> {
   auto isolate = store->isolate();
   switch (v.kind()) {
-    case I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
-    case I64: return v8::BigInt::New(isolate, v.i64());
-    case F32: return v8::Number::New(isolate, v.f32());
-    case F64: return v8::Number::New(isolate, v.f64());
-    case ANYREF:
-    case FUNCREF:
+    case ValKind::I32: return v8::Integer::NewFromUnsigned(isolate, v.i32());
+    case ValKind::I64: return v8::BigInt::New(isolate, v.i64());
+    case ValKind::F32: return v8::Number::New(isolate, v.f32());
+    case ValKind::F64: return v8::Number::New(isolate, v.f64());
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF:
       return ref_to_v8(store, v.ref());
     default: assert(false);
   }
@@ -1191,18 +1149,18 @@ auto v8_to_val(
 ) -> Val {
   auto context = store->context();
   switch (t->kind()) {
-    case I32: return Val(value->Int32Value(context).ToChecked());
-    case I64: {
+    case ValKind::I32: return Val(value->Int32Value(context).ToChecked());
+    case ValKind::I64: {
       auto bigint = value->ToBigInt(context).ToLocalChecked();
       return Val(bigint->Int64Value());
     }
-    case F32: {
+    case ValKind::F32: {
       auto number = value->NumberValue(context).ToChecked();
       return Val(static_cast<float32_t>(number));
     }
-    case F64: return Val(value->NumberValue(context).ToChecked());
-    case ANYREF:
-    case FUNCREF: {
+    case ValKind::F64: return Val(value->NumberValue(context).ToChecked());
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: {
       return Val(v8_to_ref(store, value));
     }
   }
@@ -1538,43 +1496,43 @@ auto Extern::kind() const -> ExternKind {
 
 auto Extern::type() const -> own<ExternType> {
   switch (kind()) {
-    case EXTERN_FUNC: return func()->type();
-    case EXTERN_GLOBAL: return global()->type();
-    case EXTERN_TABLE: return table()->type();
-    case EXTERN_MEMORY: return memory()->type();
+    case ExternKind::FUNC: return func()->type();
+    case ExternKind::GLOBAL: return global()->type();
+    case ExternKind::TABLE: return table()->type();
+    case ExternKind::MEMORY: return memory()->type();
   }
 }
 
 auto Extern::func() -> Func* {
-  return kind() == EXTERN_FUNC ? static_cast<Func*>(this) : nullptr;
+  return kind() == ExternKind::FUNC ? static_cast<Func*>(this) : nullptr;
 }
 
 auto Extern::global() -> Global* {
-  return kind() == EXTERN_GLOBAL ? static_cast<Global*>(this) : nullptr;
+  return kind() == ExternKind::GLOBAL ? static_cast<Global*>(this) : nullptr;
 }
 
 auto Extern::table() -> Table* {
-  return kind() == EXTERN_TABLE ? static_cast<Table*>(this) : nullptr;
+  return kind() == ExternKind::TABLE ? static_cast<Table*>(this) : nullptr;
 }
 
 auto Extern::memory() -> Memory* {
-  return kind() == EXTERN_MEMORY ? static_cast<Memory*>(this) : nullptr;
+  return kind() == ExternKind::MEMORY ? static_cast<Memory*>(this) : nullptr;
 }
 
 auto Extern::func() const -> const Func* {
-  return kind() == EXTERN_FUNC ? static_cast<const Func*>(this) : nullptr;
+  return kind() == ExternKind::FUNC ? static_cast<const Func*>(this) : nullptr;
 }
 
 auto Extern::global() const -> const Global* {
-  return kind() == EXTERN_GLOBAL ? static_cast<const Global*>(this) : nullptr;
+  return kind() == ExternKind::GLOBAL ? static_cast<const Global*>(this) : nullptr;
 }
 
 auto Extern::table() const -> const Table* {
-  return kind() == EXTERN_TABLE ? static_cast<const Table*>(this) : nullptr;
+  return kind() == ExternKind::TABLE ? static_cast<const Table*>(this) : nullptr;
 }
 
 auto Extern::memory() const -> const Memory* {
-  return kind() == EXTERN_MEMORY ? static_cast<const Memory*>(this) : nullptr;
+  return kind() == ExternKind::MEMORY ? static_cast<const Memory*>(this) : nullptr;
 }
 
 auto extern_to_v8(const Extern* ex) -> v8::Local<v8::Value> {
@@ -1880,7 +1838,8 @@ auto Global::type() const -> own<GlobalType> {
   v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   auto kind = static_cast<ValKind>(wasm_v8::global_type_content(v8_global));
-  auto mutability = wasm_v8::global_type_mutable(v8_global) ? VAR : CONST;
+  auto mutability = wasm_v8::global_type_mutable(v8_global)
+    ? Mutability::VAR : Mutability::CONST;
   return GlobalType::make(ValType::make(kind), mutability);
 }
 
@@ -1888,12 +1847,12 @@ auto Global::get() const -> Val {
   v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   switch (type()->content()->kind()) {
-    case I32: return Val(wasm_v8::global_get_i32(v8_global));
-    case I64: return Val(wasm_v8::global_get_i64(v8_global));
-    case F32: return Val(wasm_v8::global_get_f32(v8_global));
-    case F64: return Val(wasm_v8::global_get_f64(v8_global));
-    case ANYREF:
-    case FUNCREF: {
+    case ValKind::I32: return Val(wasm_v8::global_get_i32(v8_global));
+    case ValKind::I64: return Val(wasm_v8::global_get_i64(v8_global));
+    case ValKind::F32: return Val(wasm_v8::global_get_f32(v8_global));
+    case ValKind::F64: return Val(wasm_v8::global_get_f64(v8_global));
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: {
       auto store = impl(this)->store();
       return Val(v8_to_ref(store, wasm_v8::global_get_ref(v8_global)));
     }
@@ -1906,12 +1865,12 @@ void Global::set(const Val& val) {
   v8::HandleScope handle_scope(impl(this)->isolate());
   auto v8_global = impl(this)->v8_object();
   switch (val.kind()) {
-    case I32: return wasm_v8::global_set_i32(v8_global, val.i32());
-    case I64: return wasm_v8::global_set_i64(v8_global, val.i64());
-    case F32: return wasm_v8::global_set_f32(v8_global, val.f32());
-    case F64: return wasm_v8::global_set_f64(v8_global, val.f64());
-    case ANYREF:
-    case FUNCREF: {
+    case ValKind::I32: return wasm_v8::global_set_i32(v8_global, val.i32());
+    case ValKind::I64: return wasm_v8::global_set_i64(v8_global, val.i64());
+    case ValKind::F32: return wasm_v8::global_set_f32(v8_global, val.f32());
+    case ValKind::F64: return wasm_v8::global_set_f64(v8_global, val.f64());
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: {
       auto store = impl(this)->store();
       return wasm_v8::global_set_ref(v8_global, ref_to_v8(store, val.ref()));
     }
@@ -1965,7 +1924,7 @@ auto Table::type() const -> own<TableType> {
   uint32_t min = wasm_v8::table_type_min(v8_table);
   uint32_t max = wasm_v8::table_type_max(v8_table);
   // TODO(wasm+): support new element types.
-  return TableType::make(ValType::make(FUNCREF), Limits(min, max));
+  return TableType::make(ValType::make(ValKind::FUNCREF), Limits(min, max));
 }
 
 auto Table::get(size_t index) const -> own<Ref> {
@@ -2150,19 +2109,19 @@ auto Instance::exports() const -> ownvec<Extern> {
 
     auto type = export_types[i]->type();
     switch (type->kind()) {
-      case EXTERN_FUNC: {
+      case ExternKind::FUNC: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_FUNC);
         exports[i] = RefImpl<Func>::make(store, obj);
       } break;
-      case EXTERN_GLOBAL: {
+      case ExternKind::GLOBAL: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_GLOBAL);
         exports[i] = RefImpl<Global>::make(store, obj);
       } break;
-      case EXTERN_TABLE: {
+      case ExternKind::TABLE: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_TABLE);
         exports[i] = RefImpl<Table>::make(store, obj);
       } break;
-      case EXTERN_MEMORY: {
+      case ExternKind::MEMORY: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
         exports[i] = RefImpl<Memory>::make(store, obj);
       } break;
