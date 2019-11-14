@@ -149,7 +149,7 @@ struct borrowed_vec {
   } \
   \
   void wasm_##name##_vec_copy( \
-    wasm_##name##_vec_t* out, wasm_##name##_vec_t* v \
+    wasm_##name##_vec_t* out, const wasm_##name##_vec_t* v \
   ) { \
     wasm_##name##_vec_new(out, v->size, v->data); \
   }
@@ -171,7 +171,7 @@ struct borrowed_vec {
   } \
   \
   void wasm_##name##_vec_copy( \
-    wasm_##name##_vec_t* out, wasm_##name##_vec_t* v \
+    wasm_##name##_vec_t* out, const wasm_##name##_vec_t* v \
   ) { \
     auto v2 = ownvec<Name>::make_uninitialized(v->size); \
     for (size_t i = 0; i < v2.size(); ++i) { \
@@ -632,7 +632,7 @@ void wasm_val_vec_new(
   *out = release_val_vec(std::move(v2));
 }
 
-void wasm_val_vec_copy(wasm_val_vec_t* out, wasm_val_vec_t* v) {
+void wasm_val_vec_copy(wasm_val_vec_t* out, const wasm_val_vec_t* v) {
   auto v2 = vec<Val>::make_uninitialized(v->size);
   for (size_t i = 0; i < v2.size(); ++i) {
     wasm_val_t val;
