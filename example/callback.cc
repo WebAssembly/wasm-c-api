@@ -9,20 +9,20 @@
 // Print a Wasm value
 auto operator<<(std::ostream& out, const wasm::Val& val) -> std::ostream& {
   switch (val.kind()) {
-    case wasm::I32: {
+    case wasm::ValKind::I32: {
       out << val.i32();
     } break;
-    case wasm::I64: {
+    case wasm::ValKind::I64: {
       out << val.i64();
     } break;
-    case wasm::F32: {
+    case wasm::ValKind::F32: {
       out << val.f32();
     } break;
-    case wasm::F64: {
+    case wasm::ValKind::F64: {
       out << val.f64();
     } break;
-    case wasm::ANYREF:
-    case wasm::FUNCREF: {
+    case wasm::ValKind::ANYREF:
+    case wasm::ValKind::FUNCREF: {
       if (val.ref() == nullptr) {
         out << "null";
       } else {
@@ -87,8 +87,8 @@ void run() {
   // Create external print functions.
   std::cout << "Creating callback..." << std::endl;
   auto print_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32)),
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32))
   );
   auto print_func = wasm::Func::make(store, print_type.get(), print_callback);
 
@@ -97,7 +97,7 @@ void run() {
   int i = 42;
   auto closure_type = wasm::FuncType::make(
     wasm::ownvec<wasm::ValType>::make(),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32))
   );
   auto closure_func = wasm::Func::make(store, closure_type.get(), closure_callback, &i);
 
@@ -113,7 +113,7 @@ void run() {
   // Extract export.
   std::cout << "Extracting export..." << std::endl;
   auto exports = instance->exports();
-  if (exports.size() == 0 || exports[0]->kind() != wasm::EXTERN_FUNC || !exports[0]->func()) {
+  if (exports.size() == 0 || exports[0]->kind() != wasm::ExternKind::FUNC || !exports[0]->func()) {
     std::cout << "> Error accessing export!" << std::endl;
     exit(1);
   }

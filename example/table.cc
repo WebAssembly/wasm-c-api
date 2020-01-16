@@ -118,8 +118,8 @@ void run() {
   // Create external function.
   std::cout << "Creating callback..." << std::endl;
   auto neg_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32)),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::I32))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32)),
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::I32))
   );
   auto h = wasm::Func::make(store, neg_type.get(), neg_callback);
 
@@ -174,7 +174,7 @@ void run() {
   // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
   std::cout << "Creating stand-alone table..." << std::endl;
   auto tabletype = wasm::TableType::make(
-    wasm::ValType::make(wasm::FUNCREF), wasm::Limits(5, 5));
+    wasm::ValType::make(wasm::ValKind::FUNCREF), wasm::Limits(5, 5));
   auto table2 = wasm::Table::make(store, tabletype.get());
   check(table2->size() == 5);
   check(! table2->grow(1));

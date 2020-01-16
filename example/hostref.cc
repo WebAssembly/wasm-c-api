@@ -140,8 +140,8 @@ void run() {
   // Create external callback function.
   std::cout << "Creating callback..." << std::endl;
   auto callback_type = wasm::FuncType::make(
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ANYREF)),
-    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ANYREF))
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::ANYREF)),
+    wasm::ownvec<wasm::ValType>::make(wasm::ValType::make(wasm::ValKind::ANYREF))
   );
   auto callback_func = wasm::Func::make(store, callback_type.get(), callback);
 

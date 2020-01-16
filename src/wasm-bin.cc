@@ -52,36 +52,36 @@ void encode_size32(char*& ptr, size_t n) {
 
 void encode_valtype(char*& ptr, const ValType* type) {
   switch (type->kind()) {
-    case I32: *ptr++ = 0x7f; break;
-    case I64: *ptr++ = 0x7e; break;
-    case F32: *ptr++ = 0x7d; break;
-    case F64: *ptr++ = 0x7c; break;
-    case FUNCREF: *ptr++ = 0x70; break;
-    case ANYREF: *ptr++ = 0x6f; break;
+    case ValKind::I32: *ptr++ = 0x7f; break;
+    case ValKind::I64: *ptr++ = 0x7e; break;
+    case ValKind::F32: *ptr++ = 0x7d; break;
+    case ValKind::F64: *ptr++ = 0x7c; break;
+    case ValKind::FUNCREF: *ptr++ = 0x70; break;
+    case ValKind::ANYREF: *ptr++ = 0x6f; break;
     default: assert(false);
   }
 }
 
 auto zero_size(const ValType* type) -> size_t {
   switch (type->kind()) {
-    case I32: return 1;
-    case I64: return 1;
-    case F32: return 4;
-    case F64: return 8;
-    case FUNCREF: return 0;
-    case ANYREF: return 0;
+    case ValKind::I32: return 1;
+    case ValKind::I64: return 1;
+    case ValKind::F32: return 4;
+    case ValKind::F64: return 8;
+    case ValKind::FUNCREF: return 0;
+    case ValKind::ANYREF: return 0;
     default: assert(false);
   }
 }
 
 void encode_const_zero(char*& ptr, const ValType* type) {
   switch (type->kind()) {
-    case I32: *ptr++ = 0x41; break;
-    case I64: *ptr++ = 0x42; break;
-    case F32: *ptr++ = 0x43; break;
-    case F64: *ptr++ = 0x44; break;
-    case FUNCREF: *ptr++ = 0xd0; break;
-    case ANYREF: *ptr++ = 0xd0; break;
+    case ValKind::I32: *ptr++ = 0x41; break;
+    case ValKind::I64: *ptr++ = 0x42; break;
+    case ValKind::F32: *ptr++ = 0x43; break;
+    case ValKind::F64: *ptr++ = 0x44; break;
+    case ValKind::FUNCREF: *ptr++ = 0xd0; break;
+    case ValKind::ANYREF: *ptr++ = 0xd0; break;
     default: assert(false);
   }
   for (int i = 0; i < zero_size(type); ++i) *ptr++ = 0;
@@ -140,7 +140,7 @@ auto wrapper(const GlobalType* type) -> vec<byte_t> {
   encode_size32(ptr, 5 + zero_size(type->content()));  // size
   *ptr++ = 1;  // length
   encode_valtype(ptr, type->content());
-  *ptr++ = (type->mutability() == VAR);
+  *ptr++ = (type->mutability() == Mutability::VAR);
   encode_const_zero(ptr, type->content());
   *ptr++ = 0x0b;  // end
 
@@ -211,12 +211,12 @@ void name_skip(const byte_t*& pos) {
 
 auto valtype(const byte_t*& pos) -> own<wasm::ValType> {
   switch (*pos++) {
-    case 0x7f: return ValType::make(I32);
-    case 0x7e: return ValType::make(I64);
-    case 0x7d: return ValType::make(F32);
-    case 0x7c: return ValType::make(F64);
-    case 0x70: return ValType::make(FUNCREF);
-    case 0x6f: return ValType::make(ANYREF);
+    case 0x7f: return ValType::make(ValKind::I32);
+    case 0x7e: return ValType::make(ValKind::I64);
+    case 0x7d: return ValType::make(ValKind::F32);
+    case 0x7c: return ValType::make(ValKind::F64);
+    case 0x70: return ValType::make(ValKind::FUNCREF);
+    case 0x6f: return ValType::make(ValKind::ANYREF);
     default:
       // TODO(wasm+): support new value types
       assert(false);
@@ -224,7 +224,7 @@ auto valtype(const byte_t*& pos) -> own<wasm::ValType> {
 }
 
 auto mutability(const byte_t*& pos) -> Mutability {
-  return *pos++ ? VAR : CONST;
+  return *pos++ ? Mutability::VAR : Mutability::CONST;
 }
 
 auto limits(const byte_t*& pos) -> Limits {
@@ -427,11 +427,11 @@ auto funcs(
   auto pos = bin::section(binary, SEC_FUNC);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   auto v = ownvec<FuncType>::make_uninitialized(
-    size + count(imports, EXTERN_FUNC));
+    size + count(imports, ExternKind::FUNC));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto et = imports[i]->type();
-    if (et->kind() == EXTERN_FUNC) {
+    if (et->kind() == ExternKind::FUNC) {
       v[j++] = et->func()->copy();
     }
   }
@@ -453,11 +453,11 @@ auto globals(
   auto pos = bin::section(binary, SEC_GLOBAL);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   auto v = ownvec<GlobalType>::make_uninitialized(
-    size + count(imports, EXTERN_GLOBAL));
+    size + count(imports, ExternKind::GLOBAL));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto et = imports[i]->type();
-    if (et->kind() == EXTERN_GLOBAL) {
+    if (et->kind() == ExternKind::GLOBAL) {
       v[j++] = et->global()->copy();
     }
   }
@@ -480,11 +480,11 @@ auto tables(
   auto pos = bin::section(binary, SEC_TABLE);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   auto v = ownvec<TableType>::make_uninitialized(
-    size + count(imports, EXTERN_TABLE));
+    size + count(imports, ExternKind::TABLE));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto et = imports[i]->type();
-    if (et->kind() == EXTERN_TABLE) {
+    if (et->kind() == ExternKind::TABLE) {
       v[j++] = et->table()->copy();
     }
   }
@@ -506,11 +506,11 @@ auto memories(
   auto pos = bin::section(binary, SEC_MEMORY);
   size_t size = pos != nullptr ? bin::u32(pos) : 0;
   auto v = ownvec<MemoryType>::make_uninitialized(
-    size + count(imports, EXTERN_MEMORY));
+    size + count(imports, ExternKind::MEMORY));
   size_t j = 0;
   for (uint32_t i = 0; i < imports.size(); ++i) {
     auto et = imports[i]->type();
-    if (et->kind() == EXTERN_MEMORY) {
+    if (et->kind() == ExternKind::MEMORY) {
       v[j++] = et->memory()->copy();
     }
   }

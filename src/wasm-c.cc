@@ -409,44 +409,44 @@ const wasm_externtype_t* wasm_memorytype_as_externtype_const(
 }
 
 wasm_functype_t* wasm_externtype_as_functype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_FUNC
+  return et->kind() == ExternKind::FUNC
     ? hide_functype(static_cast<FuncType*>(reveal_externtype(et))) : nullptr;
 }
 wasm_globaltype_t* wasm_externtype_as_globaltype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_GLOBAL
+  return et->kind() == ExternKind::GLOBAL
     ? hide_globaltype(static_cast<GlobalType*>(reveal_externtype(et))) : nullptr;
 }
 wasm_tabletype_t* wasm_externtype_as_tabletype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_TABLE
+  return et->kind() == ExternKind::TABLE
     ? hide_tabletype(static_cast<TableType*>(reveal_externtype(et))) : nullptr;
 }
 wasm_memorytype_t* wasm_externtype_as_memorytype(wasm_externtype_t* et) {
-  return et->kind() == EXTERN_MEMORY
+  return et->kind() == ExternKind::MEMORY
     ? hide_memorytype(static_cast<MemoryType*>(reveal_externtype(et))) : nullptr;
 }
 
 const wasm_functype_t* wasm_externtype_as_functype_const(
   const wasm_externtype_t* et
 ) {
-  return et->kind() == EXTERN_FUNC
+  return et->kind() == ExternKind::FUNC
     ? hide_functype(static_cast<const FuncType*>(reveal_externtype(et))) : nullptr;
 }
 const wasm_globaltype_t* wasm_externtype_as_globaltype_const(
   const wasm_externtype_t* et
 ) {
-  return et->kind() == EXTERN_GLOBAL
+  return et->kind() == ExternKind::GLOBAL
     ? hide_globaltype(static_cast<const GlobalType*>(reveal_externtype(et))) : nullptr;
 }
 const wasm_tabletype_t* wasm_externtype_as_tabletype_const(
   const wasm_externtype_t* et
 ) {
-  return et->kind() == EXTERN_TABLE
+  return et->kind() == ExternKind::TABLE
     ? hide_tabletype(static_cast<const TableType*>(reveal_externtype(et))) : nullptr;
 }
 const wasm_memorytype_t* wasm_externtype_as_memorytype_const(
   const wasm_externtype_t* et
 ) {
-  return et->kind() == EXTERN_MEMORY
+  return et->kind() == ExternKind::MEMORY
     ? hide_memorytype(static_cast<const MemoryType*>(reveal_externtype(et))) : nullptr;
 }
 
@@ -559,12 +559,12 @@ inline auto is_empty(wasm_val_t v) -> bool {
 inline auto hide_val(Val v) -> wasm_val_t {
   wasm_val_t v2 = { hide_valkind(v.kind()) };
   switch (v.kind()) {
-    case I32: v2.of.i32 = v.i32(); break;
-    case I64: v2.of.i64 = v.i64(); break;
-    case F32: v2.of.f32 = v.f32(); break;
-    case F64: v2.of.f64 = v.f64(); break;
-    case ANYREF:
-    case FUNCREF: v2.of.ref = hide_ref(v.ref()); break;
+    case ValKind::I32: v2.of.i32 = v.i32(); break;
+    case ValKind::I64: v2.of.i64 = v.i64(); break;
+    case ValKind::F32: v2.of.f32 = v.f32(); break;
+    case ValKind::F64: v2.of.f64 = v.f64(); break;
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: v2.of.ref = hide_ref(v.ref()); break;
     default: assert(false);
   }
   return v2;
@@ -573,12 +573,12 @@ inline auto hide_val(Val v) -> wasm_val_t {
 inline auto release_val(Val v) -> wasm_val_t {
   wasm_val_t v2 = { hide_valkind(v.kind()) };
   switch (v.kind()) {
-    case I32: v2.of.i32 = v.i32(); break;
-    case I64: v2.of.i64 = v.i64(); break;
-    case F32: v2.of.f32 = v.f32(); break;
-    case F64: v2.of.f64 = v.f64(); break;
-    case ANYREF:
-    case FUNCREF: v2.of.ref = release_ref(v.release_ref()); break;
+    case ValKind::I32: v2.of.i32 = v.i32(); break;
+    case ValKind::I64: v2.of.i64 = v.i64(); break;
+    case ValKind::F32: v2.of.f32 = v.f32(); break;
+    case ValKind::F64: v2.of.f64 = v.f64(); break;
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: v2.of.ref = release_ref(v.release_ref()); break;
     default: assert(false);
   }
   return v2;
@@ -586,12 +586,12 @@ inline auto release_val(Val v) -> wasm_val_t {
 
 inline auto adopt_val(wasm_val_t v) -> Val {
   switch (reveal_valkind(v.kind)) {
-    case I32: return Val(v.of.i32);
-    case I64: return Val(v.of.i64);
-    case F32: return Val(v.of.f32);
-    case F64: return Val(v.of.f64);
-    case ANYREF:
-    case FUNCREF: return Val(adopt_ref(v.of.ref));
+    case ValKind::I32: return Val(v.of.i32);
+    case ValKind::I64: return Val(v.of.i64);
+    case ValKind::F32: return Val(v.of.f32);
+    case ValKind::F64: return Val(v.of.f64);
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: return Val(adopt_ref(v.of.ref));
     default: assert(false);
   }
 }
@@ -606,12 +606,12 @@ struct borrowed_val {
 inline auto borrow_val(const wasm_val_t* v) -> borrowed_val {
   Val v2;
   switch (reveal_valkind(v->kind)) {
-    case I32: v2 = Val(v->of.i32); break;
-    case I64: v2 = Val(v->of.i64); break;
-    case F32: v2 = Val(v->of.f32); break;
-    case F64: v2 = Val(v->of.f64); break;
-    case ANYREF:
-    case FUNCREF: v2 = Val(adopt_ref(v->of.ref)); break;
+    case ValKind::I32: v2 = Val(v->of.i32); break;
+    case ValKind::I64: v2 = Val(v->of.i64); break;
+    case ValKind::F32: v2 = Val(v->of.f32); break;
+    case ValKind::F64: v2 = Val(v->of.f64); break;
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF: v2 = Val(adopt_ref(v->of.ref)); break;
     default: assert(false);
   }
   return borrowed_val(std::move(v2));
