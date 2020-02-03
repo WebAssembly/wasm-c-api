@@ -57,9 +57,9 @@ Some random explanations:
 * The API already encompasses current proposals like [multiple return values](https://github.com/WebAssembly/multi-value/blob/master/proposals/multi-value/Overview.md) and [reference types](https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md), but not yet [threads](https://github.com/WebAssembly/threads/blob/master/proposals/threads/Overview.md).
 
 
-### Implementation
+### Prototype Implementation
 
-* A prototype implementation based on V8 is in `src`.
+* This repo contains a prototype implementation based on V8 is in `src`.
 
   * Note that this requires adding a module to V8, so it patches V8's build file.
 
@@ -87,26 +87,25 @@ V8 implementation:
 * `Shared<Module>` is currently implemented via serialisation, since V8 does not currently have direct support for cross-isolate sharing.
 
 
+### Other Implementations
+
+Currently, known implementations of this API are included in
+
+* V8 natively (both C and C++)
+* Wabt (only C?)
+* Wasmtime (only C?)
+
+
 ### TODO
 
 Possible API tweaks:
 
   * Add `Ref::eq` (or better, a subclass `EqRef::eq`) for reference equality?
 
-  * Avoid allocation for `Result` objects by making them into out parameters?
+  * Add a way to return error messages from `Module::make` and `Module::validate`.
 
   * Use `restrict` in C API?
-
-  * Distinguish vec and own_vec in C++ API?
-
-  * Handle constness of vectors properly in C API?
 
   * Find a way to perform C callbacks through C++ without extra wrapper?
 
   * Add iterators to `vec` class?
-
-V8 implementation:
-
-  * Find a way to avoid external calls through JS?
-
-  * Use reference counting and caching for types?
