@@ -436,7 +436,14 @@ WASM_API_EXTERN own wasm_global_t* wasm_global_new(
 WASM_API_EXTERN own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
 WASM_API_EXTERN void wasm_global_get(const wasm_global_t*, own wasm_val_t* out);
-WASM_API_EXTERN void wasm_global_set(wasm_global_t*, const wasm_val_t*);
+
+/// Perform a `global.set` operation. If the global is immutable or if the new
+/// value has the wrong type, return an error.
+WASM_API_EXTERN own wasm_trap_t* wasm_global_set(wasm_global_t*, const wasm_val_t*);
+
+/// Similar to `wasm_global_set`, except with undefined behavior if the global
+/// is immutable or if the new value has the wrong type.
+WASM_API_EXTERN void wasm_global_set_unsafe(wasm_global_t*, const wasm_val_t*);
 
 
 // Table Instances

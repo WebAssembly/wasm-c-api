@@ -44,6 +44,18 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
     check(results[0], type, expected); \
   }
 
+#define check_no_trap(maybe_trap) \
+  if ((maybe_trap)) { \
+    printf("> Trap occurred\n"); \
+    exit(1); \
+  }
+
+#define check_trap(maybe_trap) \
+  if (!(maybe_trap)) { \
+    printf("> Expected trap did not occur\n"); \
+    exit(1); \
+  }
+
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -174,15 +186,31 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_f32_export, f32, 7);
   check_call(get_var_i64_export, i64, 8);
 
+  // Attempt to mutate immutable globals.
+  wasm_val_t val33 = {.kind = WASM_F32, .of = {.f32 = 33}};
+  check_trap(wasm_global_set(const_f32_import, &val33));
+  check_global(const_f32_import, f32, 1);
+  wasm_val_t val34 = {.kind = WASM_I64, .of = {.i64 = 34}};
+  check_trap(wasm_global_set(const_i64_import, &val34));
+  check_global(const_i64_import, i64, 2);
+
+  // Attempt to set globals with values of incorrect types.
+  wasm_val_t val37 = {.kind = WASM_F64, .of = {.f64 = 37}};
+  check_trap(wasm_global_set(var_f32_export, &val37));
+  check_global(var_f32_import, f32, 3);
+  wasm_val_t val38 = {.kind = WASM_I32, .of = {.i32 = 38}};
+  check_trap(wasm_global_set(var_i64_export, &val38));
+  check_global(var_i64_import, i64, 4);
+
   // Modify variables through API and check again.
   wasm_val_t val33 = {.kind = WASM_F32, .of = {.f32 = 33}};
-  wasm_global_set(var_f32_import, &val33);
+  check_no_trap(wasm_global_set(var_f32_import, &val33));
   wasm_val_t val34 = {.kind = WASM_I64, .of = {.i64 = 34}};
-  wasm_global_set(var_i64_import, &val34);
+  check_no_trap(wasm_global_set(var_i64_import, &val34));
   wasm_val_t val37 = {.kind = WASM_F32, .of = {.f32 = 37}};
-  wasm_global_set(var_f32_export, &val37);
+  check_no_trap(wasm_global_set(var_f32_export, &val37));
   wasm_val_t val38 = {.kind = WASM_I64, .of = {.i64 = 38}};
-  wasm_global_set(var_i64_export, &val38);
+  check_no_trap(wasm_global_set(var_i64_export, &val38));
 
   check_global(var_f32_import, f32, 33);
   check_global(var_i64_import, i64, 34);
@@ -193,6 +221,26 @@ int main(int argc, const char* argv[]) {
   check_call(get_var_i64_import, i64, 34);
   check_call(get_var_f32_export, f32, 37);
   check_call(get_var_i64_export, i64, 38);
+
+  // Modify variables through unsafe API and check again.
+  wasm_val_t val33 = {.kind = WASM_F32, .of = {.f32 = 53}};
+  wasm_global_set_unsafe(var_f32_import, &val33);
+  wasm_val_t val34 = {.kind = WASM_I64, .of = {.i64 = 54}};
+  wasm_global_set_unsafe(var_i64_import, &val34);
+  wasm_val_t val37 = {.kind = WASM_F32, .of = {.f32 = 57}};
+  wasm_global_set_unsafe(var_f32_export, &val37);
+  wasm_val_t val38 = {.kind = WASM_I64, .of = {.i64 = 58}};
+  wasm_global_set_unsafe(var_i64_export, &val38);
+
+  check_global(var_f32_import, f32, 53);
+  check_global(var_i64_import, i64, 54);
+  check_global(var_f32_export, f32, 57);
+  check_global(var_i64_export, i64, 58);
+
+  check_call(get_var_f32_import, f32, 53);
+  check_call(get_var_i64_import, i64, 54);
+  check_call(get_var_f32_export, f32, 57);
+  check_call(get_var_i64_export, i64, 58);
 
   // Modify variables through calls and check again.
   wasm_val_t args73[] = { {.kind = WASM_F32, .of = {.f32 = 73}} };

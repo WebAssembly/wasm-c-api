@@ -227,7 +227,8 @@ int main(int argc, const char* argv[]) {
   assert(val.kind == WASM_ANYREF);
   check(val.of.ref, NULL);
   val.of.ref = host2;
-  wasm_global_set(global, &val);
+  own wasm_trap_t *global_set_trap = wasm_global_set(global, &val);
+  assert(global_set_trap == NULL);
   check(call_v_r(global_get), host2);
   wasm_global_get(global, &val);
   assert(val.kind == WASM_ANYREF);
