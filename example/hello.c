@@ -7,6 +7,8 @@
 
 #define own
 
+#define array_len(a) (sizeof(a) / sizeof((a)[0]))
+
 // A function to be called from Wasm code.
 own wasm_trap_t* hello_callback(
   const wasm_val_t args[], wasm_val_t results[]
@@ -63,7 +65,7 @@ int main(int argc, const char* argv[]) {
   printf("Instantiating module...\n");
   const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, imports, array_len(imports), NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -90,7 +92,7 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  if (wasm_func_call(run_func, NULL, NULL)) {
+  if (wasm_func_call(store, run_func, NULL, 0, NULL, 0)) {
     printf("> Error calling function!\n");
     return 1;
   }

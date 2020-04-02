@@ -7,6 +7,8 @@
 
 #define own
 
+#define array_len(a) (sizeof(a) / sizeof((a)[0]))
+
 // Print a Wasm value
 void wasm_val_print(wasm_val_t val) {
   switch (val.kind) {
@@ -112,7 +114,7 @@ int main(int argc, const char* argv[]) {
     wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
   };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, imports, array_len(imports), NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -146,7 +148,7 @@ int main(int argc, const char* argv[]) {
   args[1].kind = WASM_I32;
   args[1].of.i32 = 4;
   wasm_val_t results[1];
-  if (wasm_func_call(run_func, args, results)) {
+  if (wasm_func_call(store, run_func, args, array_len(args), results, array_len(results))) {
     printf("> Error calling function!\n");
     return 1;
   }
