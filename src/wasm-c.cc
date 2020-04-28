@@ -706,18 +706,24 @@ void wasm_trap_trace(const wasm_trap_t* trap, wasm_frame_vec_t* out) {
   *out = release_frame_vec(reveal_trap(trap)->trace());
 }
 
-// I write this with full awareness of the difference between validation
-// errors and runtime errors in wasm, and the desirability of letting users
-// distinguish between the two in a cleaner way than inspecting the message
-// string. This is just a prototype, and we can discuss better alternatives.
+// In the wasm spec, these "invariant violations" are disallowed by validation,
+// so they never occur at runtime. In the C API, there is no validation step, so we
+// need a way to report these violations.
 //
-// For now, think of this as implementing the semantics for what we might
-// call "dynamic wasm" -- that is, wasm which doesn't do validation up front,
-// but instead maintains all the same invariants through the use of dynamic
-// checks, with traps to report violations.
+// Traps are the obvious runtime counterpart to validation-time errors in the spec.
+// For example, caller/callee signature mismatches in a `call` instruction are
+// diagnosed at validation time. The same error is diagnosed as a trap when it
+// occurs in `call_indirect`. Consequently, when the C API diagnoses errors
+// dynamically that wasm itself would diagnose during validation, it uses traps
+// to do so.
 //
-// As it happens, this closely resembles the conceptual language within the
-// WebAssembly JS API.
+// This also aligns with the [WebAssembly JS API], which uses the same mechanism
+// for these errors as it does for runtime traps.
+//
+// To distinguish these traps from others, the string "invariant violation: " is
+// prepended to the error message.
+//
+// [WebAssembly JS API]: https://webassembly.github.io/spec/js-api/index.html
 static wasm_trap_t* wasm_invariant_violation(wasm_store_t* store, const char *message) {
   wasm_name_t name;
   wasm_name_new_from_string(&name, (std::string("invariant violation: ") + message).c_str());
