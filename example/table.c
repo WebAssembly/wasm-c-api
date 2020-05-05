@@ -57,7 +57,12 @@ void check_call(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t ar
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
   wasm_val_t results[1];
-  own wasm_trap_t *trap = wasm_func_call(store, func, args, array_len(args), results, array_len(results));
+  own wasm_trap_t *trap = wasm_func_call(
+                            store,
+                            func,
+                            (wasm_val_vec_t) { array_len(args), args },
+                            (wasm_val_vec_t) { array_len(results), results }
+                          );
   if (trap ||
       results[0].of.i32 != expected)
   {
@@ -71,7 +76,12 @@ void check_trap(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t ar
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  own wasm_trap_t* trap = wasm_func_call(store, func, args, array_len(args), NULL, 0);
+  own wasm_trap_t* trap = wasm_func_call(
+                            store,
+                            func,
+                            (wasm_val_vec_t) { array_len(args), args },
+                            (wasm_val_vec_t) { 0, NULL }
+                          );
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
@@ -116,7 +126,12 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL, 0, NULL);
+  own wasm_instance_t* instance = wasm_instance_new(
+                                    store,
+                                    module,
+                                    (wasm_extern_vec_t) { 0, NULL },
+                                    NULL
+                                  );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

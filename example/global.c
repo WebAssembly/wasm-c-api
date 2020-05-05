@@ -52,7 +52,12 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
   { \
     wasm_val_t results[1]; \
     wasm_trap_t* trap = \
-      wasm_func_call(store, func, NULL, 0, results, array_len(results)); \
+      wasm_func_call( \
+        store, \
+        func, \
+        (wasm_val_vec_t) { 0, NULL }, \
+        (wasm_val_vec_t) { array_len(results), results } \
+      ); \
     if (trap) { \
       printf("> Error on result\n"); \
       exit(1); \
@@ -127,14 +132,19 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = {
+  wasm_extern_t* imports[] = {
     wasm_global_as_extern(const_f32_import),
     wasm_global_as_extern(const_i64_import),
     wasm_global_as_extern(var_f32_import),
     wasm_global_as_extern(var_i64_import)
   };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, array_len(imports), NULL);
+    wasm_instance_new(
+      store,
+      module,
+      (wasm_extern_vec_t) { array_len(imports), imports },
+      NULL
+    );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -213,13 +223,21 @@ int main(int argc, const char* argv[]) {
 
   // Modify variables through calls and check again.
   wasm_val_t args73[] = { {.kind = WASM_F32, .of = {.f32 = 73}} };
-  wasm_func_call(store, set_var_f32_import, args73, array_len(args73), NULL, 0);
+  wasm_func_call(store, set_var_f32_import,
+                 (wasm_val_vec_t) { array_len(args73), args73 },
+                 (wasm_val_vec_t) { 0, NULL });
   wasm_val_t args74[] = { {.kind = WASM_I64, .of = {.i64 = 74}} };
-  wasm_func_call(store, set_var_i64_import, args74, array_len(args74), NULL, 0);
+  wasm_func_call(store, set_var_i64_import,
+                 (wasm_val_vec_t) { array_len(args74), args74 },
+                 (wasm_val_vec_t) { 0, NULL });
   wasm_val_t args77[] = { {.kind = WASM_F32, .of = {.f32 = 77}} };
-  wasm_func_call(store, set_var_f32_export, args77, array_len(args77), NULL, 0);
+  wasm_func_call(store, set_var_f32_export,
+                 (wasm_val_vec_t) { array_len(args77), args77 },
+                 (wasm_val_vec_t) { 0, NULL });
   wasm_val_t args78[] = { {.kind = WASM_I64, .of = {.i64 = 78}} };
-  wasm_func_call(store, set_var_i64_export, args78, array_len(args78), NULL, 0);
+  wasm_func_call(store, set_var_i64_export,
+                 (wasm_val_vec_t) { array_len(args78), args78 },
+                 (wasm_val_vec_t) { 0, NULL });
 
   check_global(var_f32_import, f32, 73);
   check_global(var_i64_import, i64, 74);

@@ -437,8 +437,8 @@ WASM_API_EXTERN size_t wasm_func_result_arity(const wasm_func_t*);
 WASM_API_EXTERN own wasm_trap_t* wasm_func_call(
   wasm_store_t* store,
   const wasm_func_t*,
-  const wasm_val_t args[], size_t num_args,
-  wasm_val_t results[], size_t num_results);
+  wasm_val_vec_t args,
+  wasm_val_vec_t results);
 
 /// Similar to `wasm_func_call`, but with undefined behavior instead of
 /// reporting errors.
@@ -826,7 +826,7 @@ WASM_DECLARE_REF(instance)
 /// doesn't match the number of imports in the module.
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
   wasm_store_t*, const wasm_module_t*,
-  const wasm_extern_t* const imports[], size_t num_imports,
+  wasm_extern_vec_t imports,
   own wasm_trap_t** trap
 );
 
@@ -1028,13 +1028,13 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 static inline own wasm_trap_t* wasm_func_call_emboldened(
   wasm_store_t* store,
   const wasm_func_t* func,
-  const wasm_val_t args[], size_t num_args,
-  wasm_val_t results[], size_t num_results)
+  wasm_val_vec_t args,
+  wasm_val_vec_t results)
 {
 #ifndef NDEBUG
-  return wasm_func_call(store, func, args, num_args, results, num_results);
+  return wasm_func_call(store, func, args, results);
 #else
-  return wasm_func_call_unchecked(func, args, results);
+  return wasm_func_call_unchecked(func, args.data, results.data);
 #endif
 }
 
@@ -1231,14 +1231,13 @@ static inline bool wasm_table_grow_funcref_emboldened(
 static inline own wasm_instance_t* wasm_instance_new_emboldened(
   wasm_store_t* store,
   const wasm_module_t* module,
-  const wasm_extern_t* const imports[],
-  size_t num_imports,
+  wasm_extern_vec_t imports,
   own wasm_trap_t** trap)
 {
 #ifndef NDEBUG
-  return wasm_instance_new(store, module, imports, num_imports, trap);
+  return wasm_instance_new(store, module, imports, trap);
 #else
-  return wasm_instance_new_unchecked(store, module, imports, trap);
+  return wasm_instance_new_unchecked(store, module, imports.data, trap);
 #endif
 }
 

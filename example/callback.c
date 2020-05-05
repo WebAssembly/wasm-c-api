@@ -110,11 +110,16 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = {
+  wasm_extern_t* imports[] = {
     wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
   };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, array_len(imports), NULL);
+    wasm_instance_new(
+      store,
+      module,
+      (wasm_extern_vec_t) { array_len(imports), imports },
+      NULL
+    );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -148,7 +153,13 @@ int main(int argc, const char* argv[]) {
   args[1].kind = WASM_I32;
   args[1].of.i32 = 4;
   wasm_val_t results[1];
-  if (wasm_func_call(store, run_func, args, array_len(args), results, array_len(results))) {
+  if (wasm_func_call(
+        store,
+        run_func,
+        (wasm_val_vec_t) { array_len(args), args },
+        (wasm_val_vec_t) { array_len(results), results }
+      )
+  ) {
     printf("> Error calling function!\n");
     return 1;
   }

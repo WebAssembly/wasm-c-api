@@ -50,7 +50,13 @@ wasm_table_t* get_export_table(const wasm_extern_vec_t* exports, size_t i) {
 own wasm_ref_t* call_v_r(wasm_store_t* store, const wasm_func_t* func) {
   printf("call_v_r... "); fflush(stdout);
   wasm_val_t results[1];
-  if (wasm_func_call(store, func, NULL, 0, results, array_len(results))) {
+  if (wasm_func_call(
+        store,
+        func,
+        (wasm_val_vec_t) { 0, NULL },
+        (wasm_val_vec_t) { array_len(results), results }
+      )
+  ) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -63,7 +69,13 @@ void call_r_v(wasm_store_t* store, const wasm_func_t* func, wasm_ref_t* ref) {
   wasm_val_t args[1];
   args[0].kind = WASM_ANYREF;
   args[0].of.ref = ref;
-  if (wasm_func_call(store, func, args, array_len(args), NULL, 0)) {
+  if (wasm_func_call(
+        store,
+        func,
+        (wasm_val_vec_t) { array_len(args), args },
+        (wasm_val_vec_t) { 0, NULL }
+      )
+  ) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -76,7 +88,13 @@ own wasm_ref_t* call_r_r(wasm_store_t* store, const wasm_func_t* func, wasm_ref_
   args[0].kind = WASM_ANYREF;
   args[0].of.ref = ref;
   wasm_val_t results[1];
-  if (wasm_func_call(store, func, args, array_len(args), results, array_len(results))) {
+  if (wasm_func_call(
+        store,
+        func,
+        (wasm_val_vec_t) { array_len(args), args },
+        (wasm_val_vec_t) { array_len(results), results }
+      )
+  ) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -91,7 +109,13 @@ void call_ir_v(wasm_store_t* store, const wasm_func_t* func, int32_t i, wasm_ref
   args[0].of.i32 = i;
   args[1].kind = WASM_ANYREF;
   args[1].of.ref = ref;
-  if (wasm_func_call(store, func, args, array_len(args), NULL, 0)) {
+  if (wasm_func_call(
+        store,
+        func,
+        (wasm_val_vec_t) { array_len(args), args },
+        (wasm_val_vec_t) { 0, NULL }
+      )
+  ) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -104,7 +128,13 @@ own wasm_ref_t* call_i_r(wasm_store_t* store, const wasm_func_t* func, int32_t i
   args[0].kind = WASM_I32;
   args[0].of.i32 = i;
   wasm_val_t results[1];
-  if (wasm_func_call(store, func, args, array_len(args), results, array_len(results))) {
+  if (wasm_func_call(
+        store,
+        func,
+        (wasm_val_vec_t) { array_len(args), args },
+        (wasm_val_vec_t) { array_len(results), results }
+      )
+  ) {
     printf("> Error calling function!\n");
     exit(1);
   }
@@ -169,9 +199,14 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_t* imports[] = { wasm_func_as_extern(callback_func) };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, array_len(imports), NULL);
+    wasm_instance_new(
+      store,
+      module,
+      (wasm_extern_vec_t) { array_len(imports), imports },
+      NULL
+    );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

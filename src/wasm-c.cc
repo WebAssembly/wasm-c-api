@@ -874,30 +874,30 @@ wasm_trap_t* wasm_func_call_unchecked(
 wasm_trap_t* wasm_func_call(
   wasm_store_t* store,
   const wasm_func_t* func,
-  const wasm_val_t args[], size_t num_args,
-  wasm_val_t results[], size_t num_results
+  const wasm_val_vec_t args,
+  wasm_val_vec_t results
 ) {
   wasm_functype_t* functype = wasm_func_type(func);
   const wasm_valtype_vec_t* param_types = wasm_functype_params(functype);
   const wasm_valtype_vec_t* result_types = wasm_functype_results(functype);
 
-  if (param_types->size != num_args) {
+  if (param_types->size != args.size) {
     wasm_functype_delete(functype);
     return wasm_invariant_violation(store, "wrong number of args");
   }
-  if (result_types->size != num_results) {
+  if (result_types->size != results.size) {
     wasm_functype_delete(functype);
     return wasm_invariant_violation(store, "wrong number of results");
   }
 
   for (size_t i = 0; i != param_types->size; ++i) {
-    if (wasm_valtype_kind(param_types->data[i]) != args[i].kind) {
+    if (wasm_valtype_kind(param_types->data[i]) != args.data[i].kind) {
       wasm_functype_delete(functype);
       return wasm_invariant_violation(store, "wrong argument type");
     }
   }
 
-  return wasm_func_call_unchecked(func, args, results);
+  return wasm_func_call_unchecked(func, args.data, results.data);
 }
 
 
@@ -1385,13 +1385,13 @@ wasm_instance_t* wasm_instance_new_unchecked(
 wasm_instance_t* wasm_instance_new(
   wasm_store_t* store,
   const wasm_module_t* module,
-  const wasm_extern_t* const imports[], size_t num_imports,
+  wasm_extern_vec_t imports,
   wasm_trap_t** trap
 ) {
   wasm_importtype_vec_t module_imports;
   wasm_module_imports(module, &module_imports);
 
-  if (module_imports.size != num_imports) {
+  if (module_imports.size != imports.size) {
     wasm_importtype_vec_delete(&module_imports);
     *trap = wasm_invariant_violation(store, "wrong number of imports");
     return NULL;
@@ -1399,7 +1399,7 @@ wasm_instance_t* wasm_instance_new(
 
   wasm_importtype_vec_delete(&module_imports);
 
-  return wasm_instance_new_unchecked(store, module, imports, trap);
+  return wasm_instance_new_unchecked(store, module, imports.data, trap);
 }
 
 void wasm_instance_exports(

@@ -34,9 +34,14 @@ void check(bool success) {
   }
 }
 
-void check_call(wasm_store_t* store, wasm_func_t* func, wasm_val_t args[], size_t num_args, int32_t expected) {
+void check_call(wasm_store_t* store, wasm_func_t* func, wasm_val_vec_t args, int32_t expected) {
   wasm_val_t results[1];
-  wasm_trap_t* trap = wasm_func_call(store, func, args, num_args, results, array_len(results));
+  wasm_trap_t* trap = wasm_func_call(
+                        store,
+                        func,
+                        args,
+                        (wasm_val_vec_t) { array_len(results), results }
+                      );
   if (trap ||
       results[0].of.i32 != expected) {
     printf("> Error on result\n");
@@ -45,12 +50,12 @@ void check_call(wasm_store_t* store, wasm_func_t* func, wasm_val_t args[], size_
 }
 
 void check_call0(wasm_store_t* store, wasm_func_t* func, int32_t expected) {
-  check_call(store, func, NULL, 0, expected);
+  check_call(store, func, (wasm_val_vec_t) { 0, NULL }, expected);
 }
 
 void check_call1(wasm_store_t* store, wasm_func_t* func, int32_t arg, int32_t expected) {
   wasm_val_t args[] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
-  check_call(store, func, args, array_len(args), expected);
+  check_call(store, func, (wasm_val_vec_t) { array_len(args), args }, expected);
 }
 
 void check_call2(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
@@ -58,11 +63,16 @@ void check_call2(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t a
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_call(store, func, args, array_len(args), expected);
+  check_call(store, func, (wasm_val_vec_t) { array_len(args), args }, expected);
 }
 
-void check_ok(wasm_store_t* store, wasm_func_t* func, wasm_val_t args[], size_t num_args) {
-  wasm_trap_t *trap = wasm_func_call(store, func, args, num_args, NULL, 0);
+void check_ok(wasm_store_t* store, wasm_func_t* func, wasm_val_vec_t args) {
+  wasm_trap_t *trap = wasm_func_call(
+                        store,
+                        func,
+                        args,
+                        (wasm_val_vec_t) { 0, NULL }
+                      );
   if (trap) {
     printf("> Error on result, expected empty\n");
     exit(1);
@@ -74,12 +84,17 @@ void check_ok2(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t arg
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_ok(store, func, args, array_len(args));
+  check_ok(store, func, (wasm_val_vec_t) { array_len(args), args });
 }
 
-void check_trap(wasm_store_t* store, wasm_func_t* func, wasm_val_t args[], size_t num_args) {
+void check_trap(wasm_store_t* store, wasm_func_t* func, wasm_val_vec_t args) {
   wasm_val_t results[1];
-  own wasm_trap_t* trap = wasm_func_call(store, func, args, num_args, results, array_len(results));
+  own wasm_trap_t* trap = wasm_func_call(
+                            store,
+                            func,
+                            args,
+                            (wasm_val_vec_t) { array_len(results), results }
+                          );
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
@@ -89,7 +104,7 @@ void check_trap(wasm_store_t* store, wasm_func_t* func, wasm_val_t args[], size_
 
 void check_trap1(wasm_store_t* store, wasm_func_t* func, int32_t arg) {
   wasm_val_t args[1] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
-  check_trap(store, func, args, array_len(args));
+  check_trap(store, func, (wasm_val_vec_t) { array_len(args), args });
 }
 
 void check_trap2(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t arg2) {
@@ -97,7 +112,7 @@ void check_trap2(wasm_store_t* store, wasm_func_t* func, int32_t arg1, int32_t a
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_trap(store, func, args, array_len(args));
+  check_trap(store, func, (wasm_val_vec_t) { array_len(args), args });
 }
 
 
@@ -137,7 +152,12 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL, 0, NULL);
+  own wasm_instance_t* instance = wasm_instance_new(
+                                    store,
+                                    module,
+                                    (wasm_extern_vec_t) { 0, NULL },
+                                    NULL
+                                  );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

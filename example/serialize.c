@@ -78,9 +78,14 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating deserialized module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, deserialized, imports, array_len(imports), NULL);
+    wasm_instance_new(
+      store,
+      deserialized,
+      (wasm_extern_vec_t) { array_len(imports), imports },
+      NULL
+    );
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -107,7 +112,13 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  if (wasm_func_call(store, run_func, NULL, 0, NULL, 0)) {
+  if (wasm_func_call(
+        store,
+        run_func,
+        (wasm_val_vec_t) { 0, NULL },
+        (wasm_val_vec_t) { 0, NULL }
+      )
+  ) {
     printf("> Error calling function!\n");
     return 1;
   }
