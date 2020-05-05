@@ -25,7 +25,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("hello.wasm", "r");
+  FILE* file = fopen("hello.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
