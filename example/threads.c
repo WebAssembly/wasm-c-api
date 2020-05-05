@@ -99,7 +99,7 @@ int main(int argc, const char *argv[]) {
   wasm_engine_t* engine = wasm_engine_new();
 
   // Load binary.
-  FILE* file = fopen("threads.wasm", "r");
+  FILE* file = fopen("threads.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;

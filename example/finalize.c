@@ -20,7 +20,7 @@ void finalize(void* data) {
 void run_in_store(wasm_store_t* store) {
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("finalize.wasm", "r");
+  FILE* file = fopen("finalize.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     exit(1);

@@ -130,7 +130,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("hostref.wasm", "r");
+  FILE* file = fopen("hostref.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;

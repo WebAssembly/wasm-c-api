@@ -39,7 +39,7 @@ EXAMPLES = \
   finalize \
   serialize \
   threads \
-  # multi \
+  multi \
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
@@ -109,8 +109,10 @@ endif
 
 .PHONY: all cc c
 all: cc c
-cc: ${EXAMPLES:%=run-%-cc}
 c: ${EXAMPLES:%=run-%-c}
+cc: ${EXAMPLES:%=run-%-cc}
+co: ${EXAMPLES:%=${EXAMPLE_OUT}/%-c.o}
+cco: ${EXAMPLES:%=${EXAMPLE_OUT}/%-cc.o}
 
 # Running a C / C++ example
 run-%-c: ${EXAMPLE_OUT}/%-c ${EXAMPLE_OUT}/%.wasm ${V8_BLOBS:%=${EXAMPLE_OUT}/%.bin}

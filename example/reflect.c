@@ -90,7 +90,7 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("reflect.wasm", "r");
+  FILE* file = fopen("reflect.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
