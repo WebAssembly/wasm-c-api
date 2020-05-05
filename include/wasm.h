@@ -440,17 +440,6 @@ WASM_API_EXTERN own wasm_trap_t* wasm_func_call(
   wasm_val_vec_t args,
   wasm_val_vec_t results);
 
-/// Similar to `wasm_func_call`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_trap_t* wasm_func_call_unchecked(
-  const wasm_func_t*,
-  const wasm_val_t args[],
-  wasm_val_t results[]);
-
 
 // Global Instances
 
@@ -465,15 +454,6 @@ WASM_DECLARE_REF(global)
 WASM_API_EXTERN own wasm_global_t* wasm_global_new(
   wasm_store_t*, const wasm_globaltype_t*, const wasm_val_t*, own wasm_trap_t**);
 
-/// Similar to `wasm_global_new`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_global_t* wasm_global_new_unchecked(
-  wasm_store_t*, const wasm_globaltype_t*, const wasm_val_t*);
-
 WASM_API_EXTERN own wasm_globaltype_t* wasm_global_type(const wasm_global_t*);
 
 WASM_API_EXTERN void wasm_global_get(const wasm_global_t*, own wasm_val_t* out);
@@ -485,14 +465,6 @@ WASM_API_EXTERN void wasm_global_get(const wasm_global_t*, own wasm_val_t* out);
 /// This function returns an error if the global is immutable or if
 /// the new value has a type with a different `wasm_valkind_t` than the global.
 WASM_API_EXTERN own wasm_trap_t* wasm_global_set(wasm_store_t*, wasm_global_t*, const wasm_val_t*);
-
-/// Similar to `wasm_global_set`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN void wasm_global_set_unchecked(wasm_global_t*, const wasm_val_t*);
 
 
 // Table Instances
@@ -528,33 +500,6 @@ WASM_API_EXTERN own wasm_table_t* wasm_table_new_anyref(
 WASM_API_EXTERN own wasm_table_t* wasm_table_new_funcref(
   wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t* init,
   own wasm_trap_t** trap);
-
-/// Similar to `wasm_table_new`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_table_t* wasm_table_new_unchecked(
-  wasm_store_t*, const wasm_tabletype_t*, const wasm_val_t* init);
-
-/// Similar to `wasm_table_new_anyref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_table_t* wasm_table_new_anyref_unchecked(
-  wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t* init);
-
-/// Similar to `wasm_table_new_funcref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_table_t* wasm_table_new_funcref_unchecked(
-  wasm_store_t*, const wasm_tabletype_t*, wasm_ref_t* init);
 
 WASM_API_EXTERN own wasm_tabletype_t* wasm_table_type(const wasm_table_t*);
 
@@ -593,26 +538,6 @@ WASM_API_EXTERN own wasm_ref_t* wasm_table_get_anyref(
 ///
 /// This function returns an error if the table's element type is not funcref.
 WASM_API_EXTERN own wasm_ref_t* wasm_table_get_funcref(
-  wasm_store_t*, const wasm_table_t*, wasm_table_size_t index, own wasm_trap_t** trap
-);
-
-/// Similar to `wasm_table_get_anyref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_ref_t* wasm_table_get_anyref_unchecked(
-  wasm_store_t*, const wasm_table_t*, wasm_table_size_t index, own wasm_trap_t** trap
-);
-
-/// Similar to `wasm_table_get_funcref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_ref_t* wasm_table_get_funcref_unchecked(
   wasm_store_t*, const wasm_table_t*, wasm_table_size_t index, own wasm_trap_t** trap
 );
 
@@ -657,36 +582,6 @@ WASM_API_EXTERN own wasm_trap_t* wasm_table_set_funcref(
   wasm_store_t*, wasm_table_t*, wasm_table_size_t index, wasm_ref_t*
 );
 
-/// Similar to `wasm_table_set`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_trap_t* wasm_table_set_unchecked(
-  wasm_store_t*, wasm_table_t*, wasm_table_size_t index, const wasm_val_t*
-);
-
-/// Similar to `wasm_table_set_anyref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_trap_t* wasm_table_set_anyref_unchecked(
-  wasm_store_t*, wasm_table_t*, wasm_table_size_t index, wasm_ref_t*
-);
-
-/// Similar to `wasm_table_set_funcref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_trap_t* wasm_table_set_funcref_unchecked(
-  wasm_store_t*, wasm_table_t*, wasm_table_size_t index, wasm_ref_t*
-);
-
 WASM_API_EXTERN wasm_table_size_t wasm_table_size(const wasm_table_t*);
 
 /// Increase the size of a table. Set *success to false if memory allocation fails.
@@ -727,36 +622,6 @@ WASM_API_EXTERN own wasm_trap_t* wasm_table_grow_anyref(
 WASM_API_EXTERN own wasm_trap_t* wasm_table_grow_funcref(
   wasm_store_t*, wasm_table_t*, wasm_table_size_t delta, wasm_ref_t* init,
   bool* success
-);
-
-/// Similar to `wasm_table_grow`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN bool wasm_table_grow_unchecked(
-  wasm_table_t*, wasm_table_size_t delta, const wasm_val_t* init
-);
-
-/// Similar to `wasm_table_grow_anyref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN bool wasm_table_grow_anyref_unchecked(
-  wasm_table_t*, wasm_table_size_t delta, wasm_ref_t* init
-);
-
-/// Similar to `wasm_table_grow_funcref`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN bool wasm_table_grow_funcref_unchecked(
-  wasm_table_t*, wasm_table_size_t delta, wasm_ref_t* init
 );
 
 
@@ -827,18 +692,6 @@ WASM_DECLARE_REF(instance)
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
   wasm_store_t*, const wasm_module_t*,
   wasm_extern_vec_t imports,
-  own wasm_trap_t** trap
-);
-
-/// Similar to `wasm_instance_new`, but with undefined behavior instead of
-/// reporting errors.
-///
-/// # Safety
-///
-/// This function has undefined behavior in response to any errors.
-WASM_API_EXTERN own wasm_instance_t* wasm_instance_new_unchecked(
-  wasm_store_t*, const wasm_module_t*,
-  const wasm_extern_t* const imports[],
   own wasm_trap_t** trap
 );
 
@@ -1017,227 +870,6 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
   return (void*)(intptr_t)val->of.i32;
 #elif UINTPTR_MAX == UINT64_MAX
   return (void*)(intptr_t)val->of.i64;
-#endif
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Wrappers around the `_unchecked` APIs which which enable extra error
-// checking when `NDEBUG` is not predefined.
-
-static inline own wasm_trap_t* wasm_func_call_emboldened(
-  wasm_store_t* store,
-  const wasm_func_t* func,
-  wasm_val_vec_t args,
-  wasm_val_vec_t results)
-{
-#ifndef NDEBUG
-  return wasm_func_call(store, func, args, results);
-#else
-  return wasm_func_call_unchecked(func, args.data, results.data);
-#endif
-}
-
-static inline own wasm_global_t* wasm_global_new_emboldened(
-  wasm_store_t* store,
-  const wasm_globaltype_t* type,
-  const wasm_val_t* val)
-{
-#ifndef NDEBUG
-  own wasm_trap_t* trap;
-  own wasm_global_t* global = wasm_global_new(store, type, val, &trap);
-  assert(global || !trap);
-  return global;
-#else
-  return wasm_global_new_unchecked(store, type, val);
-#endif
-}
-
-static inline void wasm_global_set_emboldened(
-  wasm_store_t* store,
-  wasm_global_t* global,
-  const wasm_val_t* val)
-{
-#ifndef NDEBUG
-  assert(!wasm_global_set(store, global, val));
-#else
-  wasm_global_set_unchecked(global, val);
-#endif
-}
-
-static inline own wasm_table_t* wasm_table_new_emboldened(
-  wasm_store_t* store,
-  const wasm_tabletype_t* type,
-  const wasm_val_t* init)
-{
-#ifndef NDEBUG
-  own wasm_trap_t* trap;
-  own wasm_table_t* table = wasm_table_new(store, type, init, &trap);
-  assert(table || !trap);
-  return table;
-#else
-  return wasm_table_new_unchecked(store, type, init);
-#endif
-}
-
-static inline own wasm_table_t* wasm_table_new_anyref_emboldened(
-  wasm_store_t* store,
-  const wasm_tabletype_t* type,
-  wasm_ref_t* init)
-{
-#ifndef NDEBUG
-  own wasm_trap_t* trap;
-  own wasm_table_t* table = wasm_table_new_anyref(store, type, init, &trap);
-  assert(table || !trap);
-  return table;
-#else
-  return wasm_table_new_anyref_unchecked(store, type, init);
-#endif
-}
-
-static inline own wasm_table_t* wasm_table_new_funcref_emboldened(
-  wasm_store_t* store,
-  const wasm_tabletype_t* type,
-  wasm_ref_t* init)
-{
-#ifndef NDEBUG
-  own wasm_trap_t* trap;
-  own wasm_table_t* table = wasm_table_new_funcref(store, type, init, &trap);
-  assert(table || !trap);
-  return table;
-#else
-  return wasm_table_new_funcref_unchecked(store, type, init);
-#endif
-}
-
-static inline own wasm_ref_t* wasm_table_get_anyref_emboldened(
-  wasm_store_t* store,
-  const wasm_table_t* table,
-  wasm_table_size_t index,
-  own wasm_trap_t** trap)
-{
-#ifndef NDEBUG
-  return wasm_table_get_anyref(store, table, index, trap);
-#else
-  return wasm_table_get_anyref_unchecked(store, table, index, trap);
-#endif
-}
-
-static inline own wasm_ref_t* wasm_table_get_funcref_emboldened(
-  wasm_store_t* store,
-  const wasm_table_t* table,
-  wasm_table_size_t index,
-  own wasm_trap_t** trap)
-{
-#ifndef NDEBUG
-  return wasm_table_get_funcref(store, table, index, trap);
-#else
-  return wasm_table_get_funcref_unchecked(store, table, index, trap);
-#endif
-}
-
-static inline own wasm_trap_t* wasm_table_set_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t index,
-  const wasm_val_t* val)
-{
-#ifndef NDEBUG
-  return wasm_table_set(store, table, index, val);
-#else
-  return wasm_table_set_unchecked(store, table, index, val);
-#endif
-}
-
-static inline own wasm_trap_t* wasm_table_set_anyref_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t index,
-  wasm_ref_t* ref)
-{
-#ifndef NDEBUG
-  return wasm_table_set_anyref(store, table, index, ref);
-#else
-  return wasm_table_set_anyref_unchecked(store, table, index, ref);
-#endif
-}
-
-static inline own wasm_trap_t* wasm_table_set_funcref_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t index,
-  wasm_ref_t* ref)
-{
-#ifndef NDEBUG
-  return wasm_table_set_funcref(store, table, index, ref);
-#else
-  return wasm_table_set_funcref_unchecked(store, table, index, ref);
-#endif
-}
-
-static inline bool wasm_table_grow_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t delta,
-  const wasm_val_t* init)
-{
-#ifndef NDEBUG
-  bool success;
-  own wasm_trap_t* trap = wasm_table_grow(store, table, delta, init, &success);
-  assert(!trap);
-  return success;
-#else
-  (void) store;
-  return wasm_table_grow_unchecked(table, delta, init);
-#endif
-}
-
-static inline bool wasm_table_grow_anyref_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t delta,
-  wasm_ref_t* init)
-{
-#ifndef NDEBUG
-  bool success;
-  own wasm_trap_t* trap =
-    wasm_table_grow_anyref(store, table, delta, init, &success);
-  assert(!trap);
-  return success;
-#else
-  (void) store;
-  return wasm_table_grow_anyref_unchecked(table, delta, init);
-#endif
-}
-
-static inline bool wasm_table_grow_funcref_emboldened(
-  wasm_store_t* store,
-  wasm_table_t* table,
-  wasm_table_size_t delta,
-  wasm_ref_t* init)
-{
-#ifndef NDEBUG
-  bool success;
-  own wasm_trap_t* trap =
-    wasm_table_grow_funcref(store, table, delta, init, &success);
-  assert(!trap);
-  return success;
-#else
-  (void) store;
-  return wasm_table_grow_funcref_unchecked(table, delta, init);
-#endif
-}
-
-static inline own wasm_instance_t* wasm_instance_new_emboldened(
-  wasm_store_t* store,
-  const wasm_module_t* module,
-  wasm_extern_vec_t imports,
-  own wasm_trap_t** trap)
-{
-#ifndef NDEBUG
-  return wasm_instance_new(store, module, imports, trap);
-#else
-  return wasm_instance_new_unchecked(store, module, imports.data, trap);
 #endif
 }
 

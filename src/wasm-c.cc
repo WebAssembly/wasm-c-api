@@ -1,4 +1,5 @@
 #include "wasm.h"
+#include "wasm-unchecked.h"
 #include "wasm.hh"
 
 #include "wasm-v8.cc"
