@@ -690,9 +690,17 @@ size_t wasm_frame_module_offset(const wasm_frame_t* frame) {
 
 WASM_DEFINE_REF(trap, Trap)
 
-wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t* message) {
+wasm_trap_t* wasm_trap_new(
+  wasm_store_t* store,
+  const wasm_message_t* message,
+  bool is_compile_time
+) {
   auto message_ = borrow_byte_vec(message);
-  return release_trap(Trap::make(store, message_.it));
+  return release_trap(Trap::make(store, message_.it, is_compile_time));
+}
+
+bool wasm_trap_is_compile_error(const wasm_trap_t* trap) {
+  return reveal_trap(trap)->is_compile_error();
 }
 
 void wasm_trap_message(const wasm_trap_t* trap, wasm_message_t* out) {
@@ -729,7 +737,7 @@ static wasm_trap_t* wasm_invariant_violation(wasm_store_t* store, const char *me
   wasm_name_t name;
   wasm_name_new_from_string(&name, (std::string("invariant violation: ") + message).c_str());
 
-  wasm_trap_t* error = wasm_trap_new(store, &name);
+  wasm_trap_t* error = wasm_trap_new(store, &name, true);
 
   wasm_name_delete(&name);
 
@@ -740,7 +748,7 @@ static wasm_trap_t* wasm_table_oob(wasm_store_t* store) {
   wasm_name_t name;
   wasm_name_new_from_string(&name, "out of bounds table access");
 
-  wasm_trap_t* error = wasm_trap_new(store, &name);
+  wasm_trap_t* error = wasm_trap_new(store, &name, false);
 
   wasm_name_delete(&name);
 

@@ -38,7 +38,7 @@ static inline own wasm_global_t* wasm_global_new_emboldened(
 #ifndef NDEBUG
   own wasm_trap_t* trap;
   own wasm_global_t* global = wasm_global_new(store, type, val, &trap);
-  assert(global || !trap);
+  assert(global || !trap || !wasm_trap_is_compile_error(trap));
   return global;
 #else
   return wasm_global_new_unchecked(store, type, val);
@@ -65,7 +65,7 @@ static inline own wasm_table_t* wasm_table_new_emboldened(
 #ifndef NDEBUG
   own wasm_trap_t* trap;
   own wasm_table_t* table = wasm_table_new(store, type, init, &trap);
-  assert(table || !trap);
+  assert(table || !trap || !wasm_trap_is_compile_error(trap));
   return table;
 #else
   return wasm_table_new_unchecked(store, type, init);
@@ -80,7 +80,7 @@ static inline own wasm_table_t* wasm_table_new_anyref_emboldened(
 #ifndef NDEBUG
   own wasm_trap_t* trap;
   own wasm_table_t* table = wasm_table_new_anyref(store, type, init, &trap);
-  assert(table || !trap);
+  assert(table || !trap || !wasm_trap_is_compile_error(trap));
   return table;
 #else
   return wasm_table_new_anyref_unchecked(store, type, init);
@@ -95,7 +95,7 @@ static inline own wasm_table_t* wasm_table_new_funcref_emboldened(
 #ifndef NDEBUG
   own wasm_trap_t* trap;
   own wasm_table_t* table = wasm_table_new_funcref(store, type, init, &trap);
-  assert(table || !trap);
+  assert(table || !trap || !wasm_trap_is_compile_error(trap));
   return table;
 #else
   return wasm_table_new_funcref_unchecked(store, type, init);

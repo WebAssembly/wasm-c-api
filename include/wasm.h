@@ -373,8 +373,13 @@ typedef wasm_name_t wasm_message_t;  // null terminated
 
 WASM_DECLARE_REF(trap)
 
-WASM_API_EXTERN own wasm_trap_t* wasm_trap_new(wasm_store_t* store, const wasm_message_t*);
+WASM_API_EXTERN own wasm_trap_t* wasm_trap_new(
+  wasm_store_t* store,
+  const wasm_message_t*,
+  bool is_compile_time
+);
 
+WASM_API_EXTERN bool wasm_trap_is_compile_error(const wasm_trap_t*);
 WASM_API_EXTERN void wasm_trap_message(const wasm_trap_t*, own wasm_message_t* out);
 WASM_API_EXTERN own wasm_frame_t* wasm_trap_origin(const wasm_trap_t*);
 WASM_API_EXTERN void wasm_trap_trace(const wasm_trap_t*, own wasm_frame_vec_t* out);
