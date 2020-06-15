@@ -408,9 +408,9 @@ WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const 
 WASM_DECLARE_REF(func)
 
 typedef own wasm_trap_t* (*wasm_func_callback_t)(
-  const wasm_val_t args[], wasm_val_t results[]);
+  const wasm_val_vec_t* args, own wasm_val_vec_t* results);
 typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(
-  void* env, const wasm_val_t args[], wasm_val_t results[]);
+  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results);
 
 WASM_API_EXTERN own wasm_func_t* wasm_func_new(
   wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
@@ -423,7 +423,7 @@ WASM_API_EXTERN size_t wasm_func_param_arity(const wasm_func_t*);
 WASM_API_EXTERN size_t wasm_func_result_arity(const wasm_func_t*);
 
 WASM_API_EXTERN own wasm_trap_t* wasm_func_call(
-  const wasm_func_t*, const wasm_val_t args[], wasm_val_t results[]);
+  const wasm_func_t*, const wasm_val_vec_t* args, wasm_val_vec_t* results);
 
 
 // Global Instances
@@ -510,7 +510,7 @@ WASM_API_EXTERN const wasm_memory_t* wasm_extern_as_memory_const(const wasm_exte
 WASM_DECLARE_REF(instance)
 
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
-  wasm_store_t*, const wasm_module_t*, const wasm_extern_t* const imports[],
+  wasm_store_t*, const wasm_module_t*, own wasm_extern_vec_t* imports,
   own wasm_trap_t**
 );
 

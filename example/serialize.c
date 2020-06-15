@@ -8,7 +8,9 @@
 #define own
 
 // A function to be called from Wasm code.
-own wasm_trap_t* hello_callback(const wasm_val_t args[], wasm_val_t results[]) {
+own wasm_trap_t* hello_callback(
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
+) {
   printf("Calling back...\n");
   printf("> Hello World!\n");
   return NULL;
@@ -76,9 +78,10 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating deserialized module...\n");
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
+  wasm_extern_vec_t imports = {1, externs};
   own wasm_instance_t* instance =
-    wasm_instance_new(store, deserialized, imports, NULL);
+    wasm_instance_new(store, deserialized, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -105,7 +108,8 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  if (wasm_func_call(run_func, NULL, NULL)) {
+  wasm_val_vec_t empty = {0, NULL};
+  if (wasm_func_call(run_func, &empty, &empty)) {
     printf("> Error calling function!\n");
     return 1;
   }

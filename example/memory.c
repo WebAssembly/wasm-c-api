@@ -32,21 +32,23 @@ void check(bool success) {
   }
 }
 
-void check_call(wasm_func_t* func, wasm_val_t args[], int32_t expected) {
-  wasm_val_t results[1];
-  if (wasm_func_call(func, args, results) || results[0].of.i32 != expected) {
+void check_call(wasm_func_t* func, int i, wasm_val_t args[], int32_t expected) {
+  wasm_val_t r;
+  wasm_val_vec_t args_ = {i, args};
+  wasm_val_vec_t results = {1, &r};
+  if (wasm_func_call(func, &args_, &results) || r.of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
 }
 
 void check_call0(wasm_func_t* func, int32_t expected) {
-  check_call(func, NULL, expected);
+  check_call(func, 0, NULL, expected);
 }
 
 void check_call1(wasm_func_t* func, int32_t arg, int32_t expected) {
   wasm_val_t args[] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
-  check_call(func, args, expected);
+  check_call(func, 1, args, expected);
 }
 
 void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
@@ -54,11 +56,13 @@ void check_call2(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_call(func, args, expected);
+  check_call(func, 2, args, expected);
 }
 
-void check_ok(wasm_func_t* func, wasm_val_t args[]) {
-  if (wasm_func_call(func, args, NULL)) {
+void check_ok(wasm_func_t* func, int i, wasm_val_t args[]) {
+  wasm_val_vec_t args_ = {i, args};
+  wasm_val_vec_t results = {0, NULL};
+  if (wasm_func_call(func, &args_, &results)) {
     printf("> Error on result, expected empty\n");
     exit(1);
   }
@@ -69,12 +73,14 @@ void check_ok2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_ok(func, args);
+  check_ok(func, 2, args);
 }
 
-void check_trap(wasm_func_t* func, wasm_val_t args[]) {
-  wasm_val_t results[1];
-  own wasm_trap_t* trap = wasm_func_call(func, args, results);
+void check_trap(wasm_func_t* func, int i, wasm_val_t args[]) {
+  wasm_val_t r;
+  wasm_val_vec_t args_ = {i, args};
+  wasm_val_vec_t results = {1, &r};
+  own wasm_trap_t* trap = wasm_func_call(func, &args_, &results);
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
@@ -84,7 +90,7 @@ void check_trap(wasm_func_t* func, wasm_val_t args[]) {
 
 void check_trap1(wasm_func_t* func, int32_t arg) {
   wasm_val_t args[1] = { {.kind = WASM_I32, .of = {.i32 = arg}} };
-  check_trap(func, args);
+  check_trap(func, 1, args);
 }
 
 void check_trap2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
@@ -92,7 +98,7 @@ void check_trap2(wasm_func_t* func, int32_t arg1, int32_t arg2) {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  check_trap(func, args);
+  check_trap(func, 2, args);
 }
 
 
@@ -132,7 +138,8 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL, NULL);
+  wasm_extern_vec_t imports = {0, NULL};
+  own wasm_instance_t* instance = wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;

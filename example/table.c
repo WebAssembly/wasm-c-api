@@ -9,11 +9,11 @@
 
 // A function to be called from Wasm code.
 own wasm_trap_t* neg_callback(
-  const wasm_val_t args[], wasm_val_t results[]
+  const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
   printf("Calling back...\n");
-  results[0].kind = WASM_I32;
-  results[0].of.i32 = -args[0].of.i32;
+  results->data[0].kind = WASM_I32;
+  results->data[0].of.i32 = -args->data[0].of.i32;
   return NULL;
 }
 
@@ -49,23 +49,28 @@ void check_table(wasm_table_t* table, int32_t i, bool expect_set) {
 }
 
 void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
-  wasm_val_t args[2] = {
+  wasm_val_t vs[2] = {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  wasm_val_t results[1];
-  if (wasm_func_call(func, args, results) || results[0].of.i32 != expected) {
+  wasm_val_t r;
+  wasm_val_vec_t args = {2, vs};
+  wasm_val_vec_t results = {1, &r};
+  if (wasm_func_call(func, &args, &results) || r.of.i32 != expected) {
     printf("> Error on result\n");
     exit(1);
   }
 }
 
 void check_trap(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t args[2] = {
+  wasm_val_t vs[2] = {
     {.kind = WASM_I32, .of = {.i32 = arg1}},
     {.kind = WASM_I32, .of = {.i32 = arg2}}
   };
-  own wasm_trap_t* trap = wasm_func_call(func, args, NULL);
+  wasm_val_t r;
+  wasm_val_vec_t args = {2, vs};
+  wasm_val_vec_t results = {1, &r};
+  own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
   if (! trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
@@ -110,7 +115,9 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  own wasm_instance_t* instance = wasm_instance_new(store, module, NULL, NULL);
+  wasm_extern_vec_t imports = {0, NULL};
+  own wasm_instance_t* instance =
+    wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
