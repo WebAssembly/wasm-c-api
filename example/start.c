@@ -54,7 +54,7 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_vec_t imports = {0, NULL};
+  wasm_extern_vec_t imports = WASM_EMPTY_VEC;
   own wasm_trap_t* trap = NULL;
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, &trap);

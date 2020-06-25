@@ -79,7 +79,7 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating deserialized module...\n");
   wasm_extern_t* externs[] = { wasm_func_as_extern(hello_func) };
-  wasm_extern_vec_t imports = {1, externs};
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, deserialized, &imports, NULL);
   if (!instance) {
@@ -108,7 +108,7 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_vec_t empty = {0, NULL};
+  wasm_val_vec_t empty = WASM_EMPTY_VEC;
   if (wasm_func_call(run_func, &empty, &empty)) {
     printf("> Error calling function!\n");
     return 1;

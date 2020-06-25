@@ -42,7 +42,7 @@ void* run(void* args_abs) {
     own wasm_func_t* func = wasm_func_new(store, func_type, callback);
     wasm_functype_delete(func_type);
 
-    wasm_val_t val = {.kind = WASM_I32, .of = {.i32 = (int32_t)args->id}};
+    wasm_val_t val = WASM_I32_VAL((int32_t)args->id);
     own wasm_globaltype_t* global_type =
       wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
     own wasm_global_t* global = wasm_global_new(store, global_type, &val);
@@ -52,7 +52,7 @@ void* run(void* args_abs) {
     wasm_extern_t* externs[] = {
       wasm_func_as_extern(func), wasm_global_as_extern(global),
     };
-    wasm_extern_vec_t imports = {2, externs};
+    wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
     own wasm_instance_t* instance =
       wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {
@@ -79,7 +79,7 @@ void* run(void* args_abs) {
     wasm_instance_delete(instance);
 
     // Call.
-    wasm_val_vec_t empty = {0, NULL};
+    wasm_val_vec_t empty = WASM_EMPTY_VEC;
     if (wasm_func_call(run_func, &empty, &empty)) {
       printf("> Error calling function!\n");
       return NULL;

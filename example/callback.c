@@ -111,7 +111,7 @@ int main(int argc, const char* argv[]) {
   wasm_extern_t* externs[] = {
     wasm_func_as_extern(print_func), wasm_func_as_extern(closure_func)
   };
-  wasm_extern_vec_t imports = { 2, externs };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
@@ -141,15 +141,11 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t args[2];
-  args[0].kind = WASM_I32;
-  args[0].of.i32 = 3;
-  args[1].kind = WASM_I32;
-  args[1].of.i32 = 4;
-  wasm_val_t results[1];
-  wasm_val_vec_t args_ = {2, args};
-  wasm_val_vec_t results_ = {1, results};
-  if (wasm_func_call(run_func, &args_, &results_)) {
+  wasm_val_t as[2] = { WASM_I32_VAL(3), WASM_I32_VAL(4) };
+  wasm_val_t rs[1] = { WASM_INIT_VAL };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(as);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
+  if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -158,7 +154,7 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %u\n", results[0].of.i32);
+  printf("> %u\n", rs[0].of.i32);
 
   // Shut down.
   printf("Shutting down...\n");

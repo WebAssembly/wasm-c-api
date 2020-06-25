@@ -90,8 +90,8 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = {wasm_func_as_extern(callback_func)};
-  wasm_extern_vec_t imports = {1, externs};
+  wasm_extern_t* externs[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
@@ -120,18 +120,14 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t vals[4];
-  vals[0].kind = WASM_I32;
-  vals[0].of.i32 = 1;
-  vals[1].kind = WASM_I64;
-  vals[1].of.i64 = 2;
-  vals[2].kind = WASM_I64;
-  vals[2].of.i64 = 3;
-  vals[3].kind = WASM_I32;
-  vals[3].of.i32 = 4;
-  wasm_val_t res[4];
-  wasm_val_vec_t args = {4, vals};
-  wasm_val_vec_t results = {4, res};
+  wasm_val_t vals[4] = {
+    WASM_I32_VAL(1), WASM_I32_VAL(2), WASM_I32_VAL(3), WASM_I32_VAL(4)
+  };
+  wasm_val_t res[4] = {
+    WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
+  };
+  wasm_val_vec_t args = WASM_ARRAY_VEC(vals);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(res);
   if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
     return 1;
