@@ -97,9 +97,9 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto imports = wasm::ownvec<wasm::Extern>::make(
-    const_f32_import->copy(), const_i64_import->copy(),
-    var_f32_import->copy(), var_i64_import->copy()
+  auto imports = wasm::vec<wasm::Extern*>::make(
+    const_f32_import.get(), const_i64_import.get(),
+    var_f32_import.get(), var_i64_import.get()
   );
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {

@@ -510,7 +510,7 @@ WASM_API_EXTERN const wasm_memory_t* wasm_extern_as_memory_const(const wasm_exte
 WASM_DECLARE_REF(instance)
 
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
-  wasm_store_t*, const wasm_module_t*, own wasm_extern_vec_t* imports,
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t* imports,
   own wasm_trap_t**
 );
 

@@ -60,7 +60,7 @@ struct borrowed_vec {
 
 // Vectors
 
-#define WASM_DEFINE_VEC_BASE(name, Name, vec, ptr_or_none) \
+#define WASM_DEFINE_VEC_BASE(name, Name, vec, plainvec, ptr_or_none) \
   static_assert( \
     sizeof(wasm_##name##_vec_t) == sizeof(vec<Name>), \
     "C/C++ incompatibility" \
@@ -85,6 +85,14 @@ struct borrowed_vec {
   extern "C++" inline auto hide_##name##_vec(const vec<Name>::elem_type* v) \
   -> wasm_##name##_t ptr_or_none const* { \
     return reinterpret_cast<wasm_##name##_t ptr_or_none const*>(v); \
+  } \
+  extern "C++" inline auto reveal_##name##_vec(wasm_##name##_vec_t* v) \
+  -> plainvec<Name*>* { \
+    return reinterpret_cast<plainvec<Name*>*>(v); \
+  } \
+  extern "C++" inline auto reveal_##name##_vec(const wasm_##name##_vec_t* v) \
+  -> const plainvec<Name*>* { \
+    return reinterpret_cast<const plainvec<Name*>*>(v); \
   } \
   extern "C++" inline auto reveal_##name##_vec(wasm_##name##_t ptr_or_none* v) \
   -> vec<Name>::elem_type* { \
@@ -134,7 +142,7 @@ struct borrowed_vec {
 
 // Vectors with no ownership management of elements
 #define WASM_DEFINE_VEC_PLAIN(name, Name) \
-  WASM_DEFINE_VEC_BASE(name, Name, vec, ) \
+  WASM_DEFINE_VEC_BASE(name, Name, vec, vec, ) \
   \
   void wasm_##name##_vec_new( \
     wasm_##name##_vec_t* out, \
@@ -156,7 +164,7 @@ struct borrowed_vec {
 
 // Vectors that own their elements
 #define WASM_DEFINE_VEC_OWN(name, Name) \
-  WASM_DEFINE_VEC_BASE(name, Name, ownvec, *) \
+  WASM_DEFINE_VEC_BASE(name, Name, ownvec, vec, *) \
   \
   void wasm_##name##_vec_new( \
     wasm_##name##_vec_t* out, \
@@ -620,7 +628,7 @@ inline auto borrow_val(const wasm_val_t* v) -> borrowed_val {
 }  // extern "C++"
 
 
-WASM_DEFINE_VEC_BASE(val, Val, vec, )
+WASM_DEFINE_VEC_BASE(val, Val, vec, vec, )
 
 void wasm_val_vec_new(
   wasm_val_vec_t* out, size_t size, wasm_val_t const data[]
@@ -999,13 +1007,13 @@ WASM_DEFINE_REF(instance, Instance)
 wasm_instance_t* wasm_instance_new(
   wasm_store_t* store,
   const wasm_module_t* module,
-  wasm_extern_vec_t* imports,
+  const wasm_extern_vec_t* imports,
   wasm_trap_t** trap
 ) {
   own<Trap> error;
-  auto imports_ = borrow_extern_vec(imports);
+  auto imports_ = reveal_extern_vec(imports);
   auto instance =
-    release_instance(Instance::make(store, module, imports_.it, &error));
+    release_instance(Instance::make(store, module, *imports_, &error));
   if (trap) *trap = hide_trap(error.release());
   return instance;
 }

@@ -53,8 +53,7 @@ void run(
       store, global_type.get(), wasm::Val::i32(i));
 
     // Instantiate.
-    auto imports = wasm::ownvec<wasm::Extern>::make(
-      std::move(func), std::move(global));
+    auto imports = wasm::vec<wasm::Extern*>::make(func.get(), global.get());
     auto instance = wasm::Instance::make(store, module.get(), imports);
     if (!instance) {
       std::lock_guard<std::mutex> lock(*mutex);

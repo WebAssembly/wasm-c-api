@@ -229,6 +229,7 @@ DEFINE_VEC(Global, ownvec, GLOBAL)
 DEFINE_VEC(Table, ownvec, TABLE)
 DEFINE_VEC(Memory, ownvec, MEMORY)
 DEFINE_VEC(Extern, ownvec, EXTERN)
+DEFINE_VEC(Extern*, vec, EXTERN)
 DEFINE_VEC(Val, vec, VAL)
 
 #endif  // #ifdef WASM_API_DEBUG
@@ -2019,7 +2020,7 @@ auto Instance::copy() const -> own<Instance> {
 }
 
 auto Instance::make(
-  Store* store_abs, const Module* module_abs, const ownvec<Extern>& imports,
+  Store* store_abs, const Module* module_abs, const vec<Extern*>& imports,
   own<Trap>* trap
 ) -> own<Instance> {
   auto store = impl(store_abs);
@@ -2058,7 +2059,7 @@ auto Instance::make(
     }
 
     ignore(module_obj->DefineOwnProperty(
-      context, name_str, extern_to_v8(imports[i].get())));
+      context, name_str, extern_to_v8(imports[i])));
   }
 
   v8::TryCatch handler(isolate);
