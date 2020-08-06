@@ -12,7 +12,7 @@ auto fail_callback(
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   auto store = reinterpret_cast<wasm::Store*>(env);
-  auto message = wasm::Name::make(std::string("callback abort"));
+  auto message = wasm::Name::make_nt(std::string("callback abort"));
   return wasm::Trap::make(store, message);
 }
 
