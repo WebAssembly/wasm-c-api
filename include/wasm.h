@@ -107,6 +107,12 @@ typedef wasm_byte_vec_t wasm_name_t;
 static inline void wasm_name_new_from_string(
   own wasm_name_t* out, const char* s
 ) {
+  wasm_name_new(out, strlen(s), s);
+}
+
+static inline void wasm_name_new_from_string_nt(
+  own wasm_name_t* out, const char* s
+) {
   wasm_name_new(out, strlen(s) + 1, s);
 }
 

@@ -13,7 +13,7 @@ own wasm_trap_t* fail_callback(
 ) {
   printf("Calling back...\n");
   own wasm_name_t message;
-  wasm_name_new_from_string(&message, "callback abort");
+  wasm_name_new_from_string_nt(&message, "callback abort");
   own wasm_trap_t* trap = wasm_trap_new((wasm_store_t*)env, &message);
   wasm_name_delete(&message);
   return trap;
