@@ -1258,7 +1258,7 @@ auto Trap::message() const -> Message {
 
   auto message = v8::Exception::CreateMessage(isolate, impl(this)->v8_object());
   v8::String::Utf8Value string(isolate, message->Get());
-  return vec<byte_t>::make(std::string(*string));
+  return vec<byte_t>::make_nt(std::string(*string));
 }
 
 auto Trap::origin() const -> own<Frame> {
