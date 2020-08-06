@@ -431,11 +431,11 @@ class Val {
 
 public:
   Val() : kind_(ValKind::ANYREF) { impl_.ref = nullptr; }
-  Val(int32_t i) : kind_(ValKind::I32) { impl_.i32 = i; }
-  Val(int64_t i) : kind_(ValKind::I64) { impl_.i64 = i; }
-  Val(float32_t z) : kind_(ValKind::F32) { impl_.f32 = z; }
-  Val(float64_t z) : kind_(ValKind::F64) { impl_.f64 = z; }
-  Val(own<Ref>&& r) : kind_(ValKind::ANYREF) { impl_.ref = r.release(); }
+  explicit Val(int32_t i) : kind_(ValKind::I32) { impl_.i32 = i; }
+  explicit Val(int64_t i) : kind_(ValKind::I64) { impl_.i64 = i; }
+  explicit Val(float32_t z) : kind_(ValKind::F32) { impl_.f32 = z; }
+  explicit Val(float64_t z) : kind_(ValKind::F64) { impl_.f64 = z; }
+  explicit Val(own<Ref>&& r) : kind_(ValKind::ANYREF) { impl_.ref = r.release(); }
 
   Val(Val&& that) : kind_(that.kind_), impl_(that.impl_) {
     if (is_ref()) that.impl_.ref = nullptr;
@@ -648,8 +648,8 @@ public:
   Func() = delete;
   ~Func();
 
-  using callback = auto (*)(const Val[], Val[]) -> own<Trap>;
-  using callback_with_env = auto (*)(void*, const Val[], Val[]) -> own<Trap>;
+  using callback = auto (*)(const vec<Val>&, vec<Val>&) -> own<Trap>;
+  using callback_with_env = auto (*)(void*, const vec<Val>&, vec<Val>&) -> own<Trap>;
 
   static auto make(Store*, const FuncType*, callback) -> own<Func>;
   static auto make(Store*, const FuncType*, callback_with_env,
@@ -660,7 +660,7 @@ public:
   auto param_arity() const -> size_t;
   auto result_arity() const -> size_t;
 
-  auto call(const Val[] = nullptr, Val[] = nullptr) const -> own<Trap>;
+  auto call(const vec<Val>&, vec<Val>&) const -> own<Trap>;
 };
 
 
@@ -731,7 +731,7 @@ public:
   ~Instance();
 
   static auto make(
-    Store*, const Module*, const Extern* const[], own<Trap>* = nullptr
+    Store*, const Module*, const vec<Extern*>&, own<Trap>* = nullptr
   ) -> own<Instance>;
   auto copy() const -> own<Instance>;
 

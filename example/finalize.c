@@ -50,8 +50,9 @@ void run_in_store(wasm_store_t* store) {
   printf("Instantiating modules...\n");
   for (int i = 0; i <= iterations; ++i) {
     if (i % (iterations / 10) == 0) printf("%d\n", i);
+    wasm_extern_vec_t imports = WASM_EMPTY_VEC;
     own wasm_instance_t* instance =
-      wasm_instance_new(store, module, NULL, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {
       printf("> Error instantiating module %d!\n", i);
       exit(1);
