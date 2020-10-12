@@ -595,6 +595,9 @@ public:
   static auto make(Store*, const vec<byte_t>& binary) -> own<Module>;
   auto copy() const -> own<Module>;
 
+  auto name() const -> vec<byte_t>;
+  auto set_name(const vec<byte_t>&) -> bool;
+
   auto imports() const -> ownvec<ImportType>;
   auto exports() const -> ownvec<ExportType>;
 
