@@ -26,7 +26,7 @@ extern "C" {
 
 // Machine types
 
-inline void assertions() {
+inline void assertions(void) {
   static_assert(sizeof(float) == sizeof(uint32_t), "incompatible float type");
   static_assert(sizeof(double) == sizeof(uint64_t), "incompatible double type");
   static_assert(sizeof(intptr_t) == sizeof(uint32_t) ||
@@ -124,7 +124,7 @@ static inline void wasm_name_new_from_string_nt(
 
 WASM_DECLARE_OWN(config)
 
-WASM_API_EXTERN own wasm_config_t* wasm_config_new();
+WASM_API_EXTERN own wasm_config_t* wasm_config_new(void);
 
 // Embedders may provide custom functions for manipulating configs.
 
@@ -133,7 +133,7 @@ WASM_API_EXTERN own wasm_config_t* wasm_config_new();
 
 WASM_DECLARE_OWN(engine)
 
-WASM_API_EXTERN own wasm_engine_t* wasm_engine_new();
+WASM_API_EXTERN own wasm_engine_t* wasm_engine_new(void);
 WASM_API_EXTERN own wasm_engine_t* wasm_engine_new_with_config(own wasm_config_t*);
 
 
@@ -534,30 +534,30 @@ WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_exte
 
 // Value Type construction short-hands
 
-static inline own wasm_valtype_t* wasm_valtype_new_i32() {
+static inline own wasm_valtype_t* wasm_valtype_new_i32(void) {
   return wasm_valtype_new(WASM_I32);
 }
-static inline own wasm_valtype_t* wasm_valtype_new_i64() {
+static inline own wasm_valtype_t* wasm_valtype_new_i64(void) {
   return wasm_valtype_new(WASM_I64);
 }
-static inline own wasm_valtype_t* wasm_valtype_new_f32() {
+static inline own wasm_valtype_t* wasm_valtype_new_f32(void) {
   return wasm_valtype_new(WASM_F32);
 }
-static inline own wasm_valtype_t* wasm_valtype_new_f64() {
+static inline own wasm_valtype_t* wasm_valtype_new_f64(void) {
   return wasm_valtype_new(WASM_F64);
 }
 
-static inline own wasm_valtype_t* wasm_valtype_new_anyref() {
+static inline own wasm_valtype_t* wasm_valtype_new_anyref(void) {
   return wasm_valtype_new(WASM_ANYREF);
 }
-static inline own wasm_valtype_t* wasm_valtype_new_funcref() {
+static inline own wasm_valtype_t* wasm_valtype_new_funcref(void) {
   return wasm_valtype_new(WASM_FUNCREF);
 }
 
 
 // Function Types construction short-hands
 
-static inline own wasm_functype_t* wasm_functype_new_0_0() {
+static inline own wasm_functype_t* wasm_functype_new_0_0(void) {
   wasm_valtype_vec_t params, results;
   wasm_valtype_vec_new_empty(&params);
   wasm_valtype_vec_new_empty(&results);
