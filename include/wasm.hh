@@ -180,12 +180,22 @@ public:
 
 // Ownership
 
-template<class T> using own = std::unique_ptr<T>;
+template <typename T>
+class Destroyer {
+public:
+  void operator()(T *ptr) {
+    ptr->destroy();
+  }
+};
+
+template<class T> using own = std::unique_ptr<T, Destroyer<T>>;
 template<class T> using ownvec = vec<own<T>>;
 
 template<class T>
 auto make_own(T* x) -> own<T> { return own<T>(x); }
 
+template<class To, class From>
+auto own_cast(own<From> x) -> own<To> { return make_own<From>(x.release()); }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
@@ -193,11 +203,14 @@ auto make_own(T* x) -> own<T> { return own<T>(x); }
 // Configuration
 
 class WASM_API_EXTERN Config {
-public:
-  Config() = delete;
-  ~Config();
-  void operator delete(void*);
+  friend class Destroyer<Config>;
+  void destroy();
 
+protected:
+  Config() = default;
+  ~Config() = default;
+
+public:
   static auto make() -> own<Config>;
 
   // Implementations may provide custom methods for manipulating Configs.
@@ -207,11 +220,14 @@ public:
 // Engine
 
 class WASM_API_EXTERN Engine {
-public:
-  Engine() = delete;
-  ~Engine();
-  void operator delete(void*);
+  friend class Destroyer<Engine>;
+  void destroy();
 
+protected:
+  Engine() = default;
+  ~Engine() = default;
+
+public:
   static auto make(own<Config>&& = Config::make()) -> own<Engine>;
 };
 
@@ -219,11 +235,14 @@ public:
 // Store
 
 class WASM_API_EXTERN Store {
-public:
-  Store() = delete;
-  ~Store();
-  void operator delete(void*);
+  friend class Destroyer<Store>;
+  void destroy();
 
+protected:
+  Store() = default;
+  ~Store() = default;
+
+public:
   static auto make(Engine*) -> own<Store>;
 };
 
@@ -256,11 +275,14 @@ inline bool is_ref(ValKind k) { return k >= ValKind::ANYREF; }
 
 
 class WASM_API_EXTERN ValType {
-public:
-  ValType() = delete;
-  ~ValType();
-  void operator delete(void*);
+  friend class Destroyer<ValType>;
+  void destroy();
 
+protected:
+  ValType() = default;
+  ~ValType() = default;
+
+public:
   static auto make(ValKind) -> own<ValType>;
   auto copy() const -> own<ValType>;
 
@@ -282,11 +304,14 @@ class TableType;
 class MemoryType;
 
 class WASM_API_EXTERN ExternType {
-public:
-  ExternType() = delete;
-  ~ExternType();
-  void operator delete(void*);
+  friend class Destroyer<ExternType>;
+  void destroy();
 
+protected:
+  ExternType() = default;
+  ~ExternType() = default;
+
+public:
   auto copy() const-> own<ExternType>;
 
   auto kind() const -> ExternKind;
@@ -306,10 +331,14 @@ public:
 // Function Types
 
 class WASM_API_EXTERN FuncType : public ExternType {
-public:
-  FuncType() = delete;
-  ~FuncType();
+  friend class Destroyer<FuncType>;
+  void destroy();
 
+protected:
+  FuncType() = default;
+  ~FuncType() = default;
+
+public:
   static auto make(
     ownvec<ValType>&& params = ownvec<ValType>::make(),
     ownvec<ValType>&& results = ownvec<ValType>::make()
@@ -325,10 +354,14 @@ public:
 // Global Types
 
 class WASM_API_EXTERN GlobalType : public ExternType {
-public:
-  GlobalType() = delete;
-  ~GlobalType();
+  friend class Destroyer<GlobalType>;
+  void destroy();
 
+protected:
+  GlobalType() = default;
+  ~GlobalType() = default;
+
+public:
   static auto make(own<ValType>&&, Mutability) -> own<GlobalType>;
   auto copy() const -> own<GlobalType>;
 
@@ -340,10 +373,14 @@ public:
 // Table Types
 
 class WASM_API_EXTERN TableType : public ExternType {
-public:
-  TableType() = delete;
-  ~TableType();
+  friend class Destroyer<TableType>;
+  void destroy();
 
+protected:
+  TableType() = default;
+  ~TableType() = default;
+
+public:
   static auto make(own<ValType>&&, Limits) -> own<TableType>;
   auto copy() const -> own<TableType>;
 
@@ -355,10 +392,14 @@ public:
 // Memory Types
 
 class WASM_API_EXTERN MemoryType : public ExternType {
-public:
-  MemoryType() = delete;
-  ~MemoryType();
+  friend class Destroyer<MemoryType>;
+  void destroy();
 
+protected:
+  MemoryType() = default;
+  ~MemoryType() = default;
+
+public:
   static auto make(Limits) -> own<MemoryType>;
   auto copy() const -> own<MemoryType>;
 
@@ -371,11 +412,14 @@ public:
 using Name = vec<byte_t>;
 
 class WASM_API_EXTERN ImportType {
-public:
-  ImportType() = delete;
-  ~ImportType();
-  void operator delete(void*);
+  friend class Destroyer<ImportType>;
+  void destroy();
 
+protected:
+  ImportType() = default;
+  ~ImportType() = default;
+
+public:
   static auto make(Name&& module, Name&& name, own<ExternType>&&) ->
     own<ImportType>;
   auto copy() const -> own<ImportType>;
@@ -389,11 +433,14 @@ public:
 // Export Types
 
 class WASM_API_EXTERN ExportType {
-public:
-  ExportType() = delete;
-  ~ExportType();
-  void operator delete(void*);
+  friend class Destroyer<ExportType>;
+  void destroy();
 
+protected:
+  ExportType() = default;
+  ~ExportType() = default;
+
+public:
   static auto make(Name&&, own<ExternType>&&) -> own<ExportType>;
   auto copy() const -> own<ExportType>;
 
@@ -408,11 +455,14 @@ public:
 // References
 
 class WASM_API_EXTERN Ref {
-public:
-  Ref() = delete;
-  ~Ref();
-  void operator delete(void*);
+  friend class Destroyer<Ref>;
+  void destroy();
 
+protected:
+  Ref() = default;
+  ~Ref() = default;
+
+public:
   auto copy() const -> own<Ref>;
   auto same(const Ref*) const -> bool;
 
@@ -464,7 +514,7 @@ public:
 
   void reset() {
     if (is_ref() && impl_.ref) {
-      delete impl_.ref;
+      Destroyer<Ref>()(impl_.ref);
       impl_.ref = nullptr;
     }
   }
@@ -479,7 +529,7 @@ public:
   auto operator=(Val&& that) -> Val& {
     reset(that);
     return *this;
-  } 
+  }
 
   auto kind() const -> ValKind { return kind_; }
   auto i32() const -> int32_t { assert(kind_ == ValKind::I32); return impl_.i32; }
@@ -546,11 +596,14 @@ using Message = vec<byte_t>;  // null terminated
 class Instance;
 
 class WASM_API_EXTERN Frame {
-public:
-  Frame() = delete;
-  ~Frame();
-  void operator delete(void*);
+  friend class Destroyer<Frame>;
+  void destroy();
 
+protected:
+  Frame() = default;
+  ~Frame() = default;
+
+public:
   auto copy() const -> own<Frame>;
 
   auto instance() const -> Instance*;
@@ -560,10 +613,14 @@ public:
 };
 
 class WASM_API_EXTERN Trap : public Ref {
-public:
-  Trap() = delete;
-  ~Trap();
+  friend class Destroyer<Trap>;
+  void destroy();
 
+protected:
+  Trap() = default;
+  ~Trap() = default;
+
+public:
   static auto make(Store*, const Message& msg) -> own<Trap>;
   auto copy() const -> own<Trap>;
 
@@ -577,20 +634,26 @@ public:
 
 template<class T>
 class WASM_API_EXTERN Shared {
-public:
-  Shared() = delete;
-  ~Shared();
-  void operator delete(void*);
+  friend class Destroyer<Shared<T>>;
+  void destroy();
+
+protected:
+  Shared() = default;
+  ~Shared() = default;
 };
 
 
 // Modules
 
 class WASM_API_EXTERN Module : public Ref {
-public:
-  Module() = delete;
-  ~Module();
+  friend class Destroyer<Module>;
+  void destroy();
 
+protected:
+  Module() = default;
+  ~Module() = default;
+
+public:
   static auto validate(Store*, const vec<byte_t>& binary) -> bool;
   static auto make(Store*, const vec<byte_t>& binary) -> own<Module>;
   auto copy() const -> own<Module>;
@@ -609,10 +672,14 @@ public:
 // Foreign Objects
 
 class WASM_API_EXTERN Foreign : public Ref {
-public:
-  Foreign() = delete;
-  ~Foreign();
+  friend class Destroyer<Foreign>;
+  void destroy();
 
+protected:
+  Foreign() = default;
+  ~Foreign() = default;
+
+public:
   static auto make(Store*) -> own<Foreign>;
   auto copy() const -> own<Foreign>;
 };
@@ -626,10 +693,14 @@ class Table;
 class Memory;
 
 class WASM_API_EXTERN Extern : public Ref {
-public:
-  Extern() = delete;
-  ~Extern();
+  friend class Destroyer<Extern>;
+  void destroy();
 
+protected:
+  Extern() = default;
+  ~Extern() = default;
+
+public:
   auto copy() const -> own<Extern>;
 
   auto kind() const -> ExternKind;
@@ -650,10 +721,14 @@ public:
 // Function Instances
 
 class WASM_API_EXTERN Func : public Extern {
-public:
-  Func() = delete;
-  ~Func();
+  friend class Destroyer<Func>;
+  void destroy();
 
+protected:
+  Func() = default;
+  ~Func() = default;
+
+public:
   using callback = auto (*)(const vec<Val>&, vec<Val>&) -> own<Trap>;
   using callback_with_env = auto (*)(void*, const vec<Val>&, vec<Val>&) -> own<Trap>;
 
@@ -673,10 +748,14 @@ public:
 // Global Instances
 
 class WASM_API_EXTERN Global : public Extern {
-public:
-  Global() = delete;
-  ~Global();
+  friend class Destroyer<Global>;
+  void destroy();
 
+protected:
+  Global() = default;
+  ~Global() = default;
+
+ public:
   static auto make(Store*, const GlobalType*, const Val&) -> own<Global>;
   auto copy() const -> own<Global>;
 
@@ -689,11 +768,14 @@ public:
 // Table Instances
 
 class WASM_API_EXTERN Table : public Extern {
-public:
-  Table() = delete;
-  ~Table();
+  friend class Destroyer<Table>;
+  void destroy();
 
-  using size_t = uint32_t;
+protected:
+  Table() = default;
+  ~Table() = default;
+
+public:
 
   static auto make(
     Store*, const TableType*, const Ref* init = nullptr) -> own<Table>;
@@ -710,10 +792,14 @@ public:
 // Memory Instances
 
 class WASM_API_EXTERN Memory : public Extern {
-public:
-  Memory() = delete;
-  ~Memory();
+  friend class Destroyer<Memory>;
+  void destroy();
 
+protected:
+  Memory() = default;
+  ~Memory() = default;
+
+public:
   static auto make(Store*, const MemoryType*) -> own<Memory>;
   auto copy() const -> own<Memory>;
 
@@ -732,10 +818,14 @@ public:
 // Module Instances
 
 class WASM_API_EXTERN Instance : public Ref {
-public:
-  Instance() = delete;
-  ~Instance();
+  friend class Destroyer<Instance>;
+  void destroy();
 
+protected:
+  Instance() = default;
+  ~Instance() = default;
+
+public:
   static auto make(
     Store*, const Module*, const vec<Extern*>&, own<Trap>* = nullptr
   ) -> own<Instance>;
