@@ -40,30 +40,6 @@ namespace wasm {
 template<class T>
 void ignore(T) {}
 
-
-template<class C> struct implement;
-
-template<class C>
-auto impl(C* x) -> typename implement <C>::type* {
-  return reinterpret_cast<typename implement<C>::type*>(x);
-}
-
-template<class C>
-auto impl(const C* x) -> const typename implement<C>::type* {
-  return reinterpret_cast<const typename implement<C>::type*>(x);
-}
-
-template<class C>
-auto seal(typename implement <C>::type* x) -> C* {
-  return reinterpret_cast<C*>(x);
-}
-
-template<class C>
-auto seal(const typename implement <C>::type* x) -> const C* {
-  return reinterpret_cast<const C*>(x);
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // Debug aids
 
@@ -240,30 +216,18 @@ DEFINE_VEC(Val, vec, VAL)
 
 // Configuration
 
-struct ConfigImpl {
+struct ConfigImpl : public Config {
   ConfigImpl() { stats.make(Stats::CONFIG, this); }
   ~ConfigImpl() { stats.free(Stats::CONFIG, this); }
 };
 
-template<> struct implement<Config> { using type = ConfigImpl; };
-
-
-Config::~Config() {
-  impl(this)->~ConfigImpl();
-}
-
-void Config::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto Config::make() -> own<Config> {
-  return own<Config>(seal<Config>(new(std::nothrow) ConfigImpl()));
+  return make_own<Config>(new(std::nothrow) ConfigImpl);
 }
-
 
 // Engine
 
-struct EngineImpl {
+struct EngineImpl : public Engine {
   static bool created;
 
   std::unique_ptr<v8::Platform> platform;
@@ -283,17 +247,6 @@ struct EngineImpl {
 
 bool EngineImpl::created = false;
 
-template<> struct implement<Engine> { using type = EngineImpl; };
-
-
-Engine::~Engine() {
-  impl(this)->~EngineImpl();
-}
-
-void Engine::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto Engine::make(own<Config>&& config) -> own<Engine> {
   v8::internal::FLAG_expose_gc = true;
   v8::internal::FLAG_experimental_wasm_bigint = true;
@@ -309,7 +262,7 @@ auto Engine::make(own<Config>&& config) -> own<Engine> {
   engine->platform = v8::platform::NewDefaultPlatform();
   v8::V8::InitializePlatform(engine->platform.get());
   v8::V8::Initialize();
-  return make_own(seal<Engine>(engine));
+  return make_own<Engine>(engine);
 }
 
 
@@ -334,11 +287,11 @@ enum v8_function_t {
   V8_F_COUNT,
 };
 
-class StoreImpl {
+class StoreImpl : public Store {
   friend own<Store> Store::make(Engine*);
 
   v8::Isolate::CreateParams create_params_;
-  v8::Isolate *isolate_;
+  v8::Isolate* isolate_;
   v8::Eternal<v8::Context> context_;
   v8::Eternal<v8::String> strings_[V8_S_COUNT];
   v8::Eternal<v8::Symbol> symbols_[V8_Y_COUNT];
@@ -422,17 +375,6 @@ public:
     handle_pool_ = handle;
   }
 };
-
-template<> struct implement<Store> { using type = StoreImpl; };
-
-
-Store::~Store() {
-  impl(this)->~StoreImpl();
-}
-
-void Store::operator delete(void *p) {
-  ::operator delete(p);
-}
 
 auto Store::make(Engine*) -> own<Store> {
   auto store = make_own(new(std::nothrow) StoreImpl());
@@ -532,7 +474,7 @@ auto Store::make(Engine*) -> own<Store> {
   store->context()->Enter();
   isolate->SetData(0, store.get());
 
-  return make_own(seal<Store>(store.release()));
+  return make_own<Store>(store.release());
 };
 
 
@@ -541,13 +483,16 @@ auto Store::make(Engine*) -> own<Store> {
 
 // Value Types
 
-struct ValTypeImpl {
+struct ValTypeImpl : public ValType {
   ValKind kind;
 
   ValTypeImpl(ValKind kind) : kind(kind) {}
-};
+  ~ValTypeImpl() { stats.free(Stats::VALTYPE, this); }
 
-template<> struct implement<ValType> { using type = ValTypeImpl; };
+  static const ValTypeImpl* from(const ValType* valtype) {
+    return static_cast<const ValTypeImpl*>(valtype);
+  }
+};
 
 ValTypeImpl* valtype_i32 = new ValTypeImpl(ValKind::I32);
 ValTypeImpl* valtype_i64 = new ValTypeImpl(ValKind::I64);
@@ -556,12 +501,6 @@ ValTypeImpl* valtype_f64 = new ValTypeImpl(ValKind::F64);
 ValTypeImpl* valtype_anyref = new ValTypeImpl(ValKind::ANYREF);
 ValTypeImpl* valtype_funcref = new ValTypeImpl(ValKind::FUNCREF);
 
-
-ValType::~ValType() {
-  stats.free(Stats::VALTYPE, this);
-}
-
-void ValType::operator delete(void*) {}
 
 auto ValType::make(ValKind k) -> own<ValType> {
   ValTypeImpl* valtype;
@@ -576,9 +515,8 @@ auto ValType::make(ValKind k) -> own<ValType> {
       // TODO(wasm+): support new value types
       assert(false);
   };
-  auto result = seal<ValType>(valtype);
-  stats.make(Stats::VALTYPE, result);
-  return own<ValType>(result);
+  stats.make(Stats::VALTYPE, valtype);
+  return make_own<ValType>(valtype);
 }
 
 auto ValType::copy() const -> own<ValType> {
@@ -586,47 +524,108 @@ auto ValType::copy() const -> own<ValType> {
 }
 
 auto ValType::kind() const -> ValKind {
-  return impl(this)->kind;
+  return ValTypeImpl::from(this)->kind;
 }
 
 
 // Extern Types
 
-struct ExternTypeImpl {
-  ExternKind kind;
+struct ExternTypeShim;
 
-  explicit ExternTypeImpl(ExternKind kind) : kind(kind) {}
+struct ExternTypeImpl {
+  ExternKind kind_;
+  ExternType* pShim = nullptr;
+
+  explicit ExternTypeImpl(ExternKind kind)
+    : kind_(kind) {}
   virtual ~ExternTypeImpl() {}
+
+  auto copy() const -> own<ExternType>;
+
+  auto kind() const -> ExternKind;
+
+  auto func() -> FuncType*;
+  auto global() -> GlobalType*;
+  auto table() -> TableType*;
+  auto memory() -> MemoryType*;
+
+  auto func() const -> const FuncType*;
+  auto global() const -> const GlobalType*;
+  auto table() const -> const TableType*;
+  auto memory() const -> const MemoryType*;
+
+  static ExternTypeImpl* from(ExternType* externtype);
+  static const ExternTypeImpl* from(const ExternType* externtype);
 };
 
-template<> struct implement<ExternType> { using type = ExternTypeImpl; };
+struct ExternTypeShim : public ExternType {
+  ExternTypeShim(std::unique_ptr<ExternTypeImpl> pImpl)
+    : pImpl(std::move(pImpl)) { pImpl->pShim = this; }
 
+  std::unique_ptr<ExternTypeImpl> pImpl;
 
-ExternType::~ExternType() {
-  impl(this)->~ExternTypeImpl();
+  static const ExternTypeShim* from(const ExternType* externtype) {
+    return static_cast<const ExternTypeShim*>(externtype);
+  }
+};
+
+ExternTypeImpl* ExternTypeImpl::from(ExternType* externtype) {
+  return static_cast<ExternTypeShim*>(externtype)->pImpl.get();
 }
-
-void ExternType::operator delete(void *p) {
-  ::operator delete(p);
+const ExternTypeImpl* ExternTypeImpl::from(const ExternType* externtype) {
+  return static_cast<const ExternTypeShim*>(externtype)->pImpl.get();
 }
 
 auto ExternType::copy() const -> own<ExternType> {
+  return ExternTypeShim::from(this)->pImpl->copy();
+}
+
+auto ExternTypeImpl::copy() const -> own<ExternType> {
   switch (kind()) {
-    case ExternKind::FUNC: return func()->copy();
-    case ExternKind::GLOBAL: return global()->copy();
-    case ExternKind::TABLE: return table()->copy();
-    case ExternKind::MEMORY: return memory()->copy();
+    case ExternKind::FUNC: return own_cast<ExternType>(func()->copy());
+    case ExternKind::GLOBAL: return own_cast<ExternType>(global()->copy());
+    case ExternKind::TABLE: return own_cast<ExternType>(table()->copy());
+    case ExternKind::MEMORY: return own_cast<ExternType>(memory()->copy());
   }
 }
 
 auto ExternType::kind() const -> ExternKind {
-  return impl(this)->kind;
+  return ExternTypeImpl::from(this)->kind_;
 }
 
+auto ExternType::func() const -> const FuncType* {
+  return ExternTypeImpl::from(this)->func();
+}
+auto ExternType::func() -> FuncType* {
+  return ExternTypeImpl::from(this)->func();
+}
+
+auto ExternType::global() const -> const GlobalType* {
+  return ExternTypeImpl::from(this)->global();
+}
+auto ExternType::global() -> GlobalType* {
+  return ExternTypeImpl::from(this)->global();
+}
+
+auto ExternType::table() const -> const TableType* {
+  return ExternTypeImpl::from(this)->table();
+}
+auto ExternType::table() -> TableType* {
+  return ExternTypeImpl::from(this)->table();
+}
+
+auto ExternType::memory() const -> const MemoryType* {
+  return ExternTypeImpl::from(this)->memory();
+}
+auto ExternType::memory() -> MemoryType* {
+  return ExternTypeImpl::from(this)->memory();
+}
 
 // Function Types
 
-struct FuncTypeImpl : ExternTypeImpl {
+struct FuncTypeShim;
+
+struct FuncTypeImpl : public ExternTypeImpl {
   ownvec<ValType> params;
   ownvec<ValType> results;
 
@@ -642,16 +641,22 @@ struct FuncTypeImpl : ExternTypeImpl {
   }
 };
 
-template<> struct implement<FuncType> { using type = FuncTypeImpl; };
+struct FuncTypeShim : public FuncType {
+  FuncTypeShim(std::unique_ptr<FuncTypeImpl> pImpl)
+    : pImpl(std::move(pImpl)) { pImpl->pShim = this; }
 
+  std::unique_ptr<FuncTypeImpl> pImpl;
 
-FuncType::~FuncType() {}
+  static const FuncTypeShim* from(const FuncType* functype) {
+    return static_cast<const FuncTypeShim*>(functype);
+  }
+};
 
 auto FuncType::make(ownvec<ValType>&& params, ownvec<ValType>&& results)
   -> own<FuncType> {
   return params && results
-    ? own<FuncType>(
-        seal<FuncType>(new(std::nothrow) FuncTypeImpl(params, results)))
+    ? make_own<FuncType>(new(std::nothrow)FuncTypeShim(
+        std::unique_ptr<FuncTypeImpl>(new(std::nothrow)FuncTypeImpl(params, results))))
     : own<FuncType>();
 }
 
@@ -660,23 +665,23 @@ auto FuncType::copy() const -> own<FuncType> {
 }
 
 auto FuncType::params() const -> const ownvec<ValType>& {
-  return impl(this)->params;
+  return FuncTypeShim::from(this)->pImpl->params;
 }
 
 auto FuncType::results() const -> const ownvec<ValType>& {
-  return impl(this)->results;
+  return FuncTypeShim::from(this)->pImpl->results;
 }
 
 
-auto ExternType::func() -> FuncType* {
+auto ExternTypeImpl::func() -> FuncType* {
   return kind() == ExternKind::FUNC
-    ? seal<FuncType>(static_cast<FuncTypeImpl*>(impl(this)))
+    ? static_cast<FuncType*>(pShim)
     : nullptr;
 }
 
-auto ExternType::func() const -> const FuncType* {
+auto ExternTypeImpl::func() const -> const FuncType* {
   return kind() == ExternKind::FUNC
-    ? seal<FuncType>(static_cast<const FuncTypeImpl*>(impl(this)))
+    ? static_cast<const FuncType*>(pShim)
     : nullptr;
 }
 
@@ -699,17 +704,23 @@ struct GlobalTypeImpl : ExternTypeImpl {
   }
 };
 
-template<> struct implement<GlobalType> { using type = GlobalTypeImpl; };
+struct GlobalTypeShim : public GlobalType {
+  GlobalTypeShim(std::unique_ptr<GlobalTypeImpl> pImpl)
+    : pImpl(std::move(pImpl)) { pImpl->pShim = this; }
 
+  std::unique_ptr<GlobalTypeImpl> pImpl;
 
-GlobalType::~GlobalType() {}
+  static const GlobalTypeShim* from(const GlobalType* globaltype) {
+    return static_cast<const GlobalTypeShim*>(globaltype);
+  }
+};
 
 auto GlobalType::make(
   own<ValType>&& content, Mutability mutability
 ) -> own<GlobalType> {
   return content
-    ? own<GlobalType>(
-        seal<GlobalType>(new(std::nothrow) GlobalTypeImpl(content, mutability)))
+    ? make_own<GlobalType>(new(std::nothrow)GlobalTypeShim(
+        std::unique_ptr<GlobalTypeImpl>(new(std::nothrow)GlobalTypeImpl(content, mutability))))
     : own<GlobalType>();
 }
 
@@ -718,23 +729,23 @@ auto GlobalType::copy() const -> own<GlobalType> {
 }
 
 auto GlobalType::content() const -> const ValType* {
-  return impl(this)->content.get();
+  return GlobalTypeShim::from(this)->pImpl->content.get();
 }
 
 auto GlobalType::mutability() const -> Mutability {
-  return impl(this)->mutability;
+  return GlobalTypeShim::from(this)->pImpl->mutability;
 }
 
 
-auto ExternType::global() -> GlobalType* {
+auto ExternTypeImpl::global() -> GlobalType* {
   return kind() == ExternKind::GLOBAL
-    ? seal<GlobalType>(static_cast<GlobalTypeImpl*>(impl(this)))
+    ? static_cast<GlobalType*>(pShim)
     : nullptr;
 }
 
-auto ExternType::global() const -> const GlobalType* {
+auto ExternTypeImpl::global() const -> const GlobalType* {
   return kind() == ExternKind::GLOBAL
-    ? seal<GlobalType>(static_cast<const GlobalTypeImpl*>(impl(this)))
+    ? static_cast<const GlobalType*>(pShim)
     : nullptr;
 }
 
@@ -756,10 +767,16 @@ struct TableTypeImpl : ExternTypeImpl {
   }
 };
 
-template<> struct implement<TableType> { using type = TableTypeImpl; };
+struct TableTypeShim : public TableType {
+  TableTypeShim(std::unique_ptr<TableTypeImpl> pImpl)
+    : pImpl(std::move(pImpl)) { pImpl->pShim = this; }
 
+  std::unique_ptr<TableTypeImpl> pImpl;
 
-TableType::~TableType() {}
+  static const TableTypeShim* from(const TableType* tabletype) {
+    return static_cast<const TableTypeShim*>(tabletype);
+  }
+};
 
 auto TableType::make(own<ValType>&& element, Limits limits) -> own<TableType> {
   return element
@@ -867,10 +884,6 @@ ImportType::~ImportType() {
   impl(this)->~ImportTypeImpl();
 }
 
-void ImportType::operator delete(void *p) {
-  ::operator delete(p);
-}
-
 auto ImportType::make(
   Name&& module, Name&& name, own<ExternType>&& type
 ) -> own<ImportType> {
@@ -919,10 +932,6 @@ template<> struct implement<ExportType> { using type = ExportTypeImpl; };
 
 ExportType::~ExportType() {
   impl(this)->~ExportTypeImpl();
-}
-
-void ExportType::operator delete(void *p) {
-  ::operator delete(p);
 }
 
 auto ExportType::make(
@@ -1091,8 +1100,6 @@ Ref::~Ref() {
   impl(this)->store()->free_handle(impl(this));
 }
 
-void Ref::operator delete(void *p) {}
-
 auto Ref::copy() const -> own<Ref> {
   return impl(this)->copy();
 }
@@ -1199,10 +1206,6 @@ template<> struct implement<Frame> { using type = FrameImpl; };
 
 Frame::~Frame() {
   impl(this)->~FrameImpl();
-}
-
-void Frame::operator delete(void *p) {
-  ::operator delete(p);
 }
 
 auto Frame::copy() const -> own<Frame> {
@@ -1459,11 +1462,6 @@ template<>
 Shared<Module>::~Shared() {
   stats.free(Stats::MODULE, this, Stats::SHARED);
   impl(this)->~vec();
-}
-
-template<>
-void Shared<Module>::operator delete(void* p) {
-  ::operator delete(p);
 }
 
 auto Module::share() const -> own<Shared<Module>> {
