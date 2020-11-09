@@ -195,7 +195,7 @@ template<class T>
 auto make_own(T* x) -> own<T> { return own<T>(x); }
 
 template<class To, class From>
-auto own_cast(own<From> x) -> own<To> { return make_own<From>(x.release()); }
+auto own_cast(own<From> x) -> own<To> { return make_own<To>(x.release()); }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
