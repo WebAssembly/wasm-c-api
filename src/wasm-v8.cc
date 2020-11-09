@@ -390,7 +390,7 @@ void Store::destroy() {
 }
 
 auto Store::make(Engine*) -> own<Store> {
-  auto store = make_own(new(std::nothrow) StoreImpl());
+  auto store = std::unique_ptr<StoreImpl>(new(std::nothrow) StoreImpl());
   if (!store) return own<Store>();
 
   // Create isolate.
@@ -487,7 +487,7 @@ auto Store::make(Engine*) -> own<Store> {
   store->context()->Enter();
   isolate->SetData(0, store.get());
 
-  return own<Store>(store.release());
+  return make_own<Store>(store.release());
 };
 
 
@@ -566,7 +566,7 @@ struct ExternTypeImpl : public Base, public ExternTypeKind {
 
   static const Derived *from(const ExternType *p) {
     return reinterpret_cast<const ExternTypeKind*>(p)->kind == Kind
-      ? static_cast<Derived*>(p)
+      ? static_cast<const Derived*>(p)
       : nullptr;
   }
 };
@@ -775,10 +775,10 @@ auto ExternType::memory() const -> const MemoryType* {
 
 void ExternType::destroy() {
   switch (kind()) {
-    case ExternKind::FUNC: Destroyer<FuncTypeImpl>()(FuncTypeImpl::from(this));
-    case ExternKind::GLOBAL: Destroyer<GlobalTypeImpl>()(GlobalTypeImpl::from(this));
-    case ExternKind::TABLE: Destroyer<TableTypeImpl>()(TableTypeImpl::from(this));
-    case ExternKind::MEMORY: Destroyer<MemoryTypeImpl>()(MemoryTypeImpl::from(this));
+    case ExternKind::FUNC: Destroyer<FuncType>()(FuncTypeImpl::from(this));
+    case ExternKind::GLOBAL: Destroyer<GlobalType>()(GlobalTypeImpl::from(this));
+    case ExternKind::TABLE: Destroyer<TableType>()(TableTypeImpl::from(this));
+    case ExternKind::MEMORY: Destroyer<MemoryType>()(MemoryTypeImpl::from(this));
   }
 }
 
@@ -953,19 +953,20 @@ auto memorytype_to_v8(
 // References
 
 template<class Ref>
-class RefImpl : public v8::Persistent<v8::Object> {
+class RefImpl : public Ref, public v8::Persistent<v8::Object> {
 public:
-  RefImpl() = delete;
-  ~RefImpl() = delete;
+  RefImpl() = default;
+  ~RefImpl() = default;
 
-  static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref> {
+  template<typename T = Ref>
+  static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<T> {
     static_assert(sizeof(RefImpl) == sizeof(v8::Persistent<v8::Object>),
       "incompatible object layout");
     auto self = static_cast<RefImpl*>(store->make_handle());
     if (!self) return nullptr;
     self->Reset(store->isolate(), obj);
     stats.make(Stats::categorize(*self), self);
-    return make_own<Ref>(self);
+    return make_own<T>(self);
   }
 
   auto copy() const -> own<Ref> {
@@ -1007,27 +1008,35 @@ public:
   }
 };
 
+static_assert(std::is_standard_layout<RefImpl<Trap>>::value);
+static_assert(std::is_standard_layout<RefImpl<Module>>::value);
+static_assert(std::is_standard_layout<RefImpl<Foreign>>::value);
+static_assert(std::is_standard_layout<RefImpl<Extern>>::value);
+static_assert(std::is_standard_layout<RefImpl<Instance>>::value);
+
 void Ref::destroy() {
-  stats.free(Stats::categorize(*impl(this)), this);
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  impl(this)->store()->free_handle(impl(this));
+  auto impl = static_cast<RefImpl<Ref>*>(this);
+  stats.free(Stats::categorize(*impl), this);
+  v8::HandleScope handle_scope(impl->isolate());
+  impl->store()->free_handle(impl);
 }
 
 auto Ref::copy() const -> own<Ref> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Ref>*>(this)->copy();
 }
 
 auto Ref::same(const Ref* that) const -> bool {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return impl(this)->v8_object()->SameValue(impl(that)->v8_object());
+  auto impl = static_cast<const RefImpl<Ref>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return impl->v8_object()->SameValue(impl->v8_object());
 }
 
 auto Ref::get_host_info() const -> void* {
-  return impl(this)->get_host_info();
+  return static_cast<const RefImpl<Ref>*>(this)->get_host_info();
 }
 
 void Ref::set_host_info(void* info, void (*finalizer)(void*)) {
-  impl(this)->set_host_info(info, finalizer);
+  static_cast<RefImpl<Ref>*>(this)->set_host_info(info, finalizer);
 }
 
 
@@ -1037,7 +1046,7 @@ auto ref_to_v8(StoreImpl* store, const Ref* r) -> v8::Local<v8::Value> {
   if (r == nullptr) {
     return v8::Null(store->isolate());
   } else {
-    return impl(r)->v8_object();
+    return static_cast<const RefImpl<Ref>*>(r)->v8_object();
   }
 }
 
@@ -1093,7 +1102,7 @@ auto v8_to_val(
 
 // Frames
 
-struct FrameImpl {
+  struct FrameImpl : public Frame {
   FrameImpl(
     own<Instance>&& instance, uint32_t func_index,
     size_t func_offset, size_t module_offset
@@ -1114,50 +1123,47 @@ struct FrameImpl {
   size_t module_offset;
 };
 
-template<> struct implement<Frame> { using type = FrameImpl; };
-
-
-Frame::~Frame() {
-  impl(this)->~FrameImpl();
+void Frame::destroy() {
+  delete static_cast<FrameImpl*>(this);
 }
 
 auto Frame::copy() const -> own<Frame> {
-  auto self = impl(this);
-  return own<Frame>(seal<Frame>(new(std::nothrow) FrameImpl(
-    self->instance->copy(), self->func_index, self->func_offset,
-    self->module_offset)));
+  auto impl = static_cast<const FrameImpl*>(this);
+  return own<Frame>(new(std::nothrow) FrameImpl(
+    impl->instance->copy(), impl->func_index, impl->func_offset,
+    impl->module_offset));
 }
 
 auto Frame::instance() const -> Instance* {
-  return impl(this)->instance.get();
+  auto impl = static_cast<const FrameImpl*>(this);
+  return impl->instance.get();
 }
 
 auto Frame::func_index() const -> uint32_t {
-  return impl(this)->func_index;
+  auto impl = static_cast<const FrameImpl*>(this);
+  return impl->func_index;
 }
 
 auto Frame::func_offset() const -> size_t {
-  return impl(this)->func_offset;
+  auto impl = static_cast<const FrameImpl*>(this);
+  return impl->func_offset;
 }
 
 auto Frame::module_offset() const -> size_t {
-  return impl(this)->module_offset;
+  auto impl = static_cast<const FrameImpl*>(this);
+  return impl->module_offset;
 }
 
 
 // Traps
 
-template<> struct implement<Trap> { using type = RefImpl<Trap>; };
-
-
-Trap::~Trap() {}
-
 auto Trap::copy() const -> own<Trap> {
-  return impl(this)->copy();
+  auto impl = static_cast<const RefImpl<Trap>*>(this);
+  return impl->copy();
 }
 
 auto Trap::make(Store* store_abs, const Message& message) -> own<Trap> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   v8::Isolate* isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -1169,10 +1175,11 @@ auto Trap::make(Store* store_abs, const Message& message) -> own<Trap> {
 }
 
 auto Trap::message() const -> Message {
-  auto isolate = impl(this)->isolate();
+  auto impl = static_cast<const RefImpl<Trap>*>(this);
+  auto isolate = impl->isolate();
   v8::HandleScope handle_scope(isolate);
 
-  auto message = v8::Exception::CreateMessage(isolate, impl(this)->v8_object());
+  auto message = v8::Exception::CreateMessage(isolate, impl->v8_object());
   v8::String::Utf8Value string(isolate, message->Get());
   return vec<byte_t>::make_nt(std::string(*string));
 }
@@ -1190,17 +1197,16 @@ auto Trap::trace() const -> ownvec<Frame> {
 
 // Foreign Objects
 
-template<> struct implement<Foreign> { using type = RefImpl<Foreign>; };
-
-
-Foreign::~Foreign() {}
+void Foreign::destroy() {
+  delete static_cast<RefImpl<Foreign>*>(this);
+}
 
 auto Foreign::copy() const -> own<Foreign> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Foreign>*>(this)->copy();
 }
 
 auto Foreign::make(Store* store_abs) -> own<Foreign> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -1211,17 +1217,16 @@ auto Foreign::make(Store* store_abs) -> own<Foreign> {
 
 // Modules
 
-template<> struct implement<Module> { using type = RefImpl<Module>; };
-
-
-Module::~Module() {}
+void Module::destroy() {
+  delete static_cast<RefImpl<Module>*>(this);
+}
 
 auto Module::copy() const -> own<Module> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Module>*>(this)->copy();
 }
 
 auto Module::validate(Store* store_abs, const vec<byte_t>& binary) -> bool {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   v8::Isolate* isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -1237,7 +1242,7 @@ auto Module::validate(Store* store_abs, const vec<byte_t>& binary) -> bool {
 }
 
 auto Module::make(Store* store_abs, const vec<byte_t>& binary) -> own<Module> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
@@ -1253,8 +1258,9 @@ auto Module::make(Store* store_abs, const vec<byte_t>& binary) -> own<Module> {
 }
 
 auto Module::imports() const -> ownvec<ImportType> {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto module = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Module>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto module = impl->v8_object();
   auto binary = vec<byte_t>::adopt(
     wasm_v8::module_binary_size(module),
     const_cast<byte_t*>(wasm_v8::module_binary(module))
@@ -1262,7 +1268,7 @@ auto Module::imports() const -> ownvec<ImportType> {
   auto imports = wasm::bin::imports(binary);
   binary.release();
   return imports;
-  // return impl(this)->data->imports.copy();
+  // return impl->data->imports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -1297,8 +1303,9 @@ auto Module::imports() const -> ownvec<ImportType> {
 }
 
 auto Module::exports() const -> ownvec<ExportType> {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto module = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Module>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto module = impl->v8_object();
   auto binary = vec<byte_t>::adopt(
     wasm_v8::module_binary_size(module),
     const_cast<byte_t*>(wasm_v8::module_binary(module))
@@ -1306,7 +1313,7 @@ auto Module::exports() const -> ownvec<ExportType> {
   auto exports = wasm::bin::exports(binary);
   binary.release();
   return exports;
-  // return impl(this)->data->exports.copy();
+  // return impl->data->exports.copy();
 /* OBSOLETE?
   auto store = module->store();
   auto isolate = store->isolate();
@@ -1338,8 +1345,9 @@ auto Module::exports() const -> ownvec<ExportType> {
 }
 
 auto Module::serialize() const -> vec<byte_t> {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto module = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Module>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto module = impl->v8_object();
   auto binary_size = wasm_v8::module_binary_size(module);
   auto serial_size = wasm_v8::module_serialize_size(module);
   auto size_size = wasm::bin::u64_size(binary_size);
@@ -1354,7 +1362,7 @@ auto Module::serialize() const -> vec<byte_t> {
 }
 
 auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own<Module> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto ptr = serialized.get();
@@ -1369,7 +1377,7 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
 
 
 // TODO(v8): do better when V8 can do better.
-template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
+//template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
 
 template<>
 Shared<Module>::~Shared() {
@@ -1392,26 +1400,26 @@ auto Module::obtain(Store* store, const Shared<Module>* shared) -> own<Module> {
 
 // Externals
 
-template<> struct implement<Extern> { using type = RefImpl<Extern>; };
-
-
-Extern::~Extern() {}
+void Extern::destroy() {
+  delete static_cast<RefImpl<Extern>*>(this);
+}
 
 auto Extern::copy() const -> own<Extern> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Extern>*>(this)->copy();
 }
 
 auto Extern::kind() const -> ExternKind {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return static_cast<ExternKind>(wasm_v8::extern_kind(impl(this)->v8_object()));
+  auto impl = static_cast<const RefImpl<Extern>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return static_cast<ExternKind>(wasm_v8::extern_kind(impl->v8_object()));
 }
 
 auto Extern::type() const -> own<ExternType> {
   switch (kind()) {
-    case ExternKind::FUNC: return func()->type();
-    case ExternKind::GLOBAL: return global()->type();
-    case ExternKind::TABLE: return table()->type();
-    case ExternKind::MEMORY: return memory()->type();
+    case ExternKind::FUNC: return own_cast<ExternType>(func()->type());
+    case ExternKind::GLOBAL: return own_cast<ExternType>(global()->type());
+    case ExternKind::TABLE: return own_cast<ExternType>(table()->type());
+    case ExternKind::MEMORY: return own_cast<ExternType>(memory()->type());
   }
 }
 
@@ -1448,19 +1456,18 @@ auto Extern::memory() const -> const Memory* {
 }
 
 auto extern_to_v8(const Extern* ex) -> v8::Local<v8::Value> {
-  return impl(ex)->v8_object();
+  return static_cast<const RefImpl<Extern>*>(ex)->v8_object();
 }
 
 
 // Function Instances
 
-template<> struct implement<Func> { using type = RefImpl<Func>; };
-
-
-Func::~Func() {}
+void Func::destroy() {
+  delete static_cast<RefImpl<Func>*>(this);
+}
 
 auto Func::copy() const -> own<Func> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Func>*>(this)->copy();
 }
 
 struct FuncData {
@@ -1500,7 +1507,7 @@ struct FuncData {
 namespace {
 
 auto make_func(Store* store_abs, FuncData* data) -> own<Func> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
@@ -1524,7 +1531,7 @@ auto make_func(Store* store_abs, FuncData* data) -> own<Func> {
   ignore(module_obj->DefineOwnProperty(context, str, func_obj));
 
   v8::Local<v8::Value> instantiate_args[] = {
-    impl(module.get())->v8_object(), imports_obj
+    static_cast<RefImpl<Module>*>(module.get())->v8_object(), imports_obj
   };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 2, instantiate_args).ToLocalChecked();
@@ -1585,22 +1592,25 @@ auto Func::make(
 
 auto Func::type() const -> own<FuncType> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return func_type(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Func>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return func_type(impl->v8_object());
 }
 
 auto Func::param_arity() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::func_type_param_arity(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Func>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::func_type_param_arity(impl->v8_object());
 }
 
 auto Func::result_arity() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::func_type_result_arity(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Func>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::func_type_result_arity(impl->v8_object());
 }
 
 auto Func::call(const vec<Val>& args, vec<Val>& results) const -> own<Trap> {
-  auto func = impl(this);
+  auto func = static_cast<const RefImpl<Func>*>(this);
   auto store = func->store();
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -1656,7 +1666,7 @@ auto Func::call(const vec<Val>& args, vec<Val>& results) const -> own<Trap> {
 void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   auto v8_data = v8::Local<v8::Object>::Cast(info.Data());
   auto self = reinterpret_cast<FuncData*>(wasm_v8::foreign_get(v8_data));
-  auto store = impl(self->store);
+  auto store = static_cast<StoreImpl*>(self->store);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
@@ -1680,7 +1690,7 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   }
 
   if (trap) {
-    isolate->ThrowException(impl(trap.get())->v8_object());
+    isolate->ThrowException(static_cast<RefImpl<Trap>*>(trap.get())->v8_object());
     return;
   }
 
@@ -1708,19 +1718,18 @@ void FuncData::finalize_func_data(void* data) {
 
 // Global Instances
 
-template<> struct implement<Global> { using type = RefImpl<Global>; };
-
-
-Global::~Global() {}
+void Global::destroy() {
+  delete static_cast<RefImpl<Global>*>(this);
+}
 
 auto Global::copy() const -> own<Global> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Global>*>(this)->copy();
 }
 
 auto Global::make(
   Store* store_abs, const GlobalType* type, const Val& val
 ) -> own<Global> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
@@ -1731,7 +1740,7 @@ auto Global::make(
   auto binary = wasm::bin::wrapper(type);
   auto module = Module::make(store_abs, binary);
 
-  v8::Local<v8::Value> instantiate_args[] = { impl(module.get())->v8_object() };
+  v8::Local<v8::Value> instantiate_args[] = { static_cast<RefImpl<Module>*>(module.get())->v8_object() };
   auto instance_obj = store->v8_function(V8_F_INSTANCE)->NewInstance(
     context, 1, instantiate_args).ToLocalChecked();
   auto exports_obj = wasm_v8::instance_exports(instance_obj);
@@ -1747,8 +1756,9 @@ auto Global::make(
 
 auto Global::type() const -> own<GlobalType> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto v8_global = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Global>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto v8_global = impl->v8_object();
   auto kind = static_cast<ValKind>(wasm_v8::global_type_content(v8_global));
   auto mutability = wasm_v8::global_type_mutable(v8_global)
     ? Mutability::VAR : Mutability::CONST;
@@ -1756,8 +1766,9 @@ auto Global::type() const -> own<GlobalType> {
 }
 
 auto Global::get() const -> Val {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto v8_global = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Global>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto v8_global = impl->v8_object();
   switch (type()->content()->kind()) {
     case ValKind::I32: return Val(wasm_v8::global_get_i32(v8_global));
     case ValKind::I64: return Val(wasm_v8::global_get_i64(v8_global));
@@ -1765,7 +1776,7 @@ auto Global::get() const -> Val {
     case ValKind::F64: return Val(wasm_v8::global_get_f64(v8_global));
     case ValKind::ANYREF:
     case ValKind::FUNCREF: {
-      auto store = impl(this)->store();
+      auto store = impl->store();
       return Val(v8_to_ref(store, wasm_v8::global_get_ref(v8_global)));
     }
     default:
@@ -1774,8 +1785,9 @@ auto Global::get() const -> Val {
 }
 
 void Global::set(const Val& val) {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto v8_global = impl(this)->v8_object();
+  auto impl = static_cast<RefImpl<Global>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto v8_global = impl->v8_object();
   switch (val.kind()) {
     case ValKind::I32: return wasm_v8::global_set_i32(v8_global, val.i32());
     case ValKind::I64: return wasm_v8::global_set_i64(v8_global, val.i64());
@@ -1783,7 +1795,7 @@ void Global::set(const Val& val) {
     case ValKind::F64: return wasm_v8::global_set_f64(v8_global, val.f64());
     case ValKind::ANYREF:
     case ValKind::FUNCREF: {
-      auto store = impl(this)->store();
+      auto store = impl->store();
       return wasm_v8::global_set_ref(v8_global, ref_to_v8(store, val.ref()));
     }
     default:
@@ -1794,25 +1806,24 @@ void Global::set(const Val& val) {
 
 // Table Instances
 
-template<> struct implement<Table> { using type = RefImpl<Table>; };
-
-
-Table::~Table() {}
+void Table::destroy() {
+  delete static_cast<RefImpl<Table>*>(this);
+}
 
 auto Table::copy() const -> own<Table> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Table>*>(this)->copy();
 }
 
 auto Table::make(
   Store* store_abs, const TableType* type, const Ref* ref
 ) -> own<Table> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
 
   v8::Local<v8::Value> init = v8::Null(isolate);
-  if (ref) init = impl(ref)->v8_object();
+  if (ref) init = static_cast<const RefImpl<Ref>*>(ref)->v8_object();
   v8::Local<v8::Value> args[] = {tabletype_to_v8(store, type), init};
   auto maybe_obj =
     store->v8_function(V8_F_TABLE)->NewInstance(context, 2, args);
@@ -1831,8 +1842,9 @@ auto Table::make(
 
 auto Table::type() const -> own<TableType> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto v8_table = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Table>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto v8_table = impl->v8_object();
   uint32_t min = wasm_v8::table_type_min(v8_table);
   uint32_t max = wasm_v8::table_type_max(v8_table);
   // TODO(wasm+): support new element types.
@@ -1840,44 +1852,47 @@ auto Table::type() const -> own<TableType> {
 }
 
 auto Table::get(size_t index) const -> own<Ref> {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto maybe = wasm_v8::table_get(impl(this)->v8_object(), index);
+  auto impl = static_cast<const RefImpl<Table>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto maybe = wasm_v8::table_get(impl->v8_object(), index);
   if (maybe.IsEmpty()) return own<Ref>();
   auto obj = v8::Local<v8::Object>::Cast(maybe.ToLocalChecked());
-  return v8_to_ref(impl(this)->store(), obj);
+  return v8_to_ref(impl->store(), obj);
 }
 
 auto Table::set(size_t index, const Ref* ref) -> bool {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto val = ref_to_v8(impl(this)->store(), ref);
-  return wasm_v8::table_set(impl(this)->v8_object(), index, val);
+  auto impl = static_cast<RefImpl<Table>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto val = ref_to_v8(impl->store(), ref);
+  return wasm_v8::table_set(impl->v8_object(), index, val);
 }
 
 auto Table::size() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::table_size(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Table>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::table_size(impl->v8_object());
 }
 
 auto Table::grow(size_t delta, const Ref* ref) -> bool {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto val = ref_to_v8(impl(this)->store(), ref);
-  return wasm_v8::table_grow(impl(this)->v8_object(), delta, val);
+  auto impl = static_cast<RefImpl<Table>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto val = ref_to_v8(impl->store(), ref);
+  return wasm_v8::table_grow(impl->v8_object(), delta, val);
 }
 
 
 // Memory Instances
 
-template<> struct implement<Memory> { using type = RefImpl<Memory>; };
-
-
-Memory::~Memory() {}
+void Memory::destroy() {
+  delete static_cast<RefImpl<Memory>*>(this);
+}
 
 auto Memory::copy() const -> own<Memory> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Memory>*>(this)->copy();
 }
 
 auto Memory::make(Store* store_abs, const MemoryType* type) -> own<Memory> {
-  auto store = impl(store_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
   auto isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
   auto context = store->context();
@@ -1891,51 +1906,55 @@ auto Memory::make(Store* store_abs, const MemoryType* type) -> own<Memory> {
 
 auto Memory::type() const -> own<MemoryType> {
   // return impl(this)->data->type->copy();
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  auto v8_memory = impl(this)->v8_object();
+  auto impl = static_cast<const RefImpl<Memory>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  auto v8_memory = impl->v8_object();
   uint32_t min = wasm_v8::memory_type_min(v8_memory);
   uint32_t max = wasm_v8::memory_type_max(v8_memory);
   return MemoryType::make(Limits(min, max));
 }
 
 auto Memory::data() const -> byte_t* {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::memory_data(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Memory>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::memory_data(impl->v8_object());
 }
 
 auto Memory::data_size() const -> size_t {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::memory_data_size(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Memory>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::memory_data_size(impl->v8_object());
 }
 
 auto Memory::size() const -> pages_t {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::memory_size(impl(this)->v8_object());
+  auto impl = static_cast<const RefImpl<Memory>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::memory_size(impl->v8_object());
 }
 
 auto Memory::grow(pages_t delta) -> bool {
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  return wasm_v8::memory_grow(impl(this)->v8_object(), delta);
+  auto impl = static_cast<RefImpl<Memory>*>(this);
+  v8::HandleScope handle_scope(impl->isolate());
+  return wasm_v8::memory_grow(impl->v8_object(), delta);
 }
 
 
 // Module Instances
 
-template<> struct implement<Instance> { using type = RefImpl<Instance>; };
-
-
-Instance::~Instance() {}
+void Instance::destroy() {
+  delete static_cast<RefImpl<Instance>*>(this);
+}
 
 auto Instance::copy() const -> own<Instance> {
-  return impl(this)->copy();
+  return static_cast<const RefImpl<Instance>*>(this)->copy();
 }
 
 auto Instance::make(
   Store* store_abs, const Module* module_abs, const vec<Extern*>& imports,
   own<Trap>* trap
 ) -> own<Instance> {
-  auto store = impl(store_abs);
-  auto module = impl(module_abs);
+  auto store = static_cast<StoreImpl*>(store_abs);
+  auto module = static_cast<const RefImpl<Module>*>(module_abs);
   auto isolate = store->isolate();
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
@@ -1994,7 +2013,7 @@ auto Instance::make(
 }
 
 auto Instance::exports() const -> ownvec<Extern> {
-  auto instance = impl(this);
+  auto instance = static_cast<const RefImpl<Instance>*>(this);
   auto store = instance->store();
   auto isolate = store->isolate();
   auto context = store->context();
@@ -2023,19 +2042,19 @@ auto Instance::exports() const -> ownvec<Extern> {
     switch (type->kind()) {
       case ExternKind::FUNC: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_FUNC);
-        exports[i] = RefImpl<Func>::make(store, obj);
+        exports[i] = RefImpl<Func>::make<Extern>(store, obj);
       } break;
       case ExternKind::GLOBAL: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_GLOBAL);
-        exports[i] = RefImpl<Global>::make(store, obj);
+        exports[i] = RefImpl<Global>::make<Extern>(store, obj);
       } break;
       case ExternKind::TABLE: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_TABLE);
-        exports[i] = RefImpl<Table>::make(store, obj);
+        exports[i] = RefImpl<Table>::make<Extern>(store, obj);
       } break;
       case ExternKind::MEMORY: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
-        exports[i] = RefImpl<Memory>::make(store, obj);
+        exports[i] = RefImpl<Memory>::make<Extern>(store, obj);
       } break;
     }
   }
