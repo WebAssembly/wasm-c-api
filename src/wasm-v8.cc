@@ -229,7 +229,8 @@ DEFINE_VEC(Val, vec, VAL)
 
 // Configuration
 
-struct ConfigImpl : public Config {
+class ConfigImpl : public Config {
+public:
   ConfigImpl() { stats.make(Stats::CONFIG, this); }
   ~ConfigImpl() { stats.free(Stats::CONFIG, this); }
 };
@@ -246,7 +247,8 @@ auto Config::make() -> own<Config> {
 
 // Engine
 
-struct EngineImpl : public Engine {
+class EngineImpl : public Engine {
+public:
   static bool created;
 
   std::unique_ptr<v8::Platform> platform;
@@ -514,7 +516,8 @@ auto Store::make(Engine*) -> own<Store> {
 
 // Value Types
 
-struct ValTypeImpl : public ValType {
+class ValTypeImpl : public ValType {
+public:
   ValKind kind;
 
   ValTypeImpl(ValKind kind) : kind(kind) {}
@@ -571,7 +574,8 @@ auto ExternType::kind() const -> ExternKind {
 }
 
 template<typename Derived, typename Base, ExternKind Kind>
-struct ExternTypeImpl : public Base, public ExternTypeKind {
+class ExternTypeImpl : public Base, public ExternTypeKind {
+public:
   ExternTypeImpl() : ExternTypeKind{Kind} {}
 
   static Derived *from(ExternType *p) {
@@ -598,7 +602,8 @@ auto ExternType::copy() const -> own<ExternType> {
 
 // Function Types
 
-struct FuncTypeImpl : public ExternTypeImpl<FuncTypeImpl, FuncType, ExternKind::FUNC> {
+class FuncTypeImpl : public ExternTypeImpl<FuncTypeImpl, FuncType, ExternKind::FUNC> {
+public:
   ownvec<ValType> params;
   ownvec<ValType> results;
 
@@ -649,7 +654,8 @@ auto ExternType::func() const -> const FuncType* {
 
 // Global Types
 
-struct GlobalTypeImpl : public ExternTypeImpl<GlobalTypeImpl, GlobalType, ExternKind::GLOBAL> {
+class GlobalTypeImpl : public ExternTypeImpl<GlobalTypeImpl, GlobalType, ExternKind::GLOBAL> {
+public:
   own<ValType> content;
   Mutability mutability;
 
@@ -702,7 +708,8 @@ auto ExternType::global() const -> const GlobalType* {
 
 // Table Types
 
-struct TableTypeImpl : public ExternTypeImpl<TableTypeImpl, TableType, ExternKind::TABLE> {
+class TableTypeImpl : public ExternTypeImpl<TableTypeImpl, TableType, ExternKind::TABLE> {
+public:
   own<ValType> element;
   Limits limits;
 
@@ -754,7 +761,8 @@ auto ExternType::table() const -> const TableType* {
 
 // Memory Types
 
-struct MemoryTypeImpl : public ExternTypeImpl<MemoryTypeImpl, MemoryType, ExternKind::MEMORY> {
+class MemoryTypeImpl : public ExternTypeImpl<MemoryTypeImpl, MemoryType, ExternKind::MEMORY> {
+public:
   Limits limits;
 
   MemoryTypeImpl(Limits limits) :
@@ -801,7 +809,8 @@ void ExternType::destroy() {
 
 // Import Types
 
-struct ImportTypeImpl : public ImportType {
+class ImportTypeImpl : public ImportType {
+public:
   Name module;
   Name name;
   own<ExternType> type;
@@ -850,7 +859,8 @@ auto ImportType::type() const -> const ExternType* {
 
 // Export Types
 
-struct ExportTypeImpl : public ExportType {
+class ExportTypeImpl : public ExportType {
+public:
   Name name;
   own<ExternType> type;
 
@@ -1122,7 +1132,8 @@ auto v8_to_val(
 
 // Frames
 
-struct FrameImpl : public Frame {
+class FrameImpl : public Frame {
+public:
   FrameImpl(
     own<Instance>&& instance, uint32_t func_index,
     size_t func_offset, size_t module_offset
