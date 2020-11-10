@@ -791,10 +791,10 @@ auto ExternType::memory() const -> const MemoryType* {
 
 void ExternType::destroy() {
   switch (kind()) {
-    case ExternKind::FUNC: Destroyer<FuncType>()(FuncTypeImpl::from(this));
-    case ExternKind::GLOBAL: Destroyer<GlobalType>()(GlobalTypeImpl::from(this));
-    case ExternKind::TABLE: Destroyer<TableType>()(TableTypeImpl::from(this));
-    case ExternKind::MEMORY: Destroyer<MemoryType>()(MemoryTypeImpl::from(this));
+    case ExternKind::FUNC: destroyer<FuncType>()(FuncTypeImpl::from(this));
+    case ExternKind::GLOBAL: destroyer<GlobalType>()(GlobalTypeImpl::from(this));
+    case ExternKind::TABLE: destroyer<TableType>()(TableTypeImpl::from(this));
+    case ExternKind::MEMORY: destroyer<MemoryType>()(MemoryTypeImpl::from(this));
   }
 }
 
