@@ -589,10 +589,10 @@ struct ExternTypeImpl : public Base, public ExternTypeKind {
 
 auto ExternType::copy() const -> own<ExternType> {
   switch (kind()) {
-    case ExternKind::FUNC: return own_cast<ExternType>(func()->copy());
-    case ExternKind::GLOBAL: return own_cast<ExternType>(global()->copy());
-    case ExternKind::TABLE: return own_cast<ExternType>(table()->copy());
-    case ExternKind::MEMORY: return own_cast<ExternType>(memory()->copy());
+    case ExternKind::FUNC: return func()->copy();
+    case ExternKind::GLOBAL: return global()->copy();
+    case ExternKind::TABLE: return table()->copy();
+    case ExternKind::MEMORY: return memory()->copy();
   }
 }
 
@@ -791,10 +791,10 @@ auto ExternType::memory() const -> const MemoryType* {
 
 void ExternType::destroy() {
   switch (kind()) {
-    case ExternKind::FUNC: destroyer<FuncType>()(FuncTypeImpl::from(this));
-    case ExternKind::GLOBAL: destroyer<GlobalType>()(GlobalTypeImpl::from(this));
-    case ExternKind::TABLE: destroyer<TableType>()(TableTypeImpl::from(this));
-    case ExternKind::MEMORY: destroyer<MemoryType>()(MemoryTypeImpl::from(this));
+    case ExternKind::FUNC: destroyer()(FuncTypeImpl::from(this));
+    case ExternKind::GLOBAL: destroyer()(GlobalTypeImpl::from(this));
+    case ExternKind::TABLE: destroyer()(TableTypeImpl::from(this));
+    case ExternKind::MEMORY: destroyer()(MemoryTypeImpl::from(this));
   }
 }
 
@@ -1436,10 +1436,10 @@ auto Extern::kind() const -> ExternKind {
 
 auto Extern::type() const -> own<ExternType> {
   switch (kind()) {
-    case ExternKind::FUNC: return own_cast<ExternType>(func()->type());
-    case ExternKind::GLOBAL: return own_cast<ExternType>(global()->type());
-    case ExternKind::TABLE: return own_cast<ExternType>(table()->type());
-    case ExternKind::MEMORY: return own_cast<ExternType>(memory()->type());
+    case ExternKind::FUNC: return func()->type();
+    case ExternKind::GLOBAL: return global()->type();
+    case ExternKind::TABLE: return table()->type();
+    case ExternKind::MEMORY: return memory()->type();
   }
 }
 
