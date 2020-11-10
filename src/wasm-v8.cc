@@ -408,7 +408,7 @@ void Store::destroy() {
 }
 
 auto Store::make(Engine*) -> own<Store> {
-  auto store = std::unique_ptr<StoreImpl>(new(std::nothrow) StoreImpl());
+  auto store = own<StoreImpl>(new(std::nothrow) StoreImpl());
   if (!store) return own<Store>();
 
   // Create isolate.
@@ -505,7 +505,7 @@ auto Store::make(Engine*) -> own<Store> {
   store->context()->Enter();
   isolate->SetData(0, store.get());
 
-  return make_own<Store>(store.release());
+  return store;
 };
 
 
@@ -986,7 +986,7 @@ public:
     if (!self) return nullptr;
     self->Reset(store->isolate(), obj);
     stats.make(Stats::categorize(*self), self);
-    return make_own<T>(self);
+    return own<T>(self);
   }
 
   auto copy() const -> own<Ref> {

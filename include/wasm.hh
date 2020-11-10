@@ -191,9 +191,6 @@ public:
 template<class T> using own = std::unique_ptr<T, destroyer>;
 template<class T> using ownvec = vec<own<T>>;
 
-template<class T>
-auto make_own(T* x) -> own<T> { return own<T>(x); }
-
 ///////////////////////////////////////////////////////////////////////////////
 // Runtime Environment
 
