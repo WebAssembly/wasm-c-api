@@ -181,14 +181,14 @@ public:
 // Ownership
 
 template <typename T>
-class Destroyer {
+class destroyer {
 public:
   void operator()(T *ptr) {
     ptr->destroy();
   }
 };
 
-template<class T> using own = std::unique_ptr<T, Destroyer<T>>;
+template<class T> using own = std::unique_ptr<T, destroyer<T>>;
 template<class T> using ownvec = vec<own<T>>;
 
 template<class T>
@@ -203,7 +203,7 @@ auto own_cast(own<From> x) -> own<To> { return make_own<To>(x.release()); }
 // Configuration
 
 class WASM_API_EXTERN Config {
-  friend class Destroyer<Config>;
+  friend class destroyer<Config>;
   void destroy();
 
 protected:
@@ -220,7 +220,7 @@ public:
 // Engine
 
 class WASM_API_EXTERN Engine {
-  friend class Destroyer<Engine>;
+  friend class destroyer<Engine>;
   void destroy();
 
 protected:
@@ -235,7 +235,7 @@ public:
 // Store
 
 class WASM_API_EXTERN Store {
-  friend class Destroyer<Store>;
+  friend class destroyer<Store>;
   void destroy();
 
 protected:
@@ -275,7 +275,7 @@ inline bool is_ref(ValKind k) { return k >= ValKind::ANYREF; }
 
 
 class WASM_API_EXTERN ValType {
-  friend class Destroyer<ValType>;
+  friend class destroyer<ValType>;
   void destroy();
 
 protected:
@@ -304,7 +304,7 @@ class TableType;
 class MemoryType;
 
 class WASM_API_EXTERN ExternType {
-  friend class Destroyer<ExternType>;
+  friend class destroyer<ExternType>;
   void destroy();
 
 protected:
@@ -331,7 +331,7 @@ public:
 // Function Types
 
 class WASM_API_EXTERN FuncType : public ExternType {
-  friend class Destroyer<FuncType>;
+  friend class destroyer<FuncType>;
   void destroy();
 
 protected:
@@ -354,7 +354,7 @@ public:
 // Global Types
 
 class WASM_API_EXTERN GlobalType : public ExternType {
-  friend class Destroyer<GlobalType>;
+  friend class destroyer<GlobalType>;
   void destroy();
 
 protected:
@@ -373,7 +373,7 @@ public:
 // Table Types
 
 class WASM_API_EXTERN TableType : public ExternType {
-  friend class Destroyer<TableType>;
+  friend class destroyer<TableType>;
   void destroy();
 
 protected:
@@ -392,7 +392,7 @@ public:
 // Memory Types
 
 class WASM_API_EXTERN MemoryType : public ExternType {
-  friend class Destroyer<MemoryType>;
+  friend class destroyer<MemoryType>;
   void destroy();
 
 protected:
@@ -412,7 +412,7 @@ public:
 using Name = vec<byte_t>;
 
 class WASM_API_EXTERN ImportType {
-  friend class Destroyer<ImportType>;
+  friend class destroyer<ImportType>;
   void destroy();
 
 protected:
@@ -433,7 +433,7 @@ public:
 // Export Types
 
 class WASM_API_EXTERN ExportType {
-  friend class Destroyer<ExportType>;
+  friend class destroyer<ExportType>;
   void destroy();
 
 protected:
@@ -455,7 +455,7 @@ public:
 // References
 
 class WASM_API_EXTERN Ref {
-  friend class Destroyer<Ref>;
+  friend class destroyer<Ref>;
   void destroy();
 
 protected:
@@ -514,7 +514,7 @@ public:
 
   void reset() {
     if (is_ref() && impl_.ref) {
-      Destroyer<Ref>()(impl_.ref);
+      destroyer<Ref>()(impl_.ref);
       impl_.ref = nullptr;
     }
   }
@@ -596,7 +596,7 @@ using Message = vec<byte_t>;  // null terminated
 class Instance;
 
 class WASM_API_EXTERN Frame {
-  friend class Destroyer<Frame>;
+  friend class destroyer<Frame>;
   void destroy();
 
 protected:
@@ -613,7 +613,7 @@ public:
 };
 
 class WASM_API_EXTERN Trap : public Ref {
-  friend class Destroyer<Trap>;
+  friend class destroyer<Trap>;
   void destroy();
 
 protected:
@@ -634,7 +634,7 @@ public:
 
 template<class T>
 class WASM_API_EXTERN Shared {
-  friend class Destroyer<Shared<T>>;
+  friend class destroyer<Shared<T>>;
   void destroy();
 
 protected:
@@ -646,7 +646,7 @@ protected:
 // Modules
 
 class WASM_API_EXTERN Module : public Ref {
-  friend class Destroyer<Module>;
+  friend class destroyer<Module>;
   void destroy();
 
 protected:
@@ -672,7 +672,7 @@ public:
 // Foreign Objects
 
 class WASM_API_EXTERN Foreign : public Ref {
-  friend class Destroyer<Foreign>;
+  friend class destroyer<Foreign>;
   void destroy();
 
 protected:
@@ -693,7 +693,7 @@ class Table;
 class Memory;
 
 class WASM_API_EXTERN Extern : public Ref {
-  friend class Destroyer<Extern>;
+  friend class destroyer<Extern>;
   void destroy();
 
 protected:
@@ -721,7 +721,7 @@ public:
 // Function Instances
 
 class WASM_API_EXTERN Func : public Extern {
-  friend class Destroyer<Func>;
+  friend class destroyer<Func>;
   void destroy();
 
 protected:
@@ -748,7 +748,7 @@ public:
 // Global Instances
 
 class WASM_API_EXTERN Global : public Extern {
-  friend class Destroyer<Global>;
+  friend class destroyer<Global>;
   void destroy();
 
 protected:
@@ -768,7 +768,7 @@ protected:
 // Table Instances
 
 class WASM_API_EXTERN Table : public Extern {
-  friend class Destroyer<Table>;
+  friend class destroyer<Table>;
   void destroy();
 
 protected:
@@ -776,6 +776,7 @@ protected:
   ~Table() = default;
 
 public:
+  using size_t = uint32_t;
 
   static auto make(
     Store*, const TableType*, const Ref* init = nullptr) -> own<Table>;
@@ -792,7 +793,7 @@ public:
 // Memory Instances
 
 class WASM_API_EXTERN Memory : public Extern {
-  friend class Destroyer<Memory>;
+  friend class destroyer<Memory>;
   void destroy();
 
 protected:
@@ -818,7 +819,7 @@ public:
 // Module Instances
 
 class WASM_API_EXTERN Instance : public Ref {
-  friend class Destroyer<Instance>;
+  friend class destroyer<Instance>;
   void destroy();
 
 protected:
