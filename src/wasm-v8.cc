@@ -1022,7 +1022,11 @@ template<class Ref>
 class RefImpl : public Ref, public v8::Persistent<v8::Object> {
 public:
   RefImpl() = default;
-  ~RefImpl() = default;
+  ~RefImpl() {
+    stats.free(Stats::categorize(*this), this);
+    v8::HandleScope handle_scope(this->isolate());
+    this->store()->free_handle(this);
+  }
 
   template<typename T = Ref>
   static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<T> {
@@ -1084,9 +1088,7 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 
 void Ref::destroy() {
-  stats.free(Stats::categorize(*impl(this)), this);
-  v8::HandleScope handle_scope(impl(this)->isolate());
-  impl(this)->store()->free_handle(impl(this));
+  delete impl(this);
 }
 
 auto Ref::copy() const -> own<Ref> {
