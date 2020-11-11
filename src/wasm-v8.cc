@@ -1033,15 +1033,14 @@ public:
     this->store()->free_handle(this);
   }
 
-  template<typename T = Ref>
-  static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<T> {
+  static auto make(StoreImpl* store, v8::Local<v8::Object> obj) -> own<Ref> {
     static_assert(sizeof(RefImpl) == sizeof(v8::Persistent<v8::Object>),
       "incompatible object layout");
     auto self = static_cast<RefImpl*>(store->make_handle());
     if (!self) return nullptr;
     self->Reset(store->isolate(), obj);
     stats.make(Stats::categorize(*self), self);
-    return own<T>(self);
+    return own<Ref>(self);
   }
 
   auto copy() const -> own<Ref> {
@@ -2142,19 +2141,19 @@ auto Instance::exports() const -> ownvec<Extern> {
     switch (type->kind()) {
       case ExternKind::FUNC: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_FUNC);
-        exports[i] = RefImpl<Func>::make<Extern>(store, obj);
+        exports[i] = RefImpl<Func>::make(store, obj);
       } break;
       case ExternKind::GLOBAL: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_GLOBAL);
-        exports[i] = RefImpl<Global>::make<Extern>(store, obj);
+        exports[i] = RefImpl<Global>::make(store, obj);
       } break;
       case ExternKind::TABLE: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_TABLE);
-        exports[i] = RefImpl<Table>::make<Extern>(store, obj);
+        exports[i] = RefImpl<Table>::make(store, obj);
       } break;
       case ExternKind::MEMORY: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
-        exports[i] = RefImpl<Memory>::make<Extern>(store, obj);
+        exports[i] = RefImpl<Memory>::make(store, obj);
       } break;
     }
   }
