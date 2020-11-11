@@ -585,10 +585,14 @@ public:
   ExternTypeImpl(ExternKind kind) : ExternTypeKind{kind} {}
 };
 
-static_assert(std::is_standard_layout<ExternTypeImpl<FuncType>>::value);
-static_assert(std::is_standard_layout<ExternTypeImpl<GlobalType>>::value);
-static_assert(std::is_standard_layout<ExternTypeImpl<TableType>>::value);
-static_assert(std::is_standard_layout<ExternTypeImpl<MemoryType>>::value);
+static_assert(std::is_standard_layout<ExternTypeImpl<FuncType>>::value,
+              "FuncType*, ExternType* and ExternTypeKind are not pointer-interconvertible.");
+static_assert(std::is_standard_layout<ExternTypeImpl<GlobalType>>::value,
+              "GlobalType*, ExternType* and ExternTypeKind are not pointer-interconvertible.");
+static_assert(std::is_standard_layout<ExternTypeImpl<TableType>>::value,
+              "TableType*, ExternType* and ExternTypeKind are not pointer-interconvertible.");
+static_assert(std::is_standard_layout<ExternTypeImpl<MemoryType>>::value,
+              "MemoryType*, ExternType* and ExternTypeKind are not pointer-interconvertible.");
 
 auto ExternType::copy() const -> own<ExternType> {
   switch (kind()) {
@@ -1078,11 +1082,16 @@ public:
   }
 };
 
-static_assert(std::is_standard_layout<RefImpl<Trap>>::value);
-static_assert(std::is_standard_layout<RefImpl<Module>>::value);
-static_assert(std::is_standard_layout<RefImpl<Foreign>>::value);
-static_assert(std::is_standard_layout<RefImpl<Extern>>::value);
-static_assert(std::is_standard_layout<RefImpl<Instance>>::value);
+static_assert(std::is_standard_layout<RefImpl<Trap>>::value,
+              "incompatible object layout");
+static_assert(std::is_standard_layout<RefImpl<Module>>::value,
+              "incompatible object layout");
+static_assert(std::is_standard_layout<RefImpl<Foreign>>::value,
+              "incompatible object layout");
+static_assert(std::is_standard_layout<RefImpl<Extern>>::value,
+              "incompatible object layout");
+static_assert(std::is_standard_layout<RefImpl<Instance>>::value,
+              "incompatible object layout");
 
 template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
