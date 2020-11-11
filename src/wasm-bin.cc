@@ -396,10 +396,10 @@ auto imports(
     auto name = bin::name(pos);
     own<ExternType> type;
     switch (*pos++) {
-      case 0x00: type = own_cast<ExternType>(types[bin::u32(pos)]->copy()); break;
-      case 0x01: type = own_cast<ExternType>(bin::tabletype(pos)); break;
-      case 0x02: type = own_cast<ExternType>(bin::memorytype(pos)); break;
-      case 0x03: type = own_cast<ExternType>(bin::globaltype(pos)); break;
+      case 0x00: type = types[bin::u32(pos)]->copy(); break;
+      case 0x01: type = bin::tabletype(pos); break;
+      case 0x02: type = bin::memorytype(pos); break;
+      case 0x03: type = bin::globaltype(pos); break;
       default: assert(false);
     }
     v[i] = ImportType::make(
@@ -540,10 +540,10 @@ auto exports(const vec<byte_t>& binary,
     auto index = bin::u32(pos);
     own<ExternType> type;
     switch (tag) {
-      case 0x00: type = own_cast<ExternType>(funcs[index]->copy()); break;
-      case 0x01: type = own_cast<ExternType>(tables[index]->copy()); break;
-      case 0x02: type = own_cast<ExternType>(memories[index]->copy()); break;
-      case 0x03: type = own_cast<ExternType>(globals[index]->copy()); break;
+      case 0x00: type = funcs[index]->copy(); break;
+      case 0x01: type = tables[index]->copy(); break;
+      case 0x02: type = memories[index]->copy(); break;
+      case 0x03: type = globals[index]->copy(); break;
       default: assert(false);
     }
     exports[i] = ExportType::make(std::move(name), std::move(type));
