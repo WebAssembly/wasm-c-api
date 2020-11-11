@@ -527,7 +527,7 @@ public:
   ValKind kind;
 
   ValTypeImpl(ValKind kind) : kind(kind) {}
-  ~ValTypeImpl() { stats.free(Stats::VALTYPE, this); }
+  ~ValTypeImpl() {}
 };
 
 template<> struct implement<ValType> { using type = ValTypeImpl; };
@@ -539,8 +539,9 @@ ValTypeImpl* valtype_f64 = new ValTypeImpl(ValKind::F64);
 ValTypeImpl* valtype_anyref = new ValTypeImpl(ValKind::ANYREF);
 ValTypeImpl* valtype_funcref = new ValTypeImpl(ValKind::FUNCREF);
 
+
 void ValType::destroy() {
-  delete impl(this);
+  stats.free(Stats::VALTYPE, this);
 }
 
 auto ValType::make(ValKind k) -> own<ValType> {
