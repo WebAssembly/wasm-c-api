@@ -662,6 +662,8 @@ public:
   static auto deserialize(Store*, const vec<byte_t>&) -> own<Module>;
 };
 
+template<> class Shared<Module>;
+
 
 // Foreign Objects
 

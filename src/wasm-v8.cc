@@ -802,6 +802,10 @@ public:
 template<> struct implement<MemoryType> { using type = MemoryTypeImpl; };
 
 
+void MemoryType::destroy() {
+  delete impl(this);
+}
+
 auto MemoryType::make(Limits limits) -> own<MemoryType> {
   return own<MemoryType>(new(std::nothrow) MemoryTypeImpl(limits));
 }
@@ -1223,6 +1227,10 @@ auto Frame::module_offset() const -> size_t {
 template<> struct implement<Trap> { using type = RefImpl<Trap>; };
 
 
+void Trap::destroy() {
+  delete impl(this);
+}
+
 auto Trap::copy() const -> own<Trap> {
   return impl(this)->copy();
 }
@@ -1444,18 +1452,30 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
 
 
 // TODO(v8): do better when V8 can do better.
-template<> struct implement<Shared<Module>> { using type = vec<byte_t>; };
-
-template<>
-Shared<Module>::~Shared() {
-  stats.free(Stats::MODULE, this, Stats::SHARED);
-  impl(this)->~vec();
+auto impl(Shared<Module>* x) -> vec<byte_t>* {
+  return reinterpret_cast<vec<byte_t>*>(x);
 }
 
+auto impl(const Shared<Module>* x) -> const vec<byte_t>* {
+  return reinterpret_cast<const vec<byte_t>*>(x);
+}
+
+template<> class WASM_API_EXTERN Shared<Module> {
+  friend class destroyer;
+  void destroy() {
+    stats.free(Stats::MODULE, this, Stats::SHARED);
+    delete impl(this);
+  }
+
+public:
+  Shared() = default;
+  ~Shared() = default;
+};
+
 auto Module::share() const -> own<Shared<Module>> {
-  auto shared = seal<Shared<Module>>(new vec<byte_t>(serialize()));
+  auto shared = reinterpret_cast<Shared<Module>*>(new vec<byte_t>(serialize()));
   stats.make(Stats::MODULE, shared, Stats::SHARED);
-  return make_own(shared);
+  return own<Shared<Module>>(shared);
 }
 
 auto Module::obtain(Store* store, const Shared<Module>* shared) -> own<Module> {
