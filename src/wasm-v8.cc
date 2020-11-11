@@ -573,23 +573,16 @@ auto ExternType::kind() const -> ExternKind {
   return reinterpret_cast<const ExternTypeKind*>(this)->kind;
 }
 
-template<typename Derived, typename Base, ExternKind Kind>
+template<typename Base>
 class ExternTypeImpl : public Base, public ExternTypeKind {
 public:
-  ExternTypeImpl() : ExternTypeKind{Kind} {}
-
-  static Derived *from(ExternType *p) {
-    return reinterpret_cast<ExternTypeKind*>(p)->kind == Kind
-      ? static_cast<Derived*>(p)
-      : nullptr;
-  }
-
-  static const Derived *from(const ExternType *p) {
-    return reinterpret_cast<const ExternTypeKind*>(p)->kind == Kind
-      ? static_cast<const Derived*>(p)
-      : nullptr;
-  }
+  ExternTypeImpl(ExternKind kind) : ExternTypeKind{kind} {}
 };
+
+static_assert(std::is_standard_layout<ExternTypeImpl<FuncType>>::value);
+static_assert(std::is_standard_layout<ExternTypeImpl<GlobalType>>::value);
+static_assert(std::is_standard_layout<ExternTypeImpl<TableType>>::value);
+static_assert(std::is_standard_layout<ExternTypeImpl<MemoryType>>::value);
 
 auto ExternType::copy() const -> own<ExternType> {
   switch (kind()) {
@@ -602,13 +595,15 @@ auto ExternType::copy() const -> own<ExternType> {
 
 // Function Types
 
-class FuncTypeImpl : public ExternTypeImpl<FuncTypeImpl, FuncType, ExternKind::FUNC> {
+class FuncTypeImpl : public ExternTypeImpl<FuncType> {
 public:
   ownvec<ValType> params;
   ownvec<ValType> results;
 
   FuncTypeImpl(ownvec<ValType>& params, ownvec<ValType>& results) :
-    params(std::move(params)), results(std::move(results))
+    ExternTypeImpl(ExternKind::FUNC),
+    params(std::move(params)),
+    results(std::move(results))
   {
     stats.make(Stats::FUNCTYPE, this);
   }
@@ -618,10 +613,10 @@ public:
   }
 };
 
-static_assert(std::is_standard_layout<ExternTypeImpl<FuncTypeImpl, FuncType, ExternKind::FUNC>>::value);
+template<> struct implement<FuncType> { using type = FuncTypeImpl; };
 
 void FuncType::destroy() {
-  delete FuncTypeImpl::from(this);
+  delete impl(this);
 }
 
 auto FuncType::make(ownvec<ValType>&& params, ownvec<ValType>&& results)
@@ -636,31 +631,37 @@ auto FuncType::copy() const -> own<FuncType> {
 }
 
 auto FuncType::params() const -> const ownvec<ValType>& {
-  return FuncTypeImpl::from(this)->params;
+  return impl(this)->params;
 }
 
 auto FuncType::results() const -> const ownvec<ValType>& {
-  return FuncTypeImpl::from(this)->results;
+  return impl(this)->results;
 }
 
 auto ExternType::func() -> FuncType* {
-  return FuncTypeImpl::from(this);
+  return reinterpret_cast<ExternTypeKind*>(this)->kind == ExternKind::FUNC
+    ? static_cast<FuncType*>(this)
+    : nullptr;
 }
 
 auto ExternType::func() const -> const FuncType* {
-  return FuncTypeImpl::from(this);
+  return reinterpret_cast<const ExternTypeKind*>(this)->kind == ExternKind::FUNC
+    ? static_cast<const FuncType*>(this)
+    : nullptr;
 }
 
 
 // Global Types
 
-class GlobalTypeImpl : public ExternTypeImpl<GlobalTypeImpl, GlobalType, ExternKind::GLOBAL> {
+class GlobalTypeImpl : public ExternTypeImpl<GlobalType> {
 public:
   own<ValType> content;
   Mutability mutability;
 
   GlobalTypeImpl(own<ValType>& content, Mutability mutability) :
-    content(std::move(content)), mutability(mutability)
+    ExternTypeImpl(ExternKind::GLOBAL),
+    content(std::move(content)),
+    mutability(mutability)
   {
     stats.make(Stats::GLOBALTYPE, this);
   }
@@ -670,10 +671,10 @@ public:
   }
 };
 
-static_assert(std::is_standard_layout<ExternTypeImpl<GlobalTypeImpl, GlobalType, ExternKind::FUNC>>::value);
+template<> struct implement<GlobalType> { using type = GlobalTypeImpl; };
 
 void GlobalType::destroy() {
-  delete GlobalTypeImpl::from(this);
+  delete impl(this);
 }
 
 auto GlobalType::make(
@@ -689,32 +690,38 @@ auto GlobalType::copy() const -> own<GlobalType> {
 }
 
 auto GlobalType::content() const -> const ValType* {
-  return GlobalTypeImpl::from(this)->content.get();
+  return impl(this)->content.get();
 }
 
 auto GlobalType::mutability() const -> Mutability {
-  return GlobalTypeImpl::from(this)->mutability;
+  return impl(this)->mutability;
 }
 
 
 auto ExternType::global() -> GlobalType* {
-  return GlobalTypeImpl::from(this);
+  return reinterpret_cast<ExternTypeKind*>(this)->kind == ExternKind::GLOBAL
+    ? static_cast<GlobalType*>(this)
+    : nullptr;
 }
 
 auto ExternType::global() const -> const GlobalType* {
-  return GlobalTypeImpl::from(this);
+  return reinterpret_cast<const ExternTypeKind*>(this)->kind == ExternKind::GLOBAL
+    ? static_cast<const GlobalType*>(this)
+    : nullptr;
 }
 
 
 // Table Types
 
-class TableTypeImpl : public ExternTypeImpl<TableTypeImpl, TableType, ExternKind::TABLE> {
+class TableTypeImpl : public ExternTypeImpl<TableType> {
 public:
   own<ValType> element;
   Limits limits;
 
   TableTypeImpl(own<ValType>& element, Limits limits) :
-    element(std::move(element)), limits(limits)
+    ExternTypeImpl(ExternKind::TABLE),
+    element(std::move(element)),
+    limits(limits)
   {
     stats.make(Stats::TABLETYPE, this);
   }
@@ -724,10 +731,11 @@ public:
   }
 };
 
-static_assert(std::is_standard_layout<ExternTypeImpl<TableTypeImpl, TableType, ExternKind::FUNC>>::value);
+
+template<> struct implement<TableType> { using type = TableTypeImpl; };
 
 void TableType::destroy() {
-  delete TableTypeImpl::from(this);
+  delete impl(this);
 }
 
 auto TableType::make(own<ValType>&& element, Limits limits) -> own<TableType> {
@@ -742,30 +750,35 @@ auto TableType::copy() const -> own<TableType> {
 }
 
 auto TableType::element() const -> const ValType* {
-  return TableTypeImpl::from(this)->element.get();
+  return impl(this)->element.get();
 }
 
 auto TableType::limits() const -> const Limits& {
-  return TableTypeImpl::from(this)->limits;
+  return impl(this)->limits;
 }
 
 
 auto ExternType::table() -> TableType* {
-  return TableTypeImpl::from(this);
+  return reinterpret_cast<ExternTypeKind*>(this)->kind == ExternKind::TABLE
+    ? static_cast<TableType*>(this)
+    : nullptr;
 }
 
 auto ExternType::table() const -> const TableType* {
-  return TableTypeImpl::from(this);
+  return reinterpret_cast<const ExternTypeKind*>(this)->kind == ExternKind::TABLE
+    ? static_cast<const TableType*>(this)
+    : nullptr;
 }
 
 
 // Memory Types
 
-class MemoryTypeImpl : public ExternTypeImpl<MemoryTypeImpl, MemoryType, ExternKind::MEMORY> {
+class MemoryTypeImpl : public ExternTypeImpl<MemoryType> {
 public:
   Limits limits;
 
   MemoryTypeImpl(Limits limits) :
+    ExternTypeImpl(ExternKind::MEMORY),
     limits(limits)
   {
     stats.make(Stats::MEMORYTYPE, this);
@@ -776,6 +789,8 @@ public:
   }
 };
 
+template<> struct implement<MemoryType> { using type = MemoryTypeImpl; };
+
 auto MemoryType::make(Limits limits) -> own<MemoryType> {
   return own<MemoryType>(new(std::nothrow) MemoryTypeImpl(limits));
 }
@@ -785,24 +800,27 @@ auto MemoryType::copy() const -> own<MemoryType> {
 }
 
 auto MemoryType::limits() const -> const Limits& {
-  return MemoryTypeImpl::from(this)->limits;
+  return impl(this)->limits;
 }
 
-
 auto ExternType::memory() -> MemoryType* {
-  return MemoryTypeImpl::from(this);
+  return reinterpret_cast<ExternTypeKind*>(this)->kind == ExternKind::MEMORY
+    ? static_cast<MemoryType*>(this)
+    : nullptr;
 }
 
 auto ExternType::memory() const -> const MemoryType* {
-  return MemoryTypeImpl::from(this);
+  return reinterpret_cast<const ExternTypeKind*>(this)->kind == ExternKind::MEMORY
+    ? static_cast<const MemoryType*>(this)
+    : nullptr;
 }
 
 void ExternType::destroy() {
   switch (kind()) {
-    case ExternKind::FUNC: destroyer()(FuncTypeImpl::from(this));
-    case ExternKind::GLOBAL: destroyer()(GlobalTypeImpl::from(this));
-    case ExternKind::TABLE: destroyer()(TableTypeImpl::from(this));
-    case ExternKind::MEMORY: destroyer()(MemoryTypeImpl::from(this));
+    case ExternKind::FUNC: delete static_cast<FuncTypeImpl*>(this);
+    case ExternKind::GLOBAL: delete static_cast<GlobalTypeImpl*>(this);
+    case ExternKind::TABLE: delete static_cast<TableTypeImpl*>(this);
+    case ExternKind::MEMORY: delete static_cast<MemoryTypeImpl*>(this);
   }
 }
 
