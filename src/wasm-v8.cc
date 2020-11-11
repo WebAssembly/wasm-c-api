@@ -838,10 +838,10 @@ auto ExternType::memory() const -> const MemoryType* {
 
 void ExternType::destroy() {
   switch (kind()) {
-    case ExternKind::FUNC: delete static_cast<FuncTypeImpl*>(this);
-    case ExternKind::GLOBAL: delete static_cast<GlobalTypeImpl*>(this);
-    case ExternKind::TABLE: delete static_cast<TableTypeImpl*>(this);
-    case ExternKind::MEMORY: delete static_cast<MemoryTypeImpl*>(this);
+    case ExternKind::FUNC: delete static_cast<FuncTypeImpl*>(this); break;
+    case ExternKind::GLOBAL: delete static_cast<GlobalTypeImpl*>(this); break;
+    case ExternKind::TABLE: delete static_cast<TableTypeImpl*>(this); break;
+    case ExternKind::MEMORY: delete static_cast<MemoryTypeImpl*>(this); break;
   }
 }
 
@@ -1473,15 +1473,17 @@ auto impl(const Shared<Module>* x) -> const vec<byte_t>* {
 
 template<> class WASM_API_EXTERN Shared<Module> {
   friend class destroyer;
-  void destroy() {
-    stats.free(Stats::MODULE, this, Stats::SHARED);
-    delete impl(this);
-  }
+  void destroy();
 
 public:
   Shared() = default;
   ~Shared() = default;
 };
+
+void Shared<Module>::destroy() {
+  stats.free(Stats::MODULE, this, Stats::SHARED);
+  delete impl(this);
+}
 
 auto Module::share() const -> own<Shared<Module>> {
   auto shared = reinterpret_cast<Shared<Module>*>(new vec<byte_t>(serialize()));
