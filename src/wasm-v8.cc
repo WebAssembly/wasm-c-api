@@ -1088,7 +1088,7 @@ template<> struct implement<Ref> { using type = RefImpl<Ref>; };
 
 
 void Ref::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Ref>();
 }
 
 auto Ref::copy() const -> own<Ref> {
@@ -1230,7 +1230,7 @@ template<> struct implement<Trap> { using type = RefImpl<Trap>; };
 
 
 void Trap::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Trap>();
 }
 
 auto Trap::copy() const -> own<Trap> {
@@ -1275,7 +1275,7 @@ template<> struct implement<Foreign> { using type = RefImpl<Foreign>; };
 
 
 void Foreign::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Foreign>();
 }
 
 auto Foreign::copy() const -> own<Foreign> {
@@ -1298,7 +1298,7 @@ template<> struct implement<Module> { using type = RefImpl<Module>; };
 
 
 void Module::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Module>();
 }
 
 auto Module::copy() const -> own<Module> {
@@ -1493,7 +1493,7 @@ template<> struct implement<Extern> { using type = RefImpl<Extern>; };
 
 
 void Extern::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Extern>();
 }
 
 auto Extern::copy() const -> own<Extern> {
@@ -1557,7 +1557,7 @@ template<> struct implement<Func> { using type = RefImpl<Func>; };
 
 
 void Func::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Func>();
 }
 
 auto Func::copy() const -> own<Func> {
@@ -1813,7 +1813,7 @@ template<> struct implement<Global> { using type = RefImpl<Global>; };
 
 
 void Global::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Global>();
 }
 
 auto Global::copy() const -> own<Global> {
@@ -1901,7 +1901,7 @@ template<> struct implement<Table> { using type = RefImpl<Table>; };
 
 
 void Table::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Table>();
 }
 
 auto Table::copy() const -> own<Table> {
@@ -1976,7 +1976,7 @@ template<> struct implement<Memory> { using type = RefImpl<Memory>; };
 
 
 void Memory::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Memory>();
 }
 
 auto Memory::copy() const -> own<Memory> {
@@ -2032,7 +2032,7 @@ template<> struct implement<Instance> { using type = RefImpl<Instance>; };
 
 
 void Instance::destroy() {
-  delete impl(this);
+  impl(this)->~RefImpl<Instance>();
 }
 
 auto Instance::copy() const -> own<Instance> {
