@@ -166,6 +166,15 @@ struct Stats {
   }
 };
 
+template<class C> struct categorize;
+template<> struct categorize<Func> { static const auto value = Stats::FUNC; };
+template<> struct categorize<Global> { static const auto value = Stats::GLOBAL; };
+template<> struct categorize<Table> { static const auto value = Stats::TABLE; };
+template<> struct categorize<Memory> { static const auto value = Stats::MEMORY; };
+template<> struct categorize<Module> { static const auto value = Stats::MODULE; };
+template<> struct categorize<Instance> { static const auto value = Stats::INSTANCE; };
+template<> struct categorize<Trap> { static const auto value = Stats::TRAP; };
+
 #ifdef WASM_API_DEBUG
 const char* Stats::name[STRONG_COUNT] = {
   "byte_t", "Config", "Engine", "Store", "Frame",
@@ -576,7 +585,7 @@ auto ExternType::kind() const -> ExternKind {
   return reinterpret_cast<const ExternTypeKind*>(this)->kind;
 }
 
-template<typename Base>
+template<class Base>
 struct ExternTypeImpl : Base, ExternTypeKind {
   ExternTypeImpl(ExternKind kind) : ExternTypeKind{kind} {}
 };
@@ -1450,21 +1459,23 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
 
 
 // TODO(v8): do better when V8 can do better.
-auto impl(Shared<Module>* x) -> vec<byte_t>* {
-  return reinterpret_cast<vec<byte_t>*>(x);
-}
 
-auto impl(const Shared<Module>* x) -> const vec<byte_t>* {
-  return reinterpret_cast<const vec<byte_t>*>(x);
-}
+template<class C>
+struct SharedImpl : Shared<C>, vec<byte_t> {
+  void destroy() {
+    stats.free(categorize<C>::value, this, Stats::SHARED);
+    delete this;
+  }
+};
+
+template<> struct implement<Shared<Module>> { using type = SharedImpl<Module>; };
 
 void Shared<Module>::destroy() {
-  stats.free(Stats::MODULE, this, Stats::SHARED);
-  delete impl(this);
+  impl(this)->destroy();
 }
 
 auto Module::share() const -> own<Shared<Module>> {
-  auto shared = reinterpret_cast<Shared<Module>*>(new vec<byte_t>(serialize()));
+  auto shared = static_cast<SharedImpl<Module>*>(new vec<byte_t>(serialize()));
   stats.make(Stats::MODULE, shared, Stats::SHARED);
   return own<Shared<Module>>(shared);
 }
