@@ -231,8 +231,7 @@ DEFINE_VEC(Val, vec, VAL)
 
 // Configuration
 
-class ConfigImpl : public Config {
-public:
+struct ConfigImpl : Config {
   ConfigImpl() { stats.make(Stats::CONFIG, this); }
   ~ConfigImpl() { stats.free(Stats::CONFIG, this); }
 };
@@ -251,8 +250,7 @@ auto Config::make() -> own<Config> {
 
 // Engine
 
-class EngineImpl : public Engine {
-public:
+struct EngineImpl : Engine {
   static bool created;
 
   std::unique_ptr<v8::Platform> platform;
@@ -319,7 +317,7 @@ enum v8_function_t {
   V8_F_COUNT,
 };
 
-class StoreImpl : public Store {
+struct StoreImpl : Store {
   friend own<Store> Store::make(Engine*);
 
   v8::Isolate::CreateParams create_params_;
@@ -332,7 +330,6 @@ class StoreImpl : public Store {
   v8::Eternal<v8::Symbol> callback_symbol_;
   v8::Persistent<v8::Object>* handle_pool_ = nullptr;  // TODO: use v8::Value
 
-public:
   StoreImpl() {
     stats.make(Stats::STORE, this);
   }
@@ -522,8 +519,7 @@ auto Store::make(Engine*) -> own<Store> {
 
 // Value Types
 
-class ValTypeImpl : public ValType {
-public:
+struct ValTypeImpl : ValType {
   ValKind kind;
 
   ValTypeImpl(ValKind kind) : kind(kind) {}
@@ -581,8 +577,7 @@ auto ExternType::kind() const -> ExternKind {
 }
 
 template<typename Base>
-class ExternTypeImpl : public Base, public ExternTypeKind {
-public:
+struct ExternTypeImpl : Base, ExternTypeKind {
   ExternTypeImpl(ExternKind kind) : ExternTypeKind{kind} {}
 };
 
@@ -607,8 +602,7 @@ auto ExternType::copy() const -> own<ExternType> {
 
 // Function Types
 
-class FuncTypeImpl : public ExternTypeImpl<FuncType> {
-public:
+struct FuncTypeImpl : ExternTypeImpl<FuncType> {
   ownvec<ValType> params;
   ownvec<ValType> results;
 
@@ -667,8 +661,7 @@ auto ExternType::func() const -> const FuncType* {
 
 // Global Types
 
-class GlobalTypeImpl : public ExternTypeImpl<GlobalType> {
-public:
+struct GlobalTypeImpl : ExternTypeImpl<GlobalType> {
   own<ValType> content;
   Mutability mutability;
 
@@ -728,8 +721,7 @@ auto ExternType::global() const -> const GlobalType* {
 
 // Table Types
 
-class TableTypeImpl : public ExternTypeImpl<TableType> {
-public:
+struct TableTypeImpl : ExternTypeImpl<TableType> {
   own<ValType> element;
   Limits limits;
 
@@ -788,8 +780,7 @@ auto ExternType::table() const -> const TableType* {
 
 // Memory Types
 
-class MemoryTypeImpl : public ExternTypeImpl<MemoryType> {
-public:
+struct MemoryTypeImpl : ExternTypeImpl<MemoryType> {
   Limits limits;
 
   MemoryTypeImpl(Limits limits) :
@@ -848,8 +839,7 @@ void ExternType::destroy() {
 
 // Import Types
 
-class ImportTypeImpl : public ImportType {
-public:
+struct ImportTypeImpl : ImportType {
   Name module;
   Name name;
   own<ExternType> type;
@@ -899,8 +889,7 @@ auto ImportType::type() const -> const ExternType* {
 
 // Export Types
 
-class ExportTypeImpl : public ExportType {
-public:
+struct ExportTypeImpl : ExportType {
   Name name;
   own<ExternType> type;
 
@@ -1024,8 +1013,7 @@ auto memorytype_to_v8(
 // References
 
 template<class Ref>
-class RefImpl : public Ref, public v8::Persistent<v8::Object> {
-public:
+struct RefImpl : Ref, v8::Persistent<v8::Object> {
   RefImpl() = default;
   ~RefImpl() {
     stats.free(Stats::categorize(*this), this);
@@ -1180,8 +1168,7 @@ auto v8_to_val(
 
 // Frames
 
-class FrameImpl : public Frame {
-public:
+struct FrameImpl : Frame {
   FrameImpl(
     own<Instance>&& instance, uint32_t func_index,
     size_t func_offset, size_t module_offset
@@ -1471,11 +1458,10 @@ auto impl(const Shared<Module>* x) -> const vec<byte_t>* {
   return reinterpret_cast<const vec<byte_t>*>(x);
 }
 
-template<> class WASM_API_EXTERN Shared<Module> {
+template<> struct WASM_API_EXTERN Shared<Module> {
   friend class destroyer;
   void destroy();
 
-public:
   Shared() = default;
   ~Shared() = default;
 };
