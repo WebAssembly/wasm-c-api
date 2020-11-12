@@ -1458,14 +1458,6 @@ auto impl(const Shared<Module>* x) -> const vec<byte_t>* {
   return reinterpret_cast<const vec<byte_t>*>(x);
 }
 
-template<> struct WASM_API_EXTERN Shared<Module> {
-  friend class destroyer;
-  void destroy();
-
-  Shared() = default;
-  ~Shared() = default;
-};
-
 void Shared<Module>::destroy() {
   stats.free(Stats::MODULE, this, Stats::SHARED);
   delete impl(this);

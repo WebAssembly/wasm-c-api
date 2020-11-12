@@ -630,8 +630,12 @@ public:
 
 // Shared objects
 
-template<class T>
-class WASM_API_EXTERN Shared {
+template<class T> class WASM_API_EXTERN Shared;
+
+class Module;
+
+template<>
+class WASM_API_EXTERN Shared<Module> {
   friend class destroyer;
   void destroy();
 
@@ -665,8 +669,6 @@ public:
   auto serialize() const -> vec<byte_t>;
   static auto deserialize(Store*, const vec<byte_t>&) -> own<Module>;
 };
-
-template<> class Shared<Module>;
 
 
 // Foreign Objects
