@@ -169,7 +169,7 @@ static const uint32_t wasm_limits_max_default = 0xffffffff;
   WASM_DECLARE_OWN(name) \
   WASM_DECLARE_VEC(name, *) \
   \
-  WASM_API_EXTERN own wasm_##name##_t* wasm_##name##_copy(wasm_##name##_t*);
+  WASM_API_EXTERN own wasm_##name##_t* wasm_##name##_copy(const wasm_##name##_t*);
 
 
 // Value Types
