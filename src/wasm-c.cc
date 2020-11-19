@@ -282,7 +282,7 @@ extern "C++" inline auto reveal_externkind(wasm_externkind_t kind) -> ExternKind
   WASM_DEFINE_OWN(name, Name) \
   WASM_DEFINE_VEC_OWN(name, Name) \
   \
-  wasm_##name##_t* wasm_##name##_copy(wasm_##name##_t* t) { \
+  wasm_##name##_t* wasm_##name##_copy(const wasm_##name##_t* t) { \
     return release_##name(t->copy()); \
   }
 
