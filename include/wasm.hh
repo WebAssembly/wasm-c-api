@@ -628,24 +628,9 @@ public:
 };
 
 
-// Shared objects
+// Modules
 
 template<class T> class WASM_API_EXTERN Shared;
-
-class Module;
-
-template<>
-class WASM_API_EXTERN Shared<Module> {
-  friend class destroyer;
-  void destroy();
-
-protected:
-  Shared() = default;
-  ~Shared() = default;
-};
-
-
-// Modules
 
 class WASM_API_EXTERN Module : public Ref {
   friend class destroyer;
@@ -668,6 +653,19 @@ public:
 
   auto serialize() const -> vec<byte_t>;
   static auto deserialize(Store*, const vec<byte_t>&) -> own<Module>;
+};
+
+
+// Shared objects
+
+template<>
+class WASM_API_EXTERN Shared<Module> {
+  friend class destroyer;
+  void destroy();
+
+protected:
+  Shared() = default;
+  ~Shared() = default;
 };
 
 
