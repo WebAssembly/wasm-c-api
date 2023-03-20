@@ -130,13 +130,21 @@ auto managed_get(v8::Local<v8::Value> val) -> void* {
 // Types
 
 auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t {
-  switch (v8_valtype) {
-    case v8::internal::wasm::kWasmI32: return I32;
-    case v8::internal::wasm::kWasmI64: return I64;
-    case v8::internal::wasm::kWasmF32: return F32;
-    case v8::internal::wasm::kWasmF64: return F64;
-    case v8::internal::wasm::kWasmAnyRef: return ANYREF;
-    case v8::internal::wasm::kWasmAnyFunc: return FUNCREF;
+  switch (v8_valtype.kind()) {
+    case v8::internal::wasm::kI32: return I32;
+    case v8::internal::wasm::kI64: return I64;
+    case v8::internal::wasm::kF32: return F32;
+    case v8::internal::wasm::kF64: return F64;
+    case v8::internal::wasm::kRefNull:
+      switch (v8_valtype.heap_type().representation()) {
+        case v8::internal::wasm::HeapType::Representation::kFunc:
+          return FUNCREF;
+        case v8::internal::wasm::HeapType::Representation::kExtern:
+          return EXTERNREF;
+        default:
+          ;
+      }
+      DISPATCH_FALLTHROUGH;
     default:
       UNREACHABLE();
   }
@@ -145,7 +153,7 @@ auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t 
 auto func_type_param_arity(v8::Local<v8::Object> function) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
   auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
-  v8::internal::wasm::FunctionSig* sig =
+  auto sig =
     v8_function->instance().module()->functions[v8_function->function_index()].sig;
   return static_cast<uint32_t>(sig->parameter_count());
 }
@@ -153,7 +161,7 @@ auto func_type_param_arity(v8::Local<v8::Object> function) -> uint32_t {
 auto func_type_result_arity(v8::Local<v8::Object> function) -> uint32_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
   auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
-  v8::internal::wasm::FunctionSig* sig =
+  auto sig =
     v8_function->instance().module()->functions[v8_function->function_index()].sig;
   return static_cast<uint32_t>(sig->return_count());
 }
@@ -161,7 +169,7 @@ auto func_type_result_arity(v8::Local<v8::Object> function) -> uint32_t {
 auto func_type_param(v8::Local<v8::Object> function, size_t i) -> val_kind_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
   auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
-  v8::internal::wasm::FunctionSig* sig =
+  auto sig =
     v8_function->instance().module()->functions[v8_function->function_index()].sig;
   return v8_valtype_to_wasm(sig->GetParam(i));
 }
@@ -169,7 +177,7 @@ auto func_type_param(v8::Local<v8::Object> function, size_t i) -> val_kind_t {
 auto func_type_result(v8::Local<v8::Object> function, size_t i) -> val_kind_t {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(function);
   auto v8_function = v8::internal::Handle<v8::internal::WasmExportedFunction>::cast(v8_object);
-  v8::internal::wasm::FunctionSig* sig =
+  auto sig =
     v8_function->instance().module()->functions[v8_function->function_index()].sig;
   return v8_valtype_to_wasm(sig->GetReturn(i));
 }
@@ -241,14 +249,15 @@ auto module_serialize(v8::Local<v8::Object> module, char* buffer, size_t size) -
 
 auto module_deserialize(
   v8::Isolate* isolate,
-  const char* binary, size_t binary_size,
-  const char* buffer, size_t buffer_size
+  const uint8_t* binary, size_t binary_size,
+  const uint8_t* buffer, size_t buffer_size
 ) -> v8::MaybeLocal<v8::Object> {
   auto v8_isolate = reinterpret_cast<v8::internal::Isolate*>(isolate);
   auto maybe_v8_module =
     v8::internal::wasm::DeserializeNativeModule(v8_isolate,
-      {reinterpret_cast<const uint8_t*>(buffer), buffer_size},
-      {reinterpret_cast<const uint8_t*>(binary), binary_size});
+      {buffer, buffer_size},
+      {binary, binary_size},
+      {"", 0});
   if (maybe_v8_module.is_null()) return v8::MaybeLocal<v8::Object>();
   auto v8_module = v8::internal::Handle<v8::internal::JSObject>::cast(maybe_v8_module.ToHandleChecked());
   return v8::MaybeLocal<v8::Object>(v8::Utils::ToLocal(v8_module));
@@ -346,7 +355,7 @@ void global_set_f64(v8::Local<v8::Object> global, double val) {
 void global_set_ref(v8::Local<v8::Object> global, v8::Local<v8::Value> val) {
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(global);
   auto v8_global = v8::internal::Handle<v8::internal::WasmGlobalObject>::cast(v8_object);
-  v8_global->SetAnyRef(v8::Utils::OpenHandle<v8::Value, v8::internal::Object>(val));
+  v8_global->SetRef(v8::Utils::OpenHandle<v8::Value, v8::internal::Object>(val));
 }
 
 
@@ -356,7 +365,8 @@ auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::
   auto v8_object = v8::Utils::OpenHandle<v8::Object, v8::internal::JSReceiver>(table);
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
   // TODO(v8): This should happen in WasmTableObject::Get.
-  if (index > v8_table->current_length()) return v8::MaybeLocal<v8::Value>();
+  if (index >= size_t(v8_table->current_length()))
+    return v8::MaybeLocal<v8::Value>();
 
   v8::internal::Handle<v8::internal::Object> v8_value =
     v8::internal::WasmTableObject::Get(
@@ -371,7 +381,7 @@ auto table_set(
   auto v8_table = v8::internal::Handle<v8::internal::WasmTableObject>::cast(v8_object);
   auto v8_value = v8::Utils::OpenHandle<v8::Value, v8::internal::Object>(value);
   // TODO(v8): This should happen in WasmTableObject::Set.
-  if (index >= v8_table->current_length()) return false;
+  if (index >= size_t(v8_table->current_length())) return false;
 
   { v8::TryCatch handler(table->GetIsolate());
     v8::internal::WasmTableObject::Set(v8_table->GetIsolate(), v8_table,
