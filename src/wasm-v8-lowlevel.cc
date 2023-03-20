@@ -141,13 +141,12 @@ auto v8_valtype_to_wasm(v8::internal::wasm::ValueType v8_valtype) -> val_kind_t 
           return FUNCREF;
         case v8::internal::wasm::HeapType::Representation::kExtern:
           return EXTERNREF;
-        default:
-          ;
+        default: ;
       }
-      DISPATCH_FALLTHROUGH;
-    default:
-      UNREACHABLE();
+      break;
+    default: ;
   }
+  UNREACHABLE();
 }
 
 auto func_type_param_arity(v8::Local<v8::Object> function) -> uint32_t {
