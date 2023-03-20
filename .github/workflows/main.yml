@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout V8
+        run: make v8-checkout
+      - name: Build V8
+        run: make v8
+      - name: Build Wasm
+        run: make wasm
+      - name: Run tests
+        run: make all
