@@ -109,6 +109,7 @@ struct ManagedData {
   void (*finalizer)(void*);
 };
 
+
 auto managed_new(v8::Isolate* isolate, void* ptr, void (*finalizer)(void*)) -> v8::Local<v8::Value> {
   assert(ptr);
   auto managed = v8::internal::Managed<ManagedData>::FromUniquePtr(
@@ -449,4 +450,6 @@ auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool {
 }
 
 }  // namespace wasm
+
+template class internal::Managed<wasm::ManagedData>;
 }  // namespace v8
