@@ -1,28 +1,28 @@
 diff --git a/BUILD.gn b/BUILD.gn
-index deedf82..6dced15 100644
+index 277f47717d..1d301531fd 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
-@@ -1679,6 +1679,7 @@ v8_header_set("v8_headers") {
-
-   sources = [
+@@ -2685,6 +2685,7 @@ v8_header_set("v8_headers") {
+     "include/v8-wasm.h",
+     "include/v8-weak-callback-info.h",
      "include/v8.h",
 +    "include/wasm-v8-lowlevel.hh",
-     "include/v8config.h",
    ]
-
-@@ -2007,6 +2008,7 @@ v8_source_set("v8_base") {
-     "include/v8-testing.h",
-     "include/v8-util.h",
-     "include/v8.h",
-+    "include/wasm-v8-lowlevel.hh",
-     "include/v8config.h",
-     "src/accessors.cc",
-     "src/accessors.h",
-@@ -2020,6 +2022,7 @@ v8_source_set("v8_base") {
+ 
+   sources += [
+@@ -2789,6 +2790,7 @@ v8_header_set("v8_internal_headers") {
+     "src/api/api-macros.h",
      "src/api/api-natives.h",
-     "src/api/api.cc",
      "src/api/api.h",
 +    "src/wasm-v8-lowlevel.cc",
-     "src/asmjs/asm-js.cc",
-     "src/asmjs/asm-js.h",
-     "src/asmjs/asm-names.h",
+     "src/ast/ast-function-literal-id-reindexer.h",
+     "src/ast/ast-source-ranges.h",
+     "src/ast/ast-traversal-visitor.h",
+@@ -3700,6 +3702,7 @@ v8_header_set("v8_internal_headers") {
+ 
+   if (v8_enable_webassembly) {
+     sources += [
++      "src/wasm-v8-lowlevel.cc",
+       "src/asmjs/asm-js.h",
+       "src/asmjs/asm-names.h",
+       "src/asmjs/asm-parser.h",

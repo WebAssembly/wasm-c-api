@@ -3,7 +3,7 @@
 
 # Change these as you see fit.
 
-V8_VERSION = branch-heads/7.6
+V8_VERSION = branch-heads/11.2
 V8_ARCH = x64
 V8_MODE = release
 
@@ -217,7 +217,7 @@ v8: ${V8_INCLUDE}/${WASM_V8_PATCH}.hh ${V8_SRC}/${WASM_V8_PATCH}.cc v8-patch v8-
 .PHONY: v8-build
 v8-build:
 	@echo ==== Building V8 ${V8_CURRENT} ${V8_BUILD} ====
-	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py ${V8_BUILD} -- ${V8_GN_ARGS})
+	(cd ${V8_V8}; PATH=${V8_PATH} tools/dev/v8gen.py -vv ${V8_BUILD} -- ${V8_GN_ARGS})
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
 	(cd ${V8_V8}; touch out.gn/${V8_BUILD}/args.gn)
 	(cd ${V8_V8}; PATH=${V8_PATH} ninja -C out.gn/${V8_BUILD})
