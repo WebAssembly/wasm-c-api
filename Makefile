@@ -9,7 +9,7 @@ V8_MODE = release
 
 WASM_FLAGS = -DWASM_API_DEBUG  # -DWASM_API_DEBUG_LOG
 C_FLAGS = ${WASM_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
-CC_FLAGS = -std=c++11 ${C_FLAGS}
+CC_FLAGS = -std=c++17 ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
 
 C_COMP = clang

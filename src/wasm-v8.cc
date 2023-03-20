@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <type_traits>
+#include <cstring>
 
 #ifdef WASM_API_DEBUG
 #include <atomic>
@@ -272,7 +273,7 @@ struct EngineImpl : Engine {
 
   ~EngineImpl() {
     v8::V8::Dispose();
-    v8::V8::ShutdownPlatform();
+    v8::V8::DisposePlatform();
     stats.free(Stats::ENGINE, this);
   }
 };
@@ -1315,8 +1316,9 @@ auto Module::validate(Store* store_abs, const vec<byte_t>& binary) -> bool {
   v8::Isolate* isolate = store->isolate();
   v8::HandleScope handle_scope(isolate);
 
-  auto array_buffer = v8::ArrayBuffer::New(
-    isolate, const_cast<byte_t*>(binary.get()), binary.size());
+  auto array_buffer = v8::ArrayBuffer::New(isolate, binary.size());
+  memcpy(array_buffer->GetBackingStore()->Data(),
+    binary.get(), binary.size());
 
   v8::Local<v8::Value> args[] = {array_buffer};
   auto result = store->v8_function(V8_F_VALIDATE)->Call(
@@ -1332,8 +1334,9 @@ auto Module::make(Store* store_abs, const vec<byte_t>& binary) -> own<Module> {
   auto context = store->context();
   v8::HandleScope handle_scope(isolate);
 
-  auto array_buffer = v8::ArrayBuffer::New(
-    isolate, const_cast<byte_t*>(binary.get()), binary.size());
+  auto array_buffer = v8::ArrayBuffer::New(isolate, binary.size());
+  memcpy(array_buffer->GetBackingStore()->Data(),
+    binary.get(), binary.size());
 
   v8::Local<v8::Value> args[] = {array_buffer};
   auto maybe_obj =
