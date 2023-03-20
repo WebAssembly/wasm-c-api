@@ -6,6 +6,8 @@
 namespace v8 {
 namespace wasm {
 
+void flags_init();
+
 auto object_isolate(v8::Local<v8::Object>) -> v8::Isolate*;
 auto object_isolate(const v8::Persistent<v8::Object>&) -> v8::Isolate*;
 
@@ -42,7 +44,7 @@ auto module_binary_size(v8::Local<v8::Object> module) -> size_t;
 auto module_binary(v8::Local<v8::Object> module) -> const char*;
 auto module_serialize_size(v8::Local<v8::Object> module) -> size_t;
 auto module_serialize(v8::Local<v8::Object> module, char*, size_t) -> bool;
-auto module_deserialize(v8::Isolate*, const char*, size_t, const char*, size_t) -> v8::MaybeLocal<v8::Object>;
+auto module_deserialize(v8::Isolate*, const uint8_t*, size_t, const uint8_t*, size_t) -> v8::MaybeLocal<v8::Object>;
 
 auto instance_module(v8::Local<v8::Object> instance) -> v8::Local<v8::Object>;
 auto instance_exports(v8::Local<v8::Object> instance) -> v8::Local<v8::Object>;

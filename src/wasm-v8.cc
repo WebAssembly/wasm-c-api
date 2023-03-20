@@ -18,17 +18,6 @@ namespace wasm_v8 {
   using namespace v8::wasm;
 }
 
-namespace v8 {
-  namespace internal {
-    extern bool FLAG_expose_gc;
-    extern bool FLAG_experimental_wasm_bigint;
-    extern bool FLAG_experimental_wasm_mv;
-    extern bool FLAG_experimental_wasm_anyref;
-    extern bool FLAG_experimental_wasm_bulk_memory;
-    extern bool FLAG_experimental_wasm_return_call;
-  }
-}
-
 namespace wasm {
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,12 +277,7 @@ void Engine::destroy() {
 }
 
 auto Engine::make(own<Config>&& config) -> own<Engine> {
-  v8::internal::FLAG_expose_gc = true;
-  v8::internal::FLAG_experimental_wasm_bigint = true;
-  v8::internal::FLAG_experimental_wasm_mv = true;
-  v8::internal::FLAG_experimental_wasm_anyref = true;
-  v8::internal::FLAG_experimental_wasm_bulk_memory = true;
-  v8::internal::FLAG_experimental_wasm_return_call = true;
+  v8::wasm::flags_init();
   // v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char**>(argv), false);
   auto engine = new(std::nothrow) EngineImpl;
   if (!engine) return own<Engine>();
@@ -1454,8 +1438,9 @@ auto Module::deserialize(Store* store_abs, const vec<byte_t>& serialized) -> own
   auto binary_size = wasm::bin::u64(ptr);
   auto size_size = ptr - serialized.get();
   auto serial_size = serialized.size() - size_size - binary_size;
+  auto ptr2 = reinterpret_cast<const uint8_t*>(ptr);
   auto maybe_obj = wasm_v8::module_deserialize(
-    isolate, ptr, binary_size, ptr + binary_size, serial_size);
+    isolate, ptr2, binary_size, ptr2 + binary_size, serial_size);
   if (maybe_obj.IsEmpty()) return nullptr;
   return RefImpl<Module>::make(store, maybe_obj.ToLocalChecked());
 }

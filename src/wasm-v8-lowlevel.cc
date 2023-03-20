@@ -19,9 +19,18 @@
 #include "wasm/wasm-objects-inl.h"
 #include "wasm/wasm-serialization.h"
 
+#include "flags/flags.h"
+
 
 namespace v8 {
 namespace wasm {
+
+
+// Initialization
+
+void flags_init() {
+  v8::internal::v8_flags.expose_gc = true;
+}
 
 
 // Objects
