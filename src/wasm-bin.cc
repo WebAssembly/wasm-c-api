@@ -57,7 +57,7 @@ void encode_valtype(char*& ptr, const ValType* type) {
     case ValKind::F32: *ptr++ = 0x7d; break;
     case ValKind::F64: *ptr++ = 0x7c; break;
     case ValKind::FUNCREF: *ptr++ = 0x70; break;
-    case ValKind::ANYREF: *ptr++ = 0x6f; break;
+    case ValKind::EXTERNREF: *ptr++ = 0x6f; break;
     default: assert(false);
   }
 }
@@ -69,7 +69,7 @@ auto zero_size(const ValType* type) -> size_t {
     case ValKind::F32: return 4;
     case ValKind::F64: return 8;
     case ValKind::FUNCREF: return 0;
-    case ValKind::ANYREF: return 0;
+    case ValKind::EXTERNREF: return 0;
     default: assert(false);
   }
 }
@@ -81,7 +81,7 @@ void encode_const_zero(char*& ptr, const ValType* type) {
     case ValKind::F32: *ptr++ = 0x43; break;
     case ValKind::F64: *ptr++ = 0x44; break;
     case ValKind::FUNCREF: *ptr++ = 0xd0; break;
-    case ValKind::ANYREF: *ptr++ = 0xd0; break;
+    case ValKind::EXTERNREF: *ptr++ = 0xd0; break;
     default: assert(false);
   }
   for (int i = 0; i < zero_size(type); ++i) *ptr++ = 0;
@@ -216,7 +216,7 @@ auto valtype(const byte_t*& pos) -> own<wasm::ValType> {
     case 0x7d: return ValType::make(ValKind::F32);
     case 0x7c: return ValType::make(ValKind::F64);
     case 0x70: return ValType::make(ValKind::FUNCREF);
-    case 0x6f: return ValType::make(ValKind::ANYREF);
+    case 0x6f: return ValType::make(ValKind::EXTERNREF);
     default:
       // TODO(wasm+): support new value types
       assert(false);

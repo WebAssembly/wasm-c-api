@@ -309,7 +309,7 @@ auto Engine::make(own<Config>&& config) -> own<Engine> {
 
 enum v8_string_t {
   V8_S_EMPTY,
-  V8_S_I32, V8_S_I64, V8_S_F32, V8_S_F64, V8_S_ANYREF, V8_S_ANYFUNC,
+  V8_S_I32, V8_S_I64, V8_S_F32, V8_S_F64, V8_S_EXTERNREF, V8_S_FUNCREF,
   V8_S_VALUE, V8_S_MUTABLE, V8_S_ELEMENT, V8_S_MINIMUM, V8_S_MAXIMUM,
   V8_S_COUNT
 };
@@ -446,7 +446,7 @@ auto Store::make(Engine*) -> own<Store> {
     // Create strings.
     static const char* const raw_strings[V8_S_COUNT] = {
       "",
-      "i32", "i64", "f32", "f64", "anyref", "anyfunc", 
+      "i32", "i64", "f32", "f64", "externref", "funcref",
       "value", "mutable", "element", "initial", "maximum",
     };
     for (int i = 0; i < V8_S_COUNT; ++i) {
@@ -541,7 +541,7 @@ ValTypeImpl* valtype_i32 = new ValTypeImpl(ValKind::I32);
 ValTypeImpl* valtype_i64 = new ValTypeImpl(ValKind::I64);
 ValTypeImpl* valtype_f32 = new ValTypeImpl(ValKind::F32);
 ValTypeImpl* valtype_f64 = new ValTypeImpl(ValKind::F64);
-ValTypeImpl* valtype_anyref = new ValTypeImpl(ValKind::ANYREF);
+ValTypeImpl* valtype_anyref = new ValTypeImpl(ValKind::EXTERNREF);
 ValTypeImpl* valtype_funcref = new ValTypeImpl(ValKind::FUNCREF);
 
 
@@ -556,7 +556,7 @@ auto ValType::make(ValKind k) -> own<ValType> {
     case ValKind::I64: valtype = valtype_i64; break;
     case ValKind::F32: valtype = valtype_f32; break;
     case ValKind::F64: valtype = valtype_f64; break;
-    case ValKind::ANYREF: valtype = valtype_anyref; break;
+    case ValKind::EXTERNREF: valtype = valtype_anyref; break;
     case ValKind::FUNCREF: valtype = valtype_funcref; break;
     default:
       // TODO(wasm+): support new value types
@@ -955,8 +955,8 @@ auto valtype_to_v8(
     case ValKind::I64: string = V8_S_I64; break;
     case ValKind::F32: string = V8_S_F32; break;
     case ValKind::F64: string = V8_S_F64; break;
-    case ValKind::ANYREF: string = V8_S_ANYREF; break;
-    case ValKind::FUNCREF: string = V8_S_ANYFUNC; break;
+    case ValKind::EXTERNREF: string = V8_S_EXTERNREF; break;
+    case ValKind::FUNCREF: string = V8_S_FUNCREF; break;
     default:
       // TODO(wasm+): support new value types
       assert(false);
@@ -1132,7 +1132,7 @@ auto val_to_v8(StoreImpl* store, const Val& v) -> v8::Local<v8::Value> {
     case ValKind::I64: return v8::BigInt::New(isolate, v.i64());
     case ValKind::F32: return v8::Number::New(isolate, v.f32());
     case ValKind::F64: return v8::Number::New(isolate, v.f64());
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF:
       return ref_to_v8(store, v.ref());
     default: assert(false);
@@ -1164,7 +1164,7 @@ auto v8_to_val(
       return Val(static_cast<float32_t>(number));
     }
     case ValKind::F64: return Val(value->NumberValue(context).ToChecked());
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: {
       return Val(v8_to_ref(store, value));
     }
@@ -1866,7 +1866,7 @@ auto Global::get() const -> Val {
     case ValKind::I64: return Val(wasm_v8::global_get_i64(v8_global));
     case ValKind::F32: return Val(wasm_v8::global_get_f32(v8_global));
     case ValKind::F64: return Val(wasm_v8::global_get_f64(v8_global));
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: {
       auto store = impl(this)->store();
       return Val(v8_to_ref(store, wasm_v8::global_get_ref(v8_global)));
@@ -1884,7 +1884,7 @@ void Global::set(const Val& val) {
     case ValKind::I64: return wasm_v8::global_set_i64(v8_global, val.i64());
     case ValKind::F32: return wasm_v8::global_set_f32(v8_global, val.f32());
     case ValKind::F64: return wasm_v8::global_set_f64(v8_global, val.f64());
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: {
       auto store = impl(this)->store();
       return wasm_v8::global_set_ref(v8_global, ref_to_v8(store, val.ref()));

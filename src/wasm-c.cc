@@ -571,7 +571,7 @@ inline auto hide_val(Val v) -> wasm_val_t {
     case ValKind::I64: v2.of.i64 = v.i64(); break;
     case ValKind::F32: v2.of.f32 = v.f32(); break;
     case ValKind::F64: v2.of.f64 = v.f64(); break;
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: v2.of.ref = hide_ref(v.ref()); break;
     default: assert(false);
   }
@@ -585,7 +585,7 @@ inline auto release_val(Val v) -> wasm_val_t {
     case ValKind::I64: v2.of.i64 = v.i64(); break;
     case ValKind::F32: v2.of.f32 = v.f32(); break;
     case ValKind::F64: v2.of.f64 = v.f64(); break;
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: v2.of.ref = release_ref(v.release_ref()); break;
     default: assert(false);
   }
@@ -598,7 +598,7 @@ inline auto adopt_val(wasm_val_t v) -> Val {
     case ValKind::I64: return Val(v.of.i64);
     case ValKind::F32: return Val(v.of.f32);
     case ValKind::F64: return Val(v.of.f64);
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: return Val(adopt_ref(v.of.ref));
     default: assert(false);
   }
@@ -618,7 +618,7 @@ inline auto borrow_val(const wasm_val_t* v) -> borrowed_val {
     case ValKind::I64: v2 = Val(v->of.i64); break;
     case ValKind::F32: v2 = Val(v->of.f32); break;
     case ValKind::F64: v2 = Val(v->of.f64); break;
-    case ValKind::ANYREF:
+    case ValKind::EXTERNREF:
     case ValKind::FUNCREF: v2 = Val(adopt_ref(v->of.ref)); break;
     default: assert(false);
   }

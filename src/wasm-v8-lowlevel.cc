@@ -4,6 +4,7 @@
 #include "objects/objects.h"
 #include "objects/bigint.h"
 #include "objects/managed.h"
+#include "objects/managed-inl.h"
 #include "objects/module.h"
 #include "objects/shared-function-info.h"
 #include "objects/templates.h"
@@ -452,4 +453,5 @@ auto memory_grow(v8::Local<v8::Object> memory, uint32_t delta) -> bool {
 }  // namespace wasm
 
 template class internal::Managed<wasm::ManagedData>;
+
 }  // namespace v8
