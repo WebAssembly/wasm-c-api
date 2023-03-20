@@ -20,6 +20,9 @@ jobs:
         with:
           # Should upgrade this once we upgrade V8
           python-version: '2.7.x'
+      - name: Setup depot_tools
+        run: git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        run: export PATH=`pwd`/depot_tools:$PATH
       - name: Checkout V8
         run: make v8-checkout
       - name: Build V8
