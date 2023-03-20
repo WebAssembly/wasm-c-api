@@ -13,7 +13,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          # Should upgrade this once we upgrade V8
+          python-version: '2.7.x'
       - name: Checkout V8
         run: make v8-checkout
       - name: Build V8
