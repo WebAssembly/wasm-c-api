@@ -381,6 +381,15 @@ auto table_get(v8::Local<v8::Object> table, size_t index) -> v8::MaybeLocal<v8::
   v8::internal::Handle<v8::internal::Object> v8_value =
     v8::internal::WasmTableObject::Get(
       v8_table->GetIsolate(), v8_table, static_cast<uint32_t>(index));
+
+  if (v8_value->IsWasmInternalFunction()) {
+    v8_value =
+      handle(v8::internal::Handle<v8::internal::WasmInternalFunction>::cast(
+        v8_value)->external(), v8_table->GetIsolate());
+  } else if (v8_value->IsWasmNull()) {
+    v8_value = v8_table->GetIsolate()->factory()->null_value();
+  }
+
   return v8::Utils::ToLocal(v8::internal::Handle<v8::internal::Object>::cast(v8_value));
 }
 

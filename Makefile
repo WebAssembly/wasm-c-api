@@ -8,7 +8,7 @@ V8_ARCH = x64
 V8_MODE = release
 
 WASM_FLAGS = -DWASM_API_DEBUG  # -DWASM_API_DEBUG_LOG
-V8_FLAGS = -DV8_COMPRESS_POINTERS -DV8_31BIT_SMIS_ON_64BIT_ARCH -DV8_ENABLE_SANDBOX
+V8_FLAGS = -DV8_COMPRESS_POINTERS -DV8_ENABLE_SANDBOX
 C_FLAGS = ${WASM_FLAGS} ${V8_FLAGS} -Wall -Werror -ggdb -O -fsanitize=address
 CC_FLAGS = -std=c++17 ${C_FLAGS}
 LD_FLAGS = -fsanitize-memory-track-origins -fsanitize-memory-use-after-dtor
