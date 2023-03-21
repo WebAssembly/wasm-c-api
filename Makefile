@@ -34,13 +34,13 @@ EXAMPLES = \
   start \
   reflect \
   global \
-  table \
   memory \
   hostref \
   finalize \
   serialize \
   threads \
   multi \
+  #table \    # For some reason, this is currently broken in V8
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
