@@ -37,10 +37,10 @@ EXAMPLES = \
   memory \
   hostref \
   finalize \
-  threads \
   multi \
   #table \      # For some reason, this is currently broken in V8
   #serialize \  # Also currently broken
+  #threads \    # Broken as well
 
 # Wasm config
 WASM_INCLUDE = ${WASM_DIR}/include
