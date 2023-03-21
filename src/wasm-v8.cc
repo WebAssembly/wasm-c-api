@@ -1130,6 +1130,10 @@ auto v8_to_ref(StoreImpl* store, v8::Local<v8::Value> value) -> own<Ref> {
   } else if (value->IsObject()) {
     return RefImpl<Ref>::make(store, v8::Local<v8::Object>::Cast(value));
   } else {
+    const int len = 200;
+    char buffer[len];
+    value->TypeOf(store->isolate())->WriteUtf8(store->isolate(), buffer, len);
+    std::cerr << "[v8_to_ref type " << buffer << "]\n";
     UNIMPLEMENTED("JS primitive ref value");
   }
 }
