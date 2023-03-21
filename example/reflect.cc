@@ -27,7 +27,7 @@ auto operator<<(std::ostream& out, const wasm::ValType& type) -> std::ostream& {
     case wasm::ValKind::I64: return out << "i64";
     case wasm::ValKind::F32: return out << "f32";
     case wasm::ValKind::F64: return out << "f64";
-    case wasm::ValKind::ANYREF: return out << "anyref";
+    case wasm::ValKind::EXTERNREF: return out << "externref";
     case wasm::ValKind::FUNCREF: return out << "funcref";
   }
   return out;

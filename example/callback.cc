@@ -21,7 +21,7 @@ auto operator<<(std::ostream& out, const wasm::Val& val) -> std::ostream& {
     case wasm::ValKind::F64: {
       out << val.f64();
     } break;
-    case wasm::ValKind::ANYREF:
+    case wasm::ValKind::EXTERNREF:
     case wasm::ValKind::FUNCREF: {
       if (val.ref() == nullptr) {
         out << "null";
