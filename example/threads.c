@@ -29,7 +29,7 @@ typedef struct {
 void* run(void* args_abs) {
   thread_args* args = (thread_args*)args_abs;
 
-  // Rereate store and module.
+  // Recreate store and module.
   own wasm_store_t* store = wasm_store_new(args->engine);
   own wasm_module_t* module = wasm_module_obtain(store, args->module);
 
