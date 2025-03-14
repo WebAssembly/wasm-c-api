@@ -256,9 +256,10 @@ enum class Mutability : uint8_t { CONST, VAR };
 struct Limits {
   uint32_t min;
   uint32_t max;
+  bool shared;
 
-  Limits(uint32_t min, uint32_t max = std::numeric_limits<uint32_t>::max()) :
-    min(min), max(max) {}
+  Limits(uint32_t min, uint32_t max = std::numeric_limits<uint32_t>::max(), bool shared = false) :
+    min(min), max(max), shared(shared) {}
 };
 
 

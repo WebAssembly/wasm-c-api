@@ -200,7 +200,7 @@ int main(int argc, const char* argv[]) {
   // Create stand-alone memory.
   // TODO(wasm+): Once Wasm allows multiple memories, turn this into import.
   printf("Creating stand-alone memory...\n");
-  wasm_limits_t limits = {5, 5};
+  wasm_limits_t limits = {5, 5, false};
   own wasm_memorytype_t* memorytype = wasm_memorytype_new(&limits);
   own wasm_memory_t* memory2 = wasm_memory_new(store, memorytype);
   check(wasm_memory_size(memory2) == 5);

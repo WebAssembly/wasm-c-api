@@ -192,7 +192,7 @@ int main(int argc, const char* argv[]) {
   // Create stand-alone table.
   // TODO(wasm+): Once Wasm allows multiple tables, turn this into import.
   printf("Creating stand-alone table...\n");
-  wasm_limits_t limits = {5, 5};
+  wasm_limits_t limits = {5, 5, false};
   own wasm_tabletype_t* tabletype =
     wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &limits);
   own wasm_table_t* table2 = wasm_table_new(store, tabletype, NULL);

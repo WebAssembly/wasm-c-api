@@ -17,6 +17,7 @@ void print_mutability(wasm_mutability_t mut) {
 void print_limits(const wasm_limits_t* limits) {
   printf("%ud", limits->min);
   if (limits->max < wasm_limits_max_default) printf(" %ud", limits->max);
+  if (limits->shared) printf(" shared");
 }
 
 void print_valtype(const wasm_valtype_t* type) {
