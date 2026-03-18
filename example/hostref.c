@@ -123,6 +123,8 @@ void check(own wasm_ref_t* actual, const wasm_ref_t* expected) {
 
 
 int main(int argc, const char* argv[]) {
+  int rc = 0;
+
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
@@ -130,31 +132,32 @@ int main(int argc, const char* argv[]) {
 
   // Load binary.
   printf("Loading binary...\n");
+  wasm_byte_vec_t binary = WASM_EMPTY_VEC;
   FILE* file = fopen("hostref.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
-    return 1;
+    rc = 1; goto cleanup;
   }
   fseek(file, 0L, SEEK_END);
   size_t file_size = ftell(file);
   fseek(file, 0L, SEEK_SET);
-  wasm_byte_vec_t binary;
   wasm_byte_vec_new_uninitialized(&binary, file_size);
   if (fread(binary.data, file_size, 1, file) != 1) {
     printf("> Error loading module!\n");
-    return 1;
+    fclose(file);
+    rc = 1; goto cleanup;
   }
   fclose(file);
 
   // Compile.
   printf("Compiling module...\n");
   own wasm_module_t* module = wasm_module_new(store, &binary);
+  wasm_byte_vec_delete(&binary);
+  binary = (wasm_byte_vec_t)WASM_EMPTY_VEC;
   if (!module) {
     printf("> Error compiling module!\n");
-    return 1;
+    rc = 1; goto cleanup;
   }
-
-  wasm_byte_vec_delete(&binary);
 
   // Create external callback function.
   printf("Creating callback...\n");
@@ -173,7 +176,7 @@ int main(int argc, const char* argv[]) {
     wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
-    return 1;
+    rc = 1; goto cleanup;
   }
 
   wasm_func_delete(callback_func);
@@ -259,12 +262,14 @@ int main(int argc, const char* argv[]) {
 
   wasm_extern_vec_delete(&exports);
 
+cleanup:
   // Shut down.
   printf("Shutting down...\n");
+  wasm_byte_vec_delete(&binary);
   wasm_store_delete(store);
   wasm_engine_delete(engine);
 
   // All done.
-  printf("Done.\n");
-  return 0;
+  if (!rc) printf("Done.\n");
+  return rc;
 }

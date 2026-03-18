@@ -1,7 +1,7 @@
 (module
   (import "" "f" (func $fun (param externref) (result externref)))
 
-  (global $glob (export "global") (mut externref) (ref.null))
+  (global $glob (export "global") (mut externref) (ref.null extern))
   (table $tab (export "table") 10 externref)
 
   (func (export "global.set") (param $r externref)

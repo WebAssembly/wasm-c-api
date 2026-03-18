@@ -30,6 +30,7 @@ namespace wasm {
 
 void flags_init() {
   v8::internal::v8_flags.expose_gc = true;
+  v8::internal::v8_flags.experimental_wasm_typed_funcref = true;
 }
 
 

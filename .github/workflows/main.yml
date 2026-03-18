@@ -23,6 +23,5 @@ jobs:
         run: make wasm
       - name: Run C++ tests
         run: make cc
-      # TODO: C memory management seems to have broken entirely for yet unknown reasons
-      #- name: Run C tests
-      #  run: make c
+      - name: Run C tests
+        run: make c
