@@ -590,6 +590,7 @@ auto ExternType::copy() const -> own<ExternType> {
     case ExternKind::GLOBAL: return global()->copy();
     case ExternKind::TABLE: return table()->copy();
     case ExternKind::MEMORY: return memory()->copy();
+    case ExternKind::TAG: return tag()->copy();
   }
 }
 
@@ -809,6 +810,36 @@ auto MemoryType::limits() const -> const Limits& {
 }
 
 
+// Tag Types
+
+struct TagTypeImpl : ExternTypeImpl<TagType> {
+  own<FuncType> functype;
+
+  explicit TagTypeImpl(own<FuncType>&& functype_) :
+    ExternTypeImpl(ExternKind::TAG),
+    functype(std::move(functype_))
+  {}
+};
+
+template<> struct implement<TagType> { using type = TagTypeImpl; };
+
+void TagType::destroy() {
+  delete impl(this);
+}
+
+auto TagType::make(own<FuncType>&& functype) -> own<TagType> {
+  return own<TagType>(new(std::nothrow) TagTypeImpl(std::move(functype)));
+}
+
+auto TagType::copy() const -> own<TagType> {
+  return TagType::make(impl(this)->functype->copy());
+}
+
+auto TagType::functype() const -> const FuncType* {
+  return impl(this)->functype.get();
+}
+
+
 auto ExternType::memory() -> MemoryType* {
   return kind() == ExternKind::MEMORY
     ? static_cast<MemoryType*>(this)
@@ -821,12 +852,25 @@ auto ExternType::memory() const -> const MemoryType* {
     : nullptr;
 }
 
+auto ExternType::tag() -> TagType* {
+  return kind() == ExternKind::TAG
+    ? static_cast<TagType*>(this)
+    : nullptr;
+}
+
+auto ExternType::tag() const -> const TagType* {
+  return kind() == ExternKind::TAG
+    ? static_cast<const TagType*>(this)
+    : nullptr;
+}
+
 void ExternType::destroy() {
   switch (kind()) {
     case ExternKind::FUNC: delete static_cast<FuncTypeImpl*>(this); break;
     case ExternKind::GLOBAL: delete static_cast<GlobalTypeImpl*>(this); break;
     case ExternKind::TABLE: delete static_cast<TableTypeImpl*>(this); break;
     case ExternKind::MEMORY: delete static_cast<MemoryTypeImpl*>(this); break;
+    case ExternKind::TAG: delete static_cast<TagTypeImpl*>(this); break;
   }
 }
 
@@ -1499,6 +1543,7 @@ auto Extern::type() const -> own<ExternType> {
     case ExternKind::GLOBAL: return global()->type();
     case ExternKind::TABLE: return table()->type();
     case ExternKind::MEMORY: return memory()->type();
+    case ExternKind::TAG: return nullptr;
   }
 }
 
@@ -2133,6 +2178,9 @@ auto Instance::exports() const -> ownvec<Extern> {
       case ExternKind::MEMORY: {
         assert(wasm_v8::extern_kind(obj) == wasm_v8::EXTERN_MEMORY);
         exports[i] = RefImpl<Memory>::make(store, obj);
+      } break;
+      case ExternKind::TAG: {
+        // Tags are not yet supported as first-class externs in the V8 backend.
       } break;
     }
   }

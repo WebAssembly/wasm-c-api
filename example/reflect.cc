@@ -60,6 +60,9 @@ auto operator<<(std::ostream& out, const wasm::ExternType& type) -> std::ostream
     case wasm::ExternKind::MEMORY: {
       out << "memory " << type.memory()->limits();
     } break;
+    case wasm::ExternKind::TAG: {
+      out << "tag " << type.tag()->functype()->params();
+    } break;
   }
   return out;
 }

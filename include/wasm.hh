@@ -294,13 +294,14 @@ public:
 // External Types
 
 enum class ExternKind : uint8_t {
-  FUNC, GLOBAL, TABLE, MEMORY
+  FUNC, GLOBAL, TABLE, MEMORY, TAG
 };
 
 class FuncType;
 class GlobalType;
 class TableType;
 class MemoryType;
+class TagType;
 
 class WASM_API_EXTERN ExternType {
   friend class destroyer;
@@ -319,11 +320,13 @@ public:
   auto global() -> GlobalType*;
   auto table() -> TableType*;
   auto memory() -> MemoryType*;
+  auto tag() -> TagType*;
 
   auto func() const -> const FuncType*;
   auto global() const -> const GlobalType*;
   auto table() const -> const TableType*;
   auto memory() const -> const MemoryType*;
+  auto tag() const -> const TagType*;
 };
 
 
@@ -403,6 +406,24 @@ public:
   auto copy() const -> own<MemoryType>;
 
   auto limits() const -> const Limits&;
+};
+
+
+// Tag Types
+
+class WASM_API_EXTERN TagType : public ExternType {
+  friend class destroyer;
+  void destroy();
+
+protected:
+  TagType() = default;
+  ~TagType() = default;
+
+public:
+  static auto make(own<FuncType>&&) -> own<TagType>;
+  auto copy() const -> own<TagType>;
+
+  auto functype() const -> const FuncType*;
 };
 
 
