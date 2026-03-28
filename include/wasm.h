@@ -158,6 +158,7 @@ enum wasm_mutability_enum {
 typedef struct wasm_limits_t {
   uint32_t min;
   uint32_t max;
+  bool shared;
 } wasm_limits_t;
 
 static const uint32_t wasm_limits_max_default = 0xffffffff;
